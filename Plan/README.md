@@ -8,6 +8,7 @@
 | [ADR/0002-cargo-workspace-layout.md](ADR/0002-cargo-workspace-layout.md) | تقسيم المشروع لـ 3 crates (مقبول ومنفّذ) |
 | [Restructure.md](Restructure.md) | خطة إعادة الهيكلة بالمهام |
 | [Research/RustVsGo.md](Research/RustVsGo.md) | المقارنة العملية بين Rust وGo |
+| [FakeCursor.md](FakeCursor.md) | خطة تصليح المؤشر الوهمي جوه الكلام العربي (مستنية موافقة) |
 | [Roadmap.md](Roadmap.md) | المراحل والبوابات والمهام بالتفصيل |
 | [Progress/](Progress/README.md) | سجل الشغل اليومي |
 
