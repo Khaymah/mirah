@@ -8,6 +8,7 @@
 | [ADR/0002-cargo-workspace-layout.md](ADR/0002-cargo-workspace-layout.md) | تقسيم المشروع لـ 3 crates (مقبول ومنفّذ) |
 | [Restructure.md](Restructure.md) | خطة إعادة الهيكلة بالمهام |
 | [Research/RustVsGo.md](Research/RustVsGo.md) | المقارنة العملية بين Rust وGo |
+| [Releasing.md](Releasing.md) | إزاي بنطلّع release (أوتوماتيك من الـ CI) |
 | [FakeCursor.md](FakeCursor.md) | تصليح المؤشر الوهمي جوه الكلام العربي (منفّذ) |
 | [ADR/0003-windows-first-releases-and-updates.md](ADR/0003-windows-first-releases-and-updates.md) | ويندوز أولوية، وreleases، وتحديث بإذن المستخدم (مقترح) |
 | [WindowsAndReleases.md](WindowsAndReleases.md) | خطة ويندوز والـ releases والتحديث بالمهام |

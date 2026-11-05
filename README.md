@@ -141,6 +141,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+**الـ release:** ارفع النسخة في `Cargo.toml`، وضيف قسم في `CHANGELOG.md`، واعمل push. الـ CI هو اللي بيعمل الـ tag والـ release. التفاصيل في [Plan/Releasing.md](Plan/Releasing.md).
+
 القواعد:
 - **مفيش comments في الكود.** السبب وراء أي قرار بيتكتب في `Plan/ADR/`.
 - `unwrap` و`expect` و`panic` ممنوعين برا الاختبارات.

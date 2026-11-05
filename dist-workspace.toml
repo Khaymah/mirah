@@ -10,6 +10,7 @@ install-path = "~/.mirah/bin"
 hosting = "github"
 install-updater = false
 github-attestations = false
+dispatch-releases = true
 
 [dist.github-action-commits]
 "actions/checkout" = "d23441a48e516b6c34aea4fa41551a30e30af803"

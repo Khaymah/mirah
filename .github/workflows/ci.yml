@@ -45,3 +45,78 @@ jobs:
       - run: cargo test -p mirah-bidi --test conformance -- --ignored
         env:
           MIRAH_BIDI_CHARACTER_TEST: ${{ runner.temp }}/BidiCharacterTest.txt
+
+  release:
+    needs: [check, conformance]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-dispatch
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Read the version from Cargo.toml
+        id: version
+        run: |
+          v=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p}' Cargo.toml)
+          if [ -z "$v" ]; then
+            echo "::error file=Cargo.toml::No version in [workspace.package]"
+            exit 1
+          fi
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+      - name: Skip a version that is already released
+        id: fresh
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is already released. Bump the version in Cargo.toml to release again."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Refuse a version below the newest tag
+        if: steps.fresh.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          latest=$(git tag -l 'v[0-9]*' | sort -V | tail -1)
+          [ -z "$latest" ] && exit 0
+          new_core=${TAG%%-*}
+          latest_core=${latest%%-*}
+          if [ "$(printf '%s\n%s\n' "$latest_core" "$new_core" | sort -V | tail -1)" != "$new_core" ]; then
+            echo "::error file=Cargo.toml::$TAG is below the newest tag $latest"
+            exit 1
+          fi
+      - name: Require release notes in CHANGELOG.md
+        if: steps.fresh.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if ! grep -q "^## ${TAG#v} " CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::Add a '## ${TAG#v} - DATE' section before releasing $TAG"
+            exit 1
+          fi
+      - name: Release only the commit that passed CI
+        if: steps.fresh.outputs.release == 'true'
+        id: head
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "main moved to $head; the newer push will release."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Start the release workflow
+        if: steps.fresh.outputs.release == 'true' && steps.head.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$TAG"

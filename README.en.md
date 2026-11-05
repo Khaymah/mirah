@@ -139,6 +139,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+**Releasing:** bump the version in `Cargo.toml`, add a `CHANGELOG.md` section, and push. CI creates the tag and the release. See [Plan/Releasing.md](Plan/Releasing.md) (Arabic).
+
 Rules:
 - **No comments in code.** The reason behind a decision goes in `Plan/ADR/`.
 - `unwrap`, `expect` and `panic` are not allowed outside tests.
