@@ -1,0 +1,423 @@
+<title>خيمة الـ Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#F4F6F8;--surface:#FFFFFF;--fg:#141A21;--muted:#5B6673;--line:#D9DFE6;
+  --accent:#0D7480;--accent-soft:#DDF0F2;--warn:#A86A0C;--warn-soft:#FBEFD9;
+  --bad:#B02A32;--bad-soft:#F8E1E2;--good:#2D7A3A;--good-soft:#E0F1E2;
+  --term-bg:#12171D;--term-fg:#D7DEE6;--term-dim:#7C8894;
+  --f-display:"Reem Kufi","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"DejaVu Sans Mono",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1216;--surface:#161C22;--fg:#E5EAF0;--muted:#97A3AF;--line:#2A333C;
+  --accent:#41BCC8;--accent-soft:#163338;--warn:#E3A645;--warn-soft:#3A2C14;
+  --bad:#EE6D74;--bad-soft:#3B1A1D;--good:#6CC57A;--good-soft:#173020;
+  --term-bg:#080B0E;--term-fg:#D7DEE6;--term-dim:#6D7883;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1216;--surface:#161C22;--fg:#E5EAF0;--muted:#97A3AF;--line:#2A333C;
+  --accent:#41BCC8;--accent-soft:#163338;--warn:#E3A645;--warn-soft:#3A2C14;
+  --bad:#EE6D74;--bad-soft:#3B1A1D;--good:#6CC57A;--good-soft:#173020;
+  --term-bg:#080B0E;--term-fg:#D7DEE6;--term-dim:#6D7883;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+.wrap{max-width:1040px;margin-inline:auto;display:grid;gap:56px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.3;margin:0}
+h1{font-size:clamp(2rem,5vw,3.1rem);font-weight:700}
+h2{font-size:1.65rem;font-weight:700}
+h3{font-size:1.1rem;font-weight:600;font-family:var(--f-body)}
+p{margin:0;max-width:68ch}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+section{display:grid;gap:20px}
+.lead{font-size:1.12rem;color:var(--muted)}
+.mono{font-family:var(--f-mono)}
+.num{font-variant-numeric:tabular-nums}
+.hero{display:grid;gap:22px}
+.verdict{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border-radius:999px;font-size:.88rem;font-weight:600;white-space:nowrap}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.acc{background:var(--accent-soft);color:var(--accent)}
+.big-verdict{font-family:var(--f-display);font-size:1.5rem;font-weight:700;color:var(--accent)}
+.term{background:var(--term-bg);color:var(--term-fg);border-radius:10px;overflow:hidden;direction:ltr}
+.term-bar{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #ffffff14;align-items:center}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:#ffffff26;display:block}
+.term-bar span{font-family:var(--f-mono);font-size:.75rem;color:var(--term-dim);margin-inline-start:8px}
+.term-body{padding:14px 18px;display:grid;gap:14px;overflow-x:auto}
+.tline{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:baseline}
+.tlabel{font-family:var(--f-mono);font-size:.74rem;color:var(--term-dim);text-transform:uppercase;letter-spacing:.06em}
+.tlabel b{display:block;font-weight:500}
+.tlabel.ok b{color:#6CC57A}.tlabel.no b{color:#EE6D74}
+.tcode{font-family:var(--f-mono);font-size:.95rem;white-space:pre;unicode-bidi:bidi-override;direction:ltr}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:8px;align-content:start;min-width:0}
+.score{display:grid;gap:12px}
+.srow{display:grid;grid-template-columns:150px 1fr 70px;gap:14px;align-items:center}
+.track{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.fill{height:100%;border-radius:6px}
+.fill.good{background:var(--good)}.fill.warn{background:var(--warn)}.fill.bad{background:var(--bad)}
+.srow small{color:var(--muted);grid-column:2/4;margin-top:-8px;font-size:.86rem}
+.bars{display:grid;gap:10px}
+.bar{display:grid;grid-template-columns:170px 1fr 60px;gap:12px;align-items:center;font-size:.92rem}
+.bar .track{height:18px;border-radius:4px}
+.bar .fill{background:var(--accent);border-radius:4px}
+.bar .fill.alt{background:var(--muted)}
+.bar .v{text-align:left;font-variant-numeric:tabular-nums;font-family:var(--f-mono);font-size:.85rem}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.grid2>*{min-width:0}
+.funnel{display:grid;gap:8px}
+.fstep{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;align-items:center}
+.fstep .n{font-family:var(--f-mono);font-size:1.05rem;font-weight:500;font-variant-numeric:tabular-nums}
+.fstep small{color:var(--muted);display:block;font-size:.84rem}
+.fstep.last{border-color:var(--accent);background:var(--accent-soft)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:620px}
+th,td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.82rem;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+tr.us td{background:var(--accent-soft)}
+.c{text-align:center}
+.yes{color:var(--good);font-weight:600}.no{color:var(--bad);font-weight:600}.part{color:var(--warn);font-weight:600}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;direction:ltr}
+.diagram svg text{font-family:var(--f-body)}
+pre.mermaid{margin:0;background:transparent;text-align:center}
+.segrow{display:flex;flex-wrap:wrap;gap:6px;direction:ltr;font-family:var(--f-mono)}
+.seg{padding:6px 10px;border-radius:6px;border:1px solid var(--line);display:grid;gap:2px;text-align:center}
+.seg small{font-family:var(--f-body);font-size:.72rem;color:var(--muted)}
+.seg.box{background:var(--bg)}
+.seg.rtl{background:var(--accent-soft);border-color:var(--accent)}
+.seg.ltr{background:var(--warn-soft);border-color:var(--warn)}
+.seg span{unicode-bidi:bidi-override;direction:ltr;white-space:pre}
+.rules{display:grid;gap:8px;padding:0;margin:0;list-style:none;counter-reset:r}
+.rules li{counter-increment:r;display:grid;grid-template-columns:28px 1fr;gap:10px}
+.rules li::before{content:counter(r);font-family:var(--f-mono);color:var(--accent);font-weight:500}
+.timeline{display:grid;gap:0}
+.phase{display:grid;grid-template-columns:120px 1fr;gap:18px;padding-block:18px;border-top:1px solid var(--line)}
+.phase:first-child{border-top:0}
+.phase .when{font-family:var(--f-mono);font-size:.82rem;color:var(--muted)}
+.phase .when b{display:block;font-family:var(--f-display);font-size:1.15rem;color:var(--fg);font-weight:700}
+.phase ul{margin:6px 0 0;padding-inline-start:20px;display:grid;gap:2px}
+.gate{margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--warn-soft);font-size:.9rem}
+.gate b{color:var(--warn)}
+.callout{border-inline-start:3px solid var(--bad);padding:12px 16px;background:var(--bad-soft);border-radius:0 8px 8px 0}
+.callout.acc{border-color:var(--accent);background:var(--accent-soft)}
+.sources{columns:2 280px;font-size:.88rem;padding-inline-start:18px;margin:0}
+.sources li{break-inside:avoid;margin-bottom:4px}
+footer{color:var(--muted);font-size:.85rem}
+@media (max-width:640px){
+  .srow{grid-template-columns:1fr 60px}.srow .track{grid-column:1/3;grid-row:2}.srow small{grid-column:1/3;margin-top:0}
+  .bar{grid-template-columns:110px 1fr 48px;font-size:.84rem}
+  .phase{grid-template-columns:1fr;gap:6px}
+  .tline{grid-template-columns:1fr;gap:4px}
+}
+@media (prefers-reduced-motion:no-preference){.fill{transition:width .6s ease}}
+</style>
+
+<div class="wrap" dir="rtl" lang="ar">
+
+<header class="hero">
+  <div class="eyebrow">بحث سوق + خطة · 2026-11-05 · مشروع open source</div>
+  <h1>خيمة الـ Terminal: طبقة عربية لأي agent</h1>
+  <p class="lead">أداة زي tmux بتشغّل أي agent جواها وتصلّح العربي والعبري والفارسي قبل ما يوصل للترمنال. السؤال اللي الصفحة دي بتجاوب عليه: نبنيها ولا لأ؟</p>
+  <div class="verdict">
+    <span class="big-verdict">الحكم: ابنيها بشرط</span>
+    <span class="pill warn">Adjust</span>
+    <span class="pill acc">بوابة تحقق مدتها أسبوعين قبل أي حاجة</span>
+  </div>
+
+  <div class="term" aria-label="نتيجة الـ spike: نفس السطر بثلاث طرق عرض">
+    <div class="term-bar"><i></i><i></i><i></i><span>spike.py · pyte + python-bidi + arabic-reshaper</span></div>
+    <div class="term-body">
+      <div class="tline"><div class="tlabel no"><b>✕ before</b>kitty, no bidi</div><div class="tcode" data-broken="│ مرحبا بك في Claude Code  │  status: جاهز"></div></div>
+      <div class="tline"><div class="tlabel no"><b>✕ naive</b>whole-row bidi</div><div class="tcode">ﺰﻫﺎﺟ :Claude Code  │  status ﻲﻓ ﻚﺑ ﺎﺒﺣﺮﻣ │</div></div>
+      <div class="tline"><div class="tlabel ok"><b>✓ segmented</b>this tool</div><div class="tcode">│ Claude Code ﻲﻓ ﻚﺑ ﺎﺒﺣﺮﻣ  │  status: ﺰﻫﺎﺟ</div></div>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:.9rem">ده output حقيقي من الـ spike اللي اشتغل النهارده. لو عكست السطر كله مرة واحدة، الإطار بيتنقل لنص السطر والأعمدة بتتبدل. لو قسّمته الأول، كل حاجة بتفضل في مكانها.</p>
+</header>
+
+<section aria-labelledby="s-score">
+  <div class="eyebrow">01 · الحكم بالتفصيل</div>
+  <h2 id="s-score">الفكرة دي عاملة إزاي على كل معيار</h2>
+  <div class="card score">
+    <div class="srow"><b>الوجع حقيقي</b><div class="track"><div class="fill good" style="width:85%"></div></div><span class="pill good">قوي</span><small>188 issue في claude-code لوحده، وبلاغات جديدة كل أسبوع</small></div>
+    <div class="srow"><b>الشركات مش هتحلّها</b><div class="track"><div class="fill good" style="width:70%"></div></div><span class="pill good">كويس</span><small>Google: "مفيش خطة". OpenAI مارَدّتش. Anthropic صلّحت جزء بس</small></div>
+    <div class="srow"><b>المساحة فاضية</b><div class="track"><div class="fill warn" style="width:50%"></div></div><span class="pill warn">متوسط</span><small>agent-rtl طلعت من أسبوع بنفس الفكرة، بس عليها نجمة واحدة وتجريبية</small></div>
+    <div class="srow"><b>حجم الجمهور</b><div class="track"><div class="fill warn" style="width:35%"></div></div><span class="pill warn">صغير</span><small>حوالي 1,100 مستخدم في السنة الأولى (تقدير). كويس لمشروع سمعة، مش لبيزنس</small></div>
+    <div class="srow"><b>الصعوبة التقنية</b><div class="track"><div class="fill warn" style="width:45%"></div></div><span class="pill warn">عالية</span><small>MVP في 6 لـ 8 أسابيع. المؤشر والنسخ والعكس مرتين هم أصعب حاجات</small></div>
+    <div class="srow"><b>التوقيت</b><div class="track"><div class="fill good" style="width:75%"></div></div><span class="pill good">مناسب</span><small>iTerm2 ضاف BDSM في 2026-10، فبقى ممكن نقفل الـ bidi بتاع الترمنال ونرتّب إحنا</small></div>
+  </div>
+</section>
+
+<section aria-labelledby="s-demand">
+  <div class="eyebrow">02 · الطلب</div>
+  <h2 id="s-demand">الناس بتشتكي فين</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>issues عن RTL في عناوين الريبوهات</h3>
+      <div class="bars" id="issues"></div>
+      <p style="color:var(--muted);font-size:.84rem">البحث كان في العناوين بس. أعلى issue في claude-code (122 reaction) عن تطبيق Desktop، وأعلى واحدة عن الـ TUI عليها 37.</p>
+    </div>
+    <div class="card">
+      <h3>رد كل شركة</h3>
+      <div class="bars" style="gap:14px">
+        <div><b>Anthropic</b> <span class="pill warn">جزئي</span><br><small style="color:var(--muted)">2.1.74 صلّح Windows Terminal وVS Code. لينكس وTerminal.app لسه بايظين. #99046 بيقترح BDSM ولسه مفتوح</small></div>
+        <div><b>OpenAI · Codex</b> <span class="pill bad">مفيش رد</span><br><small style="color:var(--muted)">#34871 مفيهاش ولا رد. 9 من أعلى 10 issues مفتوحين</small></div>
+        <div><b>Google · Gemini CLI</b> <span class="pill bad">رافضين</span><br><small style="color:var(--muted)">#25478 اتقفلت في مايو 2026 والرد "no immediate plans"</small></div>
+        <div><b>xterm.js (VS Code · Cursor)</b> <span class="pill bad">مفتوحة من 2017</span><br><small style="color:var(--muted)">#701 عليها 62 reaction ولسه متصلحتش</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-market">
+  <div class="eyebrow">03 · حجم السوق</div>
+  <h2 id="s-market">مين ممكن يستخدمها</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>حسابات GitHub بتعمل push · 2026 Q2</h3>
+      <div class="bars" id="devs"></div>
+      <p style="color:var(--muted);font-size:.84rem">الحسابات أكتر من المطورين الحقيقيين بحوالي 10 مرات (إسرائيل فيها مليون حساب و80 ألف مطور شغال). مصر والسعودية بيكبروا حوالي 50% في السنة.</p>
+    </div>
+    <div class="card">
+      <h3>Funnel السنة الأولى (تقدير)</h3>
+      <div class="funnel">
+        <div class="fstep"><div>مطورين لغات RTL فعلياً<small>12.3M حساب ÷ 10</small></div><div class="n">1.2M</div></div>
+        <div class="fstep"><div>بيستخدموا agent في الـ terminal<small>12%</small></div><div class="n">144k</div></div>
+        <div class="fstep"><div>بيكتبوا بلغتهم في الـ prompt<small>25%</small></div><div class="n">36k</div></div>
+        <div class="fstep last"><div><b>هيجربوا أداة خارجية</b><small>3% · أقل حاجة 160 وأعلى حاجة 7,200</small></div><div class="n">~1,100</div></div>
+      </div>
+      <p style="color:var(--muted);font-size:.84rem">للمقارنة: أنجح VS Code extension لـ RTL في Claude Code عليها 10.5k تثبيت. الأدوات اللي بتشتغل في الـ terminal تقريباً محدش بيستخدمها لحد دلوقتي.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-comp">
+  <div class="eyebrow">04 · المنافسين</div>
+  <h2 id="s-comp">مين بيحل المشكلة دي النهارده</h2>
+  <div class="diagram" role="img" aria-label="خريطة المنافسين: الأفقي عدد الـ agents اللي الأداة بتغطيها، والرأسي جودة التعامل مع المؤشر والنسخ والترمنال">
+    <svg viewBox="0 0 760 400" width="100%" style="max-width:760px;display:block;margin:auto">
+      <rect x="70" y="20" width="660" height="320" fill="none" stroke="var(--line)"/>
+      <line x1="400" y1="20" x2="400" y2="340" stroke="var(--line)" stroke-dasharray="4 4"/>
+      <line x1="70" y1="180" x2="730" y2="180" stroke="var(--line)" stroke-dasharray="4 4"/>
+      <text x="400" y="372" text-anchor="middle" fill="var(--muted)" font-size="13">← أداة واحدة · · · أي agent →</text>
+      <text x="30" y="180" text-anchor="middle" fill="var(--muted)" font-size="13" transform="rotate(-90 30 180)">جودة المؤشر والنسخ والترمنال ↑</text>
+      <rect x="440" y="30" width="280" height="140" fill="var(--accent-soft)" rx="6"/>
+      <text x="710" y="50" text-anchor="end" fill="var(--accent)" font-size="12">المساحة الفاضية</text>
+      <g font-size="13">
+        <circle cx="150" cy="110" r="7" fill="var(--muted)"/><text x="165" y="115" fill="var(--fg)">VS Code extensions</text>
+        <circle cx="140" cy="210" r="7" fill="var(--muted)"/><text x="155" y="215" fill="var(--fg)">pi-arabic-rtl</text>
+        <circle cx="200" cy="250" r="7" fill="var(--muted)"/><text x="215" y="255" fill="var(--fg)">rtl-terminal plugin</text>
+        <circle cx="270" cy="300" r="7" fill="var(--muted)"/><text x="285" y="305" fill="var(--fg)">Codex patch</text>
+        <circle cx="640" cy="300" r="7" fill="var(--muted)"/><text x="625" y="305" text-anchor="end" fill="var(--fg)">BiCon (قديمة)</text>
+        <circle cx="690" cy="325" r="7" fill="var(--muted)"/><text x="675" y="330" text-anchor="end" fill="var(--fg)">termbidi (pipe بس)</text>
+        <circle cx="560" cy="235" r="9" fill="var(--warn)"/><text x="545" y="240" text-anchor="end" fill="var(--fg)" font-weight="600">agent-rtl</text>
+        <circle cx="640" cy="95" r="12" fill="var(--accent)"/><text x="622" y="100" text-anchor="end" fill="var(--accent)" font-weight="700">الأداة دي</text>
+      </g>
+    </svg>
+  </div>
+  <p style="color:var(--muted);font-size:.86rem">الأماكن على الخريطة تقدير مني من الـ READMEs والعيوب اللي أصحابها كتبوها.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>الأداة</th><th>المستوى</th><th class="c">Bidi</th><th class="c">Shaping</th><th>الحالة</th><th>العيب الأساسي</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/mehbylabs/agent-rtl">agent-rtl</a></td><td>pty wrapper + mods</td><td class="c yes">✓</td><td class="c yes">✓</td><td>MIT · ⭐1 · 6 commits</td><td>محتاجة Node، المؤشر في المكان المنطقي، "لا" مش متوصلة، الماوس غلط</td></tr>
+        <tr><td><a href="https://github.com/behdad/bicon">BiCon</a></td><td>pty wrapper</td><td class="c yes">✓</td><td class="c yes">✓</td><td>⭐204 · قديمة</td><td>معمولة لبرامج بتكتب سطور عادية، والـ TUIs الحديثة بتقفل معاها</td></tr>
+        <tr><td><a href="https://github.com/yahyakhalid/termbidi">termbidi</a></td><td>stream filter</td><td class="c yes">✓</td><td class="c yes">✓</td><td>⭐0</td><td>بتتخطى أي سطر فيه تحريك مؤشر</td></tr>
+        <tr><td><a href="https://github.com/MohammedSaud404/rtl-terminal">rtl-terminal</a></td><td>Claude Code plugin</td><td class="c yes">✓</td><td class="c part">جزئي</td><td>⭐4</td><td>Claude Code بس، والـ plugin API لسه early access</td></tr>
+        <tr><td>VS Code extensions</td><td>المحرر</td><td class="c yes">✓</td><td class="c yes">✓</td><td>لحد 10.5k تثبيت</td><td>شات VS Code بس</td></tr>
+        <tr class="us"><td><b>الأداة دي</b></td><td>pty · Rust binary</td><td class="c yes">✓</td><td class="c yes">✓</td><td>مقترحة</td><td>الميزة: المؤشر صح، copy mode بالنص الأصلي، BDSM، corpus، binary واحد</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout acc"><b>أهم ملاحظة:</b> Claude Code بقى فيه mods وrender hooks، والمجتمع بدأ يصلّح العربي من جوه التطبيق. يعني الميزة الحقيقية للأداة دي في Codex وGemini وAider وأي CLI تاني، وفي إنها تشتغل نفس الشغل على كل ترمنال.</div>
+</section>
+
+<section aria-labelledby="s-terms">
+  <div class="eyebrow">05 · الترمنالات</div>
+  <h2 id="s-terms">كل ترمنال بيتعامل مع RTL إزاي</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>الترمنال</th><th>النظام</th><th class="c">Bidi</th><th class="c">Shaping</th><th class="c">BDSM</th><th>الأداة هتعمل إيه</th></tr></thead>
+      <tbody>
+        <tr><td>GNOME Terminal / VTE</td><td>Linux</td><td class="c part">جزئي</td><td class="c yes">✓</td><td class="c yes">✓</td><td>تقفل الـ bidi بتاعه وترتّب بنفسها</td></tr>
+        <tr><td>iTerm2 3.7</td><td>macOS</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td>تقفل الـ bidi بتاعه وترتّب بنفسها</td></tr>
+        <tr><td>mlterm</td><td>Linux</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td>تقفل الـ bidi بتاعه وترتّب بنفسها</td></tr>
+        <tr><td>Kitty · Alacritty · Ghostty</td><td>الكل</td><td class="c no">✕</td><td class="c no">✕</td><td class="c">مش محتاج</td><td>ترتّب وتوصّل الحروف بنفسها</td></tr>
+        <tr><td>Windows Terminal</td><td>Windows</td><td class="c no">✕</td><td class="c part">جزئي</td><td class="c">مش محتاج</td><td>بعد v1 (ConPTY)</td></tr>
+        <tr><td>xterm.js (VS Code · Cursor)</td><td>الكل</td><td class="c no">✕</td><td class="c no">✕</td><td class="c">مش محتاج</td><td>ترتّب وتوصّل الحروف بنفسها</td></tr>
+        <tr><td>Konsole</td><td>Linux</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">✕</td><td>تحذّر المستخدم وتشتغل passthrough، علشان النص مايتعكسش مرتين</td></tr>
+        <tr><td>WezTerm</td><td>الكل</td><td class="c part">تجريبي</td><td class="c">؟</td><td class="c">؟</td><td>لسه محتاج نجرّبه</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="s-arch">
+  <div class="eyebrow">06 · المعمارية</div>
+  <h2 id="s-arch">الأداة بتشتغل إزاي من جوه</h2>
+  <p>الأداة بتعمل نسختين من الشاشة. النسخة <b>المنطقية</b> هي اللي الـ agent كتبها بالظبط، والمؤشر والماوس والنسخ كلهم بيشتغلوا عليها. النسخة <b>المرئية</b> هي اللي بتترسم على الترمنال. والـ Cell Map بيربط كل خلية في النسختين ببعض.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  U["المستخدم"] --> IN["Input Mapper"]
+  IN --> PTY["PTY Host"]
+  PTY <--> APP["claude · codex · gemini"]
+  PTY --> VT["VT Parser + Grid"]
+  VT --> SEG["Run Segmenter"]
+  SEG --> BIDI["Bidi + Shaper"]
+  BIDI --> MAP["Cell Map"]
+  MAP --> R["Diff Renderer"]
+  R --> T["الترمنال الحقيقي"]
+  MAP --> IN
+  MAP --> CP["Copy Mode · OSC 52"]
+  PROBE["Capability Probe"] --> R
+</pre>
+  </div>
+
+  <h3>قلب الأداة: تقسيم السطر قبل الترتيب</h3>
+  <div class="card" style="gap:14px">
+    <div class="segrow" aria-label="السطر بعد ما اتقسّم لأربع أجزاء">
+      <div class="seg box"><span>│</span><small>إطار · ثابت</small></div>
+      <div class="seg rtl"><span> Claude Code ﻲﻓ ﻚﺑ ﺎﺒﺣﺮﻣ </span><small>جزء RTL</small></div>
+      <div class="seg box"><span>│</span><small>إطار · ثابت</small></div>
+      <div class="seg ltr"><span>status: ﺰﻫﺎﺟ</span><small>جزء LTR</small></div>
+    </div>
+    <ol class="rules">
+      <li>حروف رسم الإطارات بتفصل بين الأجزاء، ومكانها مابيتغيرش.</li>
+      <li>مسافتين أو أكتر ورا بعض بيفصلوا بين الأعمدة.</li>
+      <li>لو الخلفية أو الـ inverse اتغيّروا، ده عنصر واجهة تاني فبيتفصل.</li>
+      <li>اتجاه كل جزء بيتحدد من أول حرف قوي فيه.</li>
+      <li>الجزء اللي مفيهوش حروف RTL بيعدّي من غير أي حساب، وده أغلب الشاشة.</li>
+      <li>عرض الجزء بيفضل ثابت. لو "لا" قصّرته خلية، بنحشي مسافة.</li>
+    </ol>
+  </div>
+
+  <h3>التفاوض مع الترمنال أول ما الأداة تشتغل</h3>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant T as Terminal
+  participant W as Tool
+  participant A as Agent
+  W->>T: CSI ? 8 $ p  (BDSM?)
+  alt reply 8;1 / 8;2
+    W->>T: CSI 8 l  (bidi off)
+  else no bidi
+    Note over W: reorder ourselves
+  else bidi without BDSM
+    W->>T: warn + passthrough
+  end
+  W->>A: spawn (classic renderer)
+  loop every frame
+    A->>W: VT bytes
+    W->>T: dirty rows, reordered, mode 2026
+  end
+  W->>T: CSI 8 h  on exit / Ctrl-Z
+</pre>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>ليه Rust</h3>
+      <p>اللغة الوحيدة اللي فيها binary واحد ومكتبة VT ناضجة (alacritty_terminal) ومكتبة bidi كاملة (unicode-bidi) في نفس الوقت. وده كمان اللي بيميّزها عن agent-rtl المبنية على Node. Go مكتبة الـ bidi بتاعتها ناقصة، وBun محتاج runtime.</p>
+    </div>
+    <div class="card">
+      <h3>برا نطاق v1</h3>
+      <p>Windows/ConPTY، تحريك الأسهم بالترتيب المرئي، الـ selection العادي بالماوس (البديل copy mode)، والترمنالات اللي بتعمل bidi ومش بتدعم BDSM.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-risks">
+  <div class="eyebrow">07 · المخاطر</div>
+  <h2 id="s-risks">إيه اللي ممكن يبوّظ المشروع</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>الخطر</th><th>النوع</th><th>الخطورة</th><th>الحل</th></tr></thead>
+      <tbody>
+        <tr><td>الترمنال يعكس النص تاني فوق ترتيبنا</td><td>تقني</td><td><span class="pill bad">عالية</span></td><td>نتفاوض على BDSM، ونعمل allowlist، ونحذّر في الباقي</td></tr>
+        <tr><td>تقسيم السطر يغلط في واجهة جديدة</td><td>تقني</td><td><span class="pill bad">عالية</span></td><td>corpus من جلسات حقيقية والـ CI بيختبره</td></tr>
+        <tr><td>المؤشر في خانة الكتابة</td><td>تقني</td><td><span class="pill bad">عالية</span></td><td>Cell Map، والأسهم بتتحرك بالترتيب المنطقي في v1</td></tr>
+        <tr><td>النسخ بيطلّع حروف presentation forms</td><td>تقني</td><td><span class="pill bad">عالية</span></td><td>Copy mode + OSC 52 بالنص الأصلي</td></tr>
+        <tr><td>الطلب طلع في الواجهات الرسومية مش الـ terminal</td><td>سوق</td><td><span class="pill bad">عالية</span></td><td>نقيسه بالمقابلات في Phase 0</td></tr>
+        <tr><td>Anthropic تنفّذ #99046 جوه Claude Code</td><td>سوق</td><td><span class="pill warn">متوسطة</span></td><td>نركّز على Codex وGemini وAider والترمنالات</td></tr>
+        <tr><td>الاسم <span class="mono">ar</span> واخده برنامج الأرشفة بتاع binutils</td><td>اسم</td><td><span class="pill bad">مؤكد</span></td><td>نغيّر الاسم قبل أول commit</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="s-road">
+  <div class="eyebrow">08 · الخطة</div>
+  <h2 id="s-road">نمشي إزاي، وإمتى نقف</h2>
+  <div class="card timeline">
+    <div class="phase"><div class="when"><b>Phase 0</b>أسبوعين</div><div><h3>التحقق</h3>
+      <ul><li>8 مقابلات أو أكتر مع مطورين عرب وعبريين بيستخدموا agents في الـ terminal</li><li>نكلّم صاحب agent-rtl عن corpus مشترك</li><li>Spike بـ Rust على Codex وClaude Code classic في 3 ترمنالات</li><li>فيديو demo قبل وبعد</li></ul>
+      <div class="gate"><b>البوابة:</b> 5 من 8 أو أكتر يقولوا "هستخدمها"، والـ spike يشتغل على ترمنالين، والـ demo يجيب أكتر من 50 interaction. لو لأ، نقف.</div></div></div>
+    <div class="phase"><div class="when"><b>Phase 1</b>حوالي 6 أسابيع</div><div><h3>MVP v0.1</h3>
+      <ul><li>Grid وSegmenter وBidi وShaper</li><li>Cell Map للمؤشر والماوس</li><li>Capability probe وBDSM والأمر doctor</li><li>Copy mode بـ OSC 52</li><li>Corpus والـ CI، وده أسهل باب للمساهمة</li></ul>
+      <div class="gate"><b>البوابة:</b> شغالة كل يوم مع Claude Code وCodex على 3 ترمنالات، وبتزوّد أقل من 5ms لكل frame، وفيه 50 حالة أو أكتر في الـ corpus كلها ناجحة.</div></div></div>
+    <div class="phase"><div class="when"><b>Phase 2</b>حوالي 4 أسابيع</div><div><h3>v1.0 والمجتمع</h3>
+      <ul><li>موقع جدول التوافق، والنتايج بتيجي من المجتمع</li><li>brew وcargo وGitHub Releases</li><li>Show HN، وجروبات المطورين العرب والعبريين، ورد في كل issue مرتبطة</li><li>المنطق كله يتنشر كـ crate لوحده</li></ul>
+      <div class="gate"><b>بعد 90 يوم:</b> 500 نجمة أو أكتر، و300 مستخدم في الأسبوع، و10 مساهمين في الـ corpus. لو أقل من 100 نجمة، نحوّل المشروع لمكتبة بس.</div></div></div>
+  </div>
+</section>
+
+<section aria-labelledby="s-final">
+  <div class="eyebrow">09 · الخلاصة</div>
+  <h2 id="s-final">نبنيها؟</h2>
+  <div class="card" style="gap:12px">
+    <p><b>أيوه، بس كمشروع open source بيبني سمعة، مش كبيزنس.</b> الوجع حقيقي، والشركات مش هتحلّه قريب، وBDSM بيخلي الحل ممكن دلوقتي. بس الجمهور صغير، و agent-rtl سبقتنا بالفكرة.</p>
+    <p>علشان كده أول أسبوعين مقابلات وspike بـ Rust بس. لو البوابة عدّت، نبني binary في Rust يتميّز بالحاجات اللي محدش عملها: المؤشر صح، النسخ بالنص الأصلي، التفاوض على BDSM، والـ corpus المفتوح. ولو ماعدّتش، نساهم في agent-rtl أو ننشر الـ corpus لوحده.</p>
+  </div>
+</section>
+
+<section aria-labelledby="s-src">
+  <div class="eyebrow">المصادر</div>
+  <h2 id="s-src" style="font-size:1.2rem">المصادر</h2>
+  <ul class="sources">
+    <li><a href="https://github.com/mehbylabs/agent-rtl">mehbylabs/agent-rtl</a></li>
+    <li><a href="https://github.com/anthropics/claude-code/issues/99046">claude-code#99046 · BDSM proposal</a></li>
+    <li><a href="https://github.com/anthropics/claude-code/issues/38005">claude-code#38005</a> · <a href="https://github.com/anthropics/claude-code/issues/37183">#37183</a></li>
+    <li><a href="https://github.com/openai/codex/issues/34871">codex#34871</a> · <a href="https://github.com/openai/codex/issues/19504">#19504</a></li>
+    <li><a href="https://github.com/google-gemini/gemini-cli/issues/25478">gemini-cli#25478</a></li>
+    <li><a href="https://github.com/xtermjs/xterm.js/issues/701">xterm.js#701</a></li>
+    <li><a href="https://newreleases.io/project/github/anthropics/claude-code/release/v2.1.74">Claude Code 2.1.74</a></li>
+    <li><a href="https://code.claude.com/docs/en/fullscreen">Claude Code fullscreen docs</a></li>
+    <li><a href="https://terminal-wg.pages.freedesktop.org/bidi/">BiDi in Terminal Emulators</a></li>
+    <li><a href="https://github.com/github/innovationgraph">GitHub Innovation Graph</a></li>
+    <li><a href="https://github.com/behdad/bicon">BiCon</a> · <a href="https://github.com/yahyakhalid/termbidi">termbidi</a> · <a href="https://github.com/MohammedSaud404/rtl-terminal">rtl-terminal</a></li>
+    <li><a href="https://gist.github.com/XVilka/a0e49e1c65370ba11c17">Terminal bidi support gist</a></li>
+  </ul>
+</section>
+
+<footer>الملفات الكاملة في <span class="mono" dir="ltr">/home/user/ar/Plan/</span> · Secondary research بس، لسه مفيش مقابلات · الأرقام المكتوب جنبها "تقدير" محسوبة مني ومش منقولة من مصدر.</footer>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('[data-broken]').forEach(function(el){
+    el.textContent = Array.from(el.getAttribute('data-broken')).join('‌');
+  });
+  function bars(id, rows, unit){
+    var host = document.getElementById(id); if(!host) return;
+    var max = Math.max.apply(null, rows.map(function(r){return r[1]}));
+    rows.forEach(function(r){
+      var d = document.createElement('div'); d.className='bar';
+      var pct = Math.max(1.5, r[1]/max*100);
+      d.innerHTML = '<span>'+r[0]+'</span><div class="track"><div class="fill'+(r[2]?' alt':'')+'" style="width:'+pct+'%"></div></div><span class="v">'+r[1]+(unit||'')+'</span>';
+      host.appendChild(d);
+    });
+  }
+  bars('issues',[['claude-code',188],['codex',52],['opencode',52],['gemini-cli',6],['xterm.js',4],['copilot-cli',3],['aider',0]]);
+  bars('devs',[['باكستان',2.79,1],['مصر',1.80],['السعودية',1.10],['إسرائيل',1.02,1],['المغرب',1.00],['إيران',0.96,1],['الإمارات',0.73],['الجزائر',0.65],['العراق',0.51]],'M');
+})();
+</script>

@@ -1,0 +1,6 @@
+print("مرحبا بالعالم")
+print("افتح الملف src/main.rs في السطر 42 ثم شغل npm test")
+print("│ مرحبا بك في Claude Code │")
+print("╭──────────────────────────╮")
+print("│ مرحبا بك في Claude Code  │  status: جاهز")
+print("╰──────────────────────────╯")
