@@ -35,7 +35,28 @@ Existing fixes each cover one tool or one terminal. mirah works at the terminal 
 
 ## Install
 
-There are no prebuilt releases yet. Build from source with Rust 1.97 or newer:
+### From the Releases page
+
+The repository is still private, so downloading needs a signed-in [GitHub CLI](https://cli.github.com) (`gh auth login`).
+
+**Windows (PowerShell):**
+
+```powershell
+gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip"
+gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip.sha256"
+(Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
+Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
+```
+
+The third command must print `True`, which means the downloaded file is the one the release built and nothing changed it. Add `%USERPROFILE%\.mirah\bin` to your PATH. On ARM machines use `aarch64-pc-windows-msvc`.
+
+> Windows may show a SmartScreen warning the first time because the file is not signed yet.
+
+**macOS and Linux:** the same steps with the file for your machine, such as `mirah-aarch64-apple-darwin.tar.xz` or `mirah-x86_64-unknown-linux-gnu.tar.xz`.
+
+### From source
+
+You need Rust 1.97 or newer:
 
 ```bash
 git clone https://github.com/Khaymah/mirah

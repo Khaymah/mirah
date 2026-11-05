@@ -4,7 +4,7 @@ resolver = "3"
 exclude = ["research"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0-alpha.1"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -41,3 +41,7 @@ print_stderr = "deny"
 [profile.release]
 lto = true
 codegen-units = 1
+
+[profile.dist]
+inherits = "release"
+lto = "thin"

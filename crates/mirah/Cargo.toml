@@ -1,6 +1,7 @@
 [package]
 name = "mirah"
 description = "Run any terminal program with correct right-to-left text"
+readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

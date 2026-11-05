@@ -37,7 +37,28 @@ mirah gemini
 
 ## التثبيت
 
-لسه مفيش نسخ جاهزة. محتاج تبنيها من الكود باستخدام Rust 1.97 أو أحدث:
+### من صفحة الـ Releases
+
+الريبو لسه private، فالتحميل محتاج تكون متسجّل دخول في [GitHub CLI](https://cli.github.com) (`gh auth login`).
+
+**ويندوز (PowerShell):**
+
+```powershell
+gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip"
+gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip.sha256"
+(Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
+Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
+```
+
+لازم الأمر التالت يطبع `True`، وده معناه إن الملف اللي نزل هو نفسه اللي الـ release بناه، ومحدش غيّر فيه. ضيف `%USERPROFILE%\.mirah\bin` للـ PATH. ولو جهازك ARM، استخدم `aarch64-pc-windows-msvc`.
+
+> ويندوز ممكن يطلّع تحذير SmartScreen أول مرة، لأن الملف لسه مش موقّع.
+
+**macOS وLinux:** نفس الخطوات بالملف المناسب لجهازك، مثلاً `mirah-aarch64-apple-darwin.tar.xz` أو `mirah-x86_64-unknown-linux-gnu.tar.xz`.
+
+### من الكود
+
+محتاج Rust 1.97 أو أحدث:
 
 ```bash
 git clone https://github.com/Khaymah/mirah

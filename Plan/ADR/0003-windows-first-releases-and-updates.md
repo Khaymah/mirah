@@ -67,6 +67,10 @@
 
 **الـ trade-off:** بنتنازل عن **التحديث الصامت المريح** مقابل **إن الـ supply chain يبقى آمن**. وبنتنازل عن **`forbid(unsafe)` في كل حتة** مقابل **إن الكيبورد على ويندوز يوصل صح**، والـ `unsafe` محصور في ملف واحد.
 
+## تعديل بعد القرار (2026-11-05)
+
+- **الـ attestations مقفولة طول ما الريبو private.** [وثائق GitHub](https://docs.github.com/de/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) بتقول إنها في الريبوهات الـ private محتاجة GitHub Enterprise Cloud، ومقدرتش أتأكد من خطة Khaymah. التحقق دلوقتي بالـ SHA-256 checksum بس. **لما الريبو يبقى public:** `github-attestations = true` في `dist-workspace.toml`، وبعدها `dist generate`.
+
 ## النتايج
 - ✅ مستخدم ويندوز يقدر يثبّت بسطر PowerShell واحد، أو ينزّل `mirah.exe` من صفحة الـ Releases.
 - ✅ `mirah update` بيشتغل على الأنظمة التلاتة.
