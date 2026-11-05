@@ -76,7 +76,7 @@ You need a font with **Arabic Presentation Forms-B**, such as DejaVu Sans Mono.
 
 ## Current limits
 
-- **Fake cursor:** Claude Code and other Ink-based programs draw their own cursor. If you move it with the arrow keys inside Arabic text, **the row is scrambled today**. The fix is planned in [Plan/FakeCursor.md](Plan/FakeCursor.md).
+- **Selections inside an Arabic word:** the fake cursor that Claude Code and other Ink-based programs draw works correctly. Selecting more than one letter inside an Arabic word (such as vim visual mode) still splits the word. See [Plan/FakeCursor.md](Plan/FakeCursor.md).
 - **Copying:** selecting text with the mouse copies shaped letters in visual order. A mirah copy mode will fix this.
 - **Mouse:** clicks on Arabic text land on the logical position.
 - **Scrollback:** mirah runs on the alternate screen, so text that scrolled off the top does not come back.
@@ -125,4 +125,4 @@ Rules:
 
 ## License
 
-MIT
+MIT · see [LICENSE](LICENSE)

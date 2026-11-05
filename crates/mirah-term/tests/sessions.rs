@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 const ROWS: u16 = 24;
 const COLS: u16 = 80;
+const UPDATE_ENV: &str = "MIRAH_UPDATE_SNAPSHOTS";
 
 fn sessions_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../corpus/sessions")
@@ -21,10 +22,11 @@ fn host_screen(frame: &str) -> String {
             .filter_map(|col| screen.cell(row, col))
             .filter(|c| !c.is_wide_continuation())
             .map(|c| {
-                if c.has_contents() {
-                    c.contents().to_string()
+                let text = if c.has_contents() { c.contents() } else { " " };
+                if c.inverse() {
+                    format!("[{text}]")
                 } else {
-                    " ".into()
+                    text.to_string()
                 }
             })
             .collect();
@@ -48,8 +50,12 @@ fn recorded_sessions_render_to_their_expected_screens() {
         let mut emulator = Emulator::new(ROWS, COLS).expect("valid size");
         emulator.feed(&std::fs::read(&vt).expect("session is readable"));
         let got = host_screen(&emulator.frame());
-        let expected =
-            std::fs::read_to_string(vt.with_extension("expected")).expect("expected screen exists");
+        let expected_path = vt.with_extension("expected");
+        if std::env::var_os(UPDATE_ENV).is_some() {
+            std::fs::write(&expected_path, &got).expect("write expected screen");
+            continue;
+        }
+        let expected = std::fs::read_to_string(&expected_path).expect("expected screen exists");
         assert_eq!(got, expected, "{} renders differently", vt.display());
     }
 }

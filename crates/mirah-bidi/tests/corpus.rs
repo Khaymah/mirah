@@ -1,40 +1,89 @@
-use mirah_bidi::{Cell, visual_row};
+use mirah_bidi::{Cell, Style, visual_row};
 use std::path::PathBuf;
+
+struct Case {
+    logical: String,
+    inverse: Vec<usize>,
+    expected: String,
+}
 
 fn corpus_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../corpus/rows")
 }
 
-fn render(line: &str) -> String {
-    let row: Vec<Cell> = line.chars().map(|c| Cell::plain(c.to_string())).collect();
+fn parse(data: &str) -> Vec<Case> {
+    let mut cases = Vec::new();
+    let mut current: Option<Case> = None;
+    for line in data.lines() {
+        if let Some(text) = line.strip_prefix("L|") {
+            current = Some(Case {
+                logical: text.to_string(),
+                inverse: Vec::new(),
+                expected: String::new(),
+            });
+        } else if let (Some(cols), Some(case)) = (line.strip_prefix("I|"), current.as_mut()) {
+            case.inverse = cols
+                .split(',')
+                .filter_map(|c| c.trim().parse().ok())
+                .collect();
+        } else if let (Some(text), Some(mut case)) = (line.strip_prefix("V|"), current.take()) {
+            case.expected = text.to_string();
+            cases.push(case);
+        }
+    }
+    cases
+}
+
+fn render(case: &Case) -> String {
+    let mut row: Vec<Cell> = case
+        .logical
+        .chars()
+        .map(|c| Cell::plain(c.to_string()))
+        .collect();
+    if let Some(&last) = case.inverse.iter().max() {
+        row.resize(row.len().max(last + 1), Cell::plain(" "));
+    }
+    for &i in &case.inverse {
+        row[i].style = Style {
+            inverse: true,
+            ..Style::default()
+        };
+    }
     visual_row(&row)
         .cells
         .iter()
-        .map(|c| c.text.as_str())
+        .map(|c| {
+            if c.style.inverse {
+                format!("[{}]", c.text)
+            } else {
+                c.text.clone()
+            }
+        })
         .collect()
 }
 
 #[test]
 fn every_row_in_the_corpus_matches_its_expected_visual_form() {
-    let mut checked = 0;
-    let mut failures = Vec::new();
     let mut files: Vec<PathBuf> = std::fs::read_dir(corpus_dir())
         .expect("corpus/rows exists")
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.extension().is_some_and(|x| x == "txt"))
         .collect();
     files.sort();
+    let mut checked = 0;
+    let mut failures = Vec::new();
     for file in files {
         let data = std::fs::read_to_string(&file).expect("corpus file is UTF-8");
-        let mut lines = data.lines();
-        while let (Some(logical), Some(visual)) = (lines.next(), lines.next()) {
-            let logical = logical.strip_prefix("L|").expect("L| line");
-            let expected = visual.strip_prefix("V|").expect("V| line");
-            let got = render(logical);
-            if got != expected {
+        for case in parse(&data) {
+            let got = render(&case);
+            if got != case.expected {
                 failures.push(format!(
-                    "{}: {logical:?}\n  expected {expected:?}\n  got      {got:?}",
-                    file.display()
+                    "{}: {:?} inverse={:?}\n  expected {:?}\n  got      {:?}",
+                    file.display(),
+                    case.logical,
+                    case.inverse,
+                    case.expected,
+                    got
                 ));
             }
             checked += 1;

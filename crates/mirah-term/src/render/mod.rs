@@ -5,7 +5,7 @@ use crate::screen::logical_row;
 use crate::sequences::{
     CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
 };
-use mirah_bidi::{Cell, Style, VisualRow, visual_row};
+use mirah_bidi::{Cell, Style, VisualRow, visual_row_with_cursor};
 
 pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
@@ -54,10 +54,12 @@ impl Renderer {
         let (cursor_row, cursor_col) = screen.cursor_position();
         let mut cursor_visual = cursor_col;
         for row in 0..rows {
+            let cursor =
+                (row == cursor_row && !screen.hide_cursor()).then_some(usize::from(cursor_col));
             let VisualRow {
                 cells,
                 logical_to_visual,
-            } = visual_row(&logical_row(screen, row, cols));
+            } = visual_row_with_cursor(&logical_row(screen, row, cols), cursor);
             if row == cursor_row {
                 cursor_visual = cursor::visual_column(&logical_to_visual, cursor_col);
             }

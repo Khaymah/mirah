@@ -1,4 +1,4 @@
-use crate::cell::{Cell, VisualRow};
+use crate::cell::{Cell, Style, VisualRow};
 use crate::mirror::mirror;
 use crate::shape::{Shaped, shape};
 use std::ops::Range;
@@ -9,22 +9,38 @@ const PAD: &str = " ";
 struct Item {
     column: usize,
     glyph: String,
+    style: Style,
 }
 
 fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
     let texts: Vec<String> = row[span.clone()].iter().map(|c| c.text.clone()).collect();
+    let shaped = shape(&texts);
     let mut items = Vec::with_capacity(span.len());
     let mut pads = Vec::new();
-    for (offset, shaped) in shape(&texts).into_iter().enumerate() {
+    for (offset, glyph) in shaped.iter().enumerate() {
         let column = span.start + offset;
-        match shaped {
-            Shaped::Glyph(glyph) => items.push(Item { column, glyph }),
+        match glyph {
+            Shaped::Glyph(glyph) => {
+                let mut style = row[column].style;
+                if matches!(shaped.get(offset + 1), Some(Shaped::Absorbed)) {
+                    style.inverse |= row[column + 1].style.inverse;
+                }
+                items.push(Item {
+                    column,
+                    glyph: glyph.clone(),
+                    style,
+                });
+            }
             Shaped::Absorbed => pads.push(column),
         }
     }
     items.extend(pads.into_iter().map(|column| Item {
         column,
         glyph: PAD.to_string(),
+        style: Style {
+            inverse: false,
+            ..row[column].style
+        },
     }));
     items
 }
@@ -77,7 +93,7 @@ pub(crate) fn reorder_segment(row: &[Cell], span: Range<usize>, out: &mut Visual
         };
         out.cells[visual_column] = Cell {
             text,
-            style: row[item.column].style,
+            style: item.style,
             wide: false,
             continuation: false,
         };

@@ -1,5 +1,5 @@
 import os, pty, sys, time, select, fcntl, termios, struct, re
-out, keys, secs, argv = sys.argv[1], sys.argv[2].replace('\\r', '\r').encode('utf-8'), float(sys.argv[3]), sys.argv[4:]
+out, keys, secs, argv = sys.argv[1], sys.argv[2].replace('\\r', '\r').replace('\\e', '\x1b').encode('utf-8'), float(sys.argv[3]), sys.argv[4:]
 pid, fd = pty.fork()
 if pid == 0:
     os.environ['TERM'] = 'xterm-256color'; os.environ['COLUMNS']='80'; os.environ['LINES']='24'
@@ -15,8 +15,8 @@ while time.time() - t0 < secs:
         if b'\x1b[6n' in d: os.write(fd, b'\x1b[1;1R')
         if re.search(rb'\x1b\[0?c', d): os.write(fd, b'\x1b[?62;22c')
     if not sent and time.time() - t0 > secs / 2:
-        for ch in keys.decode('utf-8'):
-            os.write(fd, ch.encode()); time.sleep(0.03)
+        for token in re.findall(r'\x1b\[[0-9;]*[A-Za-z~]|.', keys.decode('utf-8'), re.S):
+            os.write(fd, token.encode()); time.sleep(0.05)
         sent = True
 open(out, 'wb').write(raw); print(out, len(raw), 'bytes')
 try: os.kill(pid, 9)
