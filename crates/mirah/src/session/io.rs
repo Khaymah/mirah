@@ -1,11 +1,12 @@
 use super::event::Event;
-use anyhow::Result;
+use super::pty::ChildProcess;
 use std::io::{Read, Write};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 const PTY_READ_BUFFER: usize = 65_536;
 const STDIN_READ_BUFFER: usize = 4_096;
+const WAIT_FAILED: u32 = 1;
 
 pub(crate) type SharedWriter = Arc<Mutex<Box<dyn Write + Send>>>;
 
@@ -25,7 +26,7 @@ pub(crate) fn spawn_pty_reader(mut reader: Box<dyn Read + Send>, events: Sender<
         loop {
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => {
-                    let _ = events.send(Event::ChildExited);
+                    let _ = events.send(Event::OutputClosed);
                     break;
                 }
                 Ok(n) => {
@@ -51,14 +52,20 @@ pub(crate) fn spawn_stdin_forwarder(writer: SharedWriter) {
     });
 }
 
-pub(crate) fn spawn_resize_watcher(events: Sender<Event>) -> Result<()> {
-    let mut signals = signal_hook::iterator::Signals::new([signal_hook::consts::SIGWINCH])?;
+pub(crate) fn spawn_child_waiter(mut child: ChildProcess, events: Sender<Event>) {
     std::thread::spawn(move || {
-        for _ in signals.forever() {
-            if events.send(Event::Resize).is_err() {
-                break;
+        let code = match child.wait() {
+            Ok(status) => {
+                if let Some(signal) = status.signal() {
+                    tracing::info!(signal, "child terminated by signal");
+                }
+                status.exit_code()
             }
-        }
+            Err(err) => {
+                tracing::warn!(error = %err, "wait for child");
+                WAIT_FAILED
+            }
+        };
+        let _ = events.send(Event::ChildExited(code));
     });
-    Ok(())
 }

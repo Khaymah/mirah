@@ -12,10 +12,15 @@ anyhow.workspace = true
 crossterm.workspace = true
 mirah-term.workspace = true
 portable-pty.workspace = true
-signal-hook.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+signal-hook.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
 
 [dev-dependencies]
 portable-pty.workspace = true

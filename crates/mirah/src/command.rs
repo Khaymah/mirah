@@ -1,6 +1,12 @@
 use portable_pty::CommandBuilder;
 
+#[cfg(windows)]
+const SHELL_ENV: &str = "COMSPEC";
+#[cfg(windows)]
+const FALLBACK_SHELL: &str = "cmd.exe";
+#[cfg(not(windows))]
 const SHELL_ENV: &str = "SHELL";
+#[cfg(not(windows))]
 const FALLBACK_SHELL: &str = "/bin/sh";
 
 pub(crate) fn from_args(mut args: impl Iterator<Item = String>) -> CommandBuilder {

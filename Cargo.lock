@@ -405,6 +405,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "windows-sys",
 ]
 
 [[package]]

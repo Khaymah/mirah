@@ -3,9 +3,10 @@ use anyhow::{Context, Result};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use std::io::{Read, Write};
 
+pub(crate) type ChildProcess = Box<dyn Child + Send + Sync>;
+
 pub(crate) struct Pty {
     master: Box<dyn MasterPty + Send>,
-    child: Box<dyn Child + Send + Sync>,
 }
 
 fn pty_size(size: TerminalSize) -> PtySize {
@@ -18,15 +19,17 @@ fn pty_size(size: TerminalSize) -> PtySize {
 }
 
 impl Pty {
-    pub(crate) fn spawn(cmd: CommandBuilder, size: TerminalSize) -> Result<Self> {
+    pub(crate) fn spawn(cmd: CommandBuilder, size: TerminalSize) -> Result<(Self, ChildProcess)> {
         let pair = native_pty_system()
             .openpty(pty_size(size))
             .context("open pty")?;
         let child = pair.slave.spawn_command(cmd).context("spawn command")?;
-        Ok(Self {
-            master: pair.master,
+        Ok((
+            Self {
+                master: pair.master,
+            },
             child,
-        })
+        ))
     }
 
     pub(crate) fn reader(&self) -> Result<Box<dyn Read + Send>> {
@@ -41,13 +44,5 @@ impl Pty {
         if let Err(err) = self.master.resize(pty_size(size)) {
             tracing::warn!(error = %err, "resize pty");
         }
-    }
-
-    pub(crate) fn wait(mut self) -> Result<u32> {
-        let status = self.child.wait().context("wait for child")?;
-        if let Some(signal) = status.signal() {
-            tracing::info!(signal, "child terminated by signal");
-        }
-        Ok(status.exit_code())
     }
 }

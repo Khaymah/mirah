@@ -24,9 +24,10 @@ tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt"] }
 unicode-bidi = "0.3"
 vt100 = "0.18"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

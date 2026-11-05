@@ -1,3 +1,6 @@
+#[cfg(windows)]
+mod windows;
+
 use anyhow::{Context, Result};
 use mirah_term::sequences;
 use std::io::Write;
@@ -27,6 +30,8 @@ pub(crate) struct TerminalGuard;
 impl TerminalGuard {
     pub(crate) fn enter() -> Result<Self> {
         crossterm::terminal::enable_raw_mode().context("enable raw mode")?;
+        #[cfg(windows)]
+        windows::enable_virtual_terminal();
         ACTIVE.store(true, Ordering::SeqCst);
         let mut out = std::io::stdout();
         out.write_all(sequences::enter().as_bytes())?;
@@ -48,6 +53,8 @@ pub(crate) fn restore() {
     let mut out = std::io::stdout();
     let _ = out.write_all(sequences::leave().as_bytes());
     let _ = out.flush();
+    #[cfg(windows)]
+    windows::restore_console_modes();
     disable_raw_mode();
 }
 

@@ -6,6 +6,12 @@ const LOG_ENV: &str = "MIRAH_LOG";
 const LOG_FILE: &str = "mirah.log";
 const APP_DIR: &str = "mirah";
 
+#[cfg(windows)]
+fn log_dir() -> Option<PathBuf> {
+    std::env::var_os("LOCALAPPDATA").map(|dir| PathBuf::from(dir).join(APP_DIR))
+}
+
+#[cfg(not(windows))]
 fn log_dir() -> Option<PathBuf> {
     let state = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
