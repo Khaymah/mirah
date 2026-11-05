@@ -1,4 +1,5 @@
 use crate::cell::{Cell, Style, VisualRow};
+use crate::classify::{is_rtl, is_strong};
 use crate::mirror::mirror;
 use crate::shape::{Shaped, shape};
 use crate::{BidiOptions, Shaping};
@@ -64,14 +65,14 @@ fn bidi_char(row: &[Cell], item: &Item) -> char {
     }
 }
 
-fn visual_order(row: &[Cell], items: &[Item], rtl_base: bool) -> Vec<(usize, bool)> {
+fn visual_order(row: &[Cell], items: &[Item], base: Option<Level>) -> Vec<(usize, bool)> {
     let mut text = String::new();
     let mut starts = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
         starts.push((text.len(), index));
         text.push(bidi_char(row, item));
     }
-    let info = BidiInfo::new(&text, rtl_base.then(Level::rtl));
+    let info = BidiInfo::new(&text, base);
     let Some(para) = info.paragraphs.first() else {
         return Vec::new();
     };
@@ -102,10 +103,8 @@ pub(crate) fn reorder_segment(
         Shaping::Full => shaped_items(row, &span),
         Shaping::Plain => plain_items(row, &span),
     };
-    for (slot, (index, rtl)) in visual_order(row, &items, options.rtl_base)
-        .into_iter()
-        .enumerate()
-    {
+    let base = options.rtl_base.then(Level::rtl);
+    for (slot, (index, rtl)) in visual_order(row, &items, base).into_iter().enumerate() {
         let item = &items[index];
         let visual_column = span.start + slot;
         let text = if rtl {
@@ -120,5 +119,32 @@ pub(crate) fn reorder_segment(
             continuation: false,
         };
         out.logical_to_visual[item.column] = visual_column;
+    }
+}
+
+fn ends_right_to_left(row: &[Cell], span: &Range<usize>) -> bool {
+    row[span.clone()]
+        .iter()
+        .rev()
+        .map(Cell::base)
+        .find(|c| is_strong(*c))
+        .is_some_and(is_rtl)
+}
+
+pub(crate) fn unreorder_segment(row: &[Cell], span: Range<usize>, out: &mut VisualRow) {
+    let items = plain_items(row, &span);
+    let base = if ends_right_to_left(row, &span) {
+        Level::rtl()
+    } else {
+        Level::ltr()
+    };
+    for (slot, (index, _)) in visual_order(row, &items, Some(base))
+        .into_iter()
+        .enumerate()
+    {
+        let item = &items[index];
+        let column = span.start + slot;
+        out.cells[column] = row[item.column].clone();
+        out.logical_to_visual[item.column] = column;
     }
 }

@@ -1,11 +1,28 @@
-use mirah_term::Emulator;
+use mirah_term::{Align, Emulator, InputOrder, RenderOptions, Shaping};
 use std::fmt::Write as _;
 use std::num::NonZeroU16;
+use std::path::Path;
 use std::path::PathBuf;
 
 const ROWS: u16 = 24;
 const COLS: u16 = 80;
 const UPDATE_ENV: &str = "MIRAH_UPDATE_SNAPSHOTS";
+const VISUAL_SUFFIX: &str = "-visual";
+
+fn options_for(vt: &Path) -> RenderOptions {
+    let visual = vt
+        .file_stem()
+        .is_some_and(|s| s.to_string_lossy().ends_with(VISUAL_SUFFIX));
+    if visual {
+        RenderOptions {
+            shaping: Shaping::Plain,
+            align: Align::Prose,
+            input: InputOrder::Visual,
+        }
+    } else {
+        RenderOptions::default()
+    }
+}
 
 fn sessions_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../corpus/sessions")
@@ -47,7 +64,8 @@ fn recorded_sessions_render_to_their_expected_screens() {
     sessions.sort();
     assert!(!sessions.is_empty());
     for vt in sessions {
-        let mut emulator = Emulator::new(ROWS, COLS).expect("valid size");
+        let mut emulator =
+            Emulator::with_options(ROWS, COLS, options_for(&vt)).expect("valid size");
         emulator.feed(&std::fs::read(&vt).expect("session is readable"));
         let got = host_screen(&emulator.frame());
         let expected_path = vt.with_extension("expected");

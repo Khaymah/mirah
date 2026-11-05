@@ -14,8 +14,10 @@ Environment:
                               right-align prose (default), Arabic only, or nothing
   MIRAH_SHAPING=full|plain    full: mirah joins letters (default)
                               plain: the terminal joins letters (Windows Terminal)
-  MIRAH_PASS_WT_SESSION=1     let the program see Windows Terminal (it may then
-                              reorder Arabic itself and mirah would reverse it)
+  MIRAH_INPUT=logical|visual  visual: the program already reorders Arabic itself
+                              (picked for Claude Code on Windows)
+  MIRAH_CONPTY=system         Windows: use the conpty that ships with Windows
+                              instead of the one bundled with mirah
   MIRAH_RECORD=<file>         save the program's raw output for bug reports
 
 https://github.com/Khaymah/mirah";

@@ -11,7 +11,8 @@
 | [RightAlign.md](RightAlign.md) | المحادثة من اليمين للشمال، والجداول، ووضع Windows Terminal (منفّذ في alpha.2) |
 | [Releasing.md](Releasing.md) | إزاي بنطلّع release (أوتوماتيك من الـ CI) |
 | [FakeCursor.md](FakeCursor.md) | تصليح المؤشر الوهمي جوه الكلام العربي (منفّذ) |
-| [ADR/0003-windows-first-releases-and-updates.md](ADR/0003-windows-first-releases-and-updates.md) | ويندوز أولوية، وreleases، وتحديث بإذن المستخدم (مقترح) |
+| [ADR/0003-windows-first-releases-and-updates.md](ADR/0003-windows-first-releases-and-updates.md) | ويندوز أولوية، وreleases، وتحديث بإذن المستخدم (مقبول) |
+| [ADR/0004-bundle-conpty-on-windows.md](ADR/0004-bundle-conpty-on-windows.md) | مرآة بتشيل نسخة ConPTY الجديدة جواها على ويندوز (مقبول) |
 | [WindowsAndReleases.md](WindowsAndReleases.md) | خطة ويندوز والـ releases والتحديث بالمهام |
 | [Roadmap.md](Roadmap.md) | المراحل والبوابات والمهام بالتفصيل |
 | [Progress/](Progress/README.md) | سجل الشغل اليومي |

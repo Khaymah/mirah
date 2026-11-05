@@ -11,6 +11,7 @@ const POLL: Duration = Duration::from_millis(50);
 const CURSOR_QUERY: &[u8] = b"\x1b[6n";
 const CURSOR_REPLY: &[u8] = b"\x1b[1;1R";
 const READ_BUFFER: usize = 4096;
+const BUNDLED_CONPTY: &str = "using the bundled conpty";
 
 #[cfg(windows)]
 const CHILD: [&str; 3] = ["cmd", "/c", "echo مرحبا& exit 3"];
@@ -107,6 +108,13 @@ fn restores_the_terminal_and_returns_the_child_exit_code() {
         "Arabic is shaped in visual order\n--- mirah log ---\n{}",
         mirah_log()
     );
+    if cfg!(windows) {
+        assert!(
+            mirah_log().contains(BUNDLED_CONPTY),
+            "the bundled conpty is loaded\n--- mirah log ---\n{}",
+            mirah_log()
+        );
+    }
     if cfg!(unix) {
         let entered = output.find(BDSM_EXPLICIT).expect("explicit bidi sent");
         let left = output.rfind(BDSM_IMPLICIT).expect("implicit bidi restored");

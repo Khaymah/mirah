@@ -80,7 +80,8 @@ With no command, mirah opens your shell.
 |---|---|---|
 | `MIRAH_ALIGN` | `prose` (default), `arabic`, `off` | Right-align prose (Arabic and English), Arabic only, or nothing |
 | `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
-| `MIRAH_PASS_WT_SESSION` | `1` | mirah hides `WT_SESSION` from the program so Claude does not reorder Arabic itself and get reversed twice. `1` keeps it |
+| `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it, so mirah first puts it back in logical order. Picked automatically for Claude Code on Windows |
+| `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
 | `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
 | `MIRAH_LOG` | `debug` | Writes a log file | To see what happens inside without printing anything to the screen:
 
@@ -99,7 +100,7 @@ The log is written to `~/.local/state/mirah/mirah.log`.
 | Kitty · Alacritty · Ghostty | ❌ | Not needed | Reorders and joins letters |
 | VS Code · Cursor (xterm.js) | ❌ | Not needed | Reorders and joins letters |
 | Konsole | ✅ | ❌ | ⚠️ Text is reversed twice. Turn off bidi in Konsole's settings |
-| Windows Terminal | ❌ | | ❌ Windows is not supported yet |
+| Windows Terminal | ❌ | Not needed | ⚠️ Experimental: reorders, and the terminal joins letters |
 
 > This table comes from [research](Plan/MarketResearch.md) and published reports, not from testing every terminal. If you test one, please add your result.
 
@@ -111,7 +112,7 @@ You need a font with **Arabic Presentation Forms-B**, such as DejaVu Sans Mono.
 - **Copying:** selecting text with the mouse copies shaped letters in visual order. A mirah copy mode will fix this.
 - **Mouse:** clicks on Arabic text land on the logical position.
 - **Scrollback:** mirah runs on the alternate screen, so text that scrolled off the top does not come back.
-- **Windows** is not supported yet.
+- **Windows** is still experimental. mirah bundles a newer ConPTY (from Microsoft, MIT licensed) and extracts it to `%LOCALAPPDATA%\mirah\conpty\` on first run. See [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md) (Arabic).
 
 ## How it works
 

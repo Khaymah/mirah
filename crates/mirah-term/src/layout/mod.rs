@@ -1,6 +1,7 @@
 mod align;
 mod classify;
 mod table;
+mod visual;
 
 use classify::Kind;
 use mirah_bidi::{BidiOptions, Cell, Shaping, VisualRow, visual_row_with};
@@ -14,11 +15,20 @@ pub enum Align {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InputOrder {
+    #[default]
+    Logical,
+    Visual,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RenderOptions {
     pub shaping: Shaping,
     pub align: Align,
+    pub input: InputOrder,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Cursor {
     pub(crate) row: usize,
     pub(crate) col: usize,
@@ -27,15 +37,24 @@ pub(crate) struct Cursor {
 }
 
 pub(crate) fn layout(
-    logical: Vec<Vec<Cell>>,
+    rows: Vec<Vec<Cell>>,
     cursor: &Cursor,
     options: RenderOptions,
 ) -> Vec<VisualRow> {
-    let logical = if options.align == Align::Off {
-        logical
-    } else {
-        table::mirror_rtl_tables(logical)
-    };
+    match options.input {
+        InputOrder::Logical => {
+            let logical = if options.align == Align::Off {
+                rows
+            } else {
+                table::mirror_rtl_tables(rows)
+            };
+            arrange(logical, cursor, options)
+        }
+        InputOrder::Visual => visual::layout(rows, cursor, options),
+    }
+}
+
+fn arrange(logical: Vec<Vec<Cell>>, cursor: &Cursor, options: RenderOptions) -> Vec<VisualRow> {
     let mut visual: Vec<VisualRow> = logical
         .iter()
         .enumerate()

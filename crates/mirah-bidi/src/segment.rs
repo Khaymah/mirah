@@ -81,6 +81,16 @@ impl Row<'_> {
         }
         start..end
     }
+
+    pub(crate) fn trim_attached(&self, span: Range<usize>) -> Range<usize> {
+        let floor = span.start;
+        let trimmed = self.trim(span);
+        let mut start = trimmed.start;
+        while start > floor && !self.cells[start - 1].is_blank() {
+            start -= 1;
+        }
+        start..trimmed.end
+    }
 }
 
 #[cfg(test)]
@@ -132,6 +142,18 @@ mod tests {
     fn trim_skips_leading_neutrals_and_trailing_blanks() {
         let r = row("> ab  ");
         assert_eq!(trim(&r, 0..r.len()), 2..4);
+    }
+
+    #[test]
+    fn attached_trim_keeps_punctuation_touching_the_text() {
+        let r = row("> )ab( ");
+        let span = 0..r.len();
+        assert_eq!(trim(&r, span.clone()), 3..6);
+        let layout = Row {
+            cells: &r,
+            cursor: None,
+        };
+        assert_eq!(layout.trim_attached(span), 2..6);
     }
 
     #[test]

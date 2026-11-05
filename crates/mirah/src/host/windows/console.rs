@@ -1,6 +1,6 @@
 #![allow(
     unsafe_code,
-    reason = "GetConsoleMode and SetConsoleMode have no safe wrapper; this is the only unsafe code in mirah"
+    reason = "GetConsoleMode and SetConsoleMode have no safe wrapper"
 )]
 
 use std::sync::Mutex;
@@ -26,7 +26,7 @@ fn set_mode(handle: HANDLE, mode: CONSOLE_MODE) -> bool {
     unsafe { SetConsoleMode(handle, mode) != 0 }
 }
 
-pub(super) fn enable_virtual_terminal() {
+pub(crate) fn enable_virtual_terminal() {
     let Ok(mut saved) = SAVED_MODES.lock() else {
         return;
     };
@@ -49,7 +49,7 @@ pub(super) fn enable_virtual_terminal() {
     }
 }
 
-pub(super) fn restore_console_modes() {
+pub(crate) fn restore_console_modes() {
     let Ok(mut saved) = SAVED_MODES.lock() else {
         return;
     };

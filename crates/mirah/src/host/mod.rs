@@ -2,16 +2,16 @@
 mod windows;
 
 use anyhow::{Context, Result};
-use mirah_term::{Align, RenderOptions, Shaping, sequences};
+use mirah_term::{Align, InputOrder, RenderOptions, Shaping, sequences};
+use std::ffi::OsStr;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 const SHAPING_ENV: &str = "MIRAH_SHAPING";
 const ALIGN_ENV: &str = "MIRAH_ALIGN";
+const INPUT_ENV: &str = "MIRAH_INPUT";
 const WINDOWS_TERMINAL_ENV: &str = "WT_SESSION";
-const PASS_WINDOWS_TERMINAL_ENV: &str = "MIRAH_PASS_WT_SESSION";
-const TERM_ENV: &str = "TERM";
-const UNICODE_TERM: &str = "xterm-256color";
+const SELF_REORDERING_ON_WINDOWS: &[&str] = &["claude"];
 const FALLBACK_COLS: u16 = 80;
 const FALLBACK_ROWS: u16 = 24;
 
@@ -63,23 +63,39 @@ fn align() -> Align {
     }
 }
 
-pub(crate) fn prepare_child(cmd: &mut portable_pty::CommandBuilder) {
-    let in_windows_terminal = std::env::var_os(WINDOWS_TERMINAL_ENV).is_some();
-    let pass = std::env::var(PASS_WINDOWS_TERMINAL_ENV).is_ok_and(|v| v == "1");
-    if !in_windows_terminal || pass {
-        return;
+fn input_order(program: &OsStr) -> InputOrder {
+    match std::env::var(INPUT_ENV).as_deref() {
+        Ok("logical") => InputOrder::Logical,
+        Ok("visual") => InputOrder::Visual,
+        Ok(other) => {
+            tracing::warn!(value = other, "unknown MIRAH_INPUT, detecting instead");
+            detected_input_order(program, cfg!(windows))
+        }
+        Err(_) => detected_input_order(program, cfg!(windows)),
     }
-    cmd.env_remove(WINDOWS_TERMINAL_ENV);
-    if std::env::var_os(TERM_ENV).is_none() {
-        cmd.env(TERM_ENV, UNICODE_TERM);
-    }
-    tracing::info!("hid WT_SESSION from the child so it does not reorder text itself");
 }
 
-pub(crate) fn render_options() -> RenderOptions {
+fn detected_input_order(program: &OsStr, windows: bool) -> InputOrder {
+    let program = program.to_string_lossy().to_lowercase();
+    let name = program.rsplit(['/', '\\']).next().unwrap_or_default();
+    let stem = name.split('.').next().unwrap_or_default();
+    if windows && SELF_REORDERING_ON_WINDOWS.contains(&stem) {
+        InputOrder::Visual
+    } else {
+        InputOrder::Logical
+    }
+}
+
+pub(crate) fn prepare_pty() {
+    #[cfg(windows)]
+    windows::install_conpty();
+}
+
+pub(crate) fn render_options(program: &OsStr) -> RenderOptions {
     RenderOptions {
         shaping: shaping(),
         align: align(),
+        input: input_order(program),
     }
 }
 
@@ -126,4 +142,37 @@ pub(crate) fn install_panic_hook() {
         restore();
         previous(info);
     }));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn claude_on_windows_sends_visual_text() {
+        for program in [
+            "claude",
+            "claude.exe",
+            "C:\\npm\\Claude.cmd",
+            "/usr/bin/claude",
+        ] {
+            assert_eq!(
+                detected_input_order(OsStr::new(program), true),
+                InputOrder::Visual,
+                "{program}"
+            );
+        }
+    }
+
+    #[test]
+    fn other_programs_and_other_systems_send_logical_text() {
+        assert_eq!(
+            detected_input_order(OsStr::new("codex"), true),
+            InputOrder::Logical
+        );
+        assert_eq!(
+            detected_input_order(OsStr::new("claude"), false),
+            InputOrder::Logical
+        );
+    }
 }

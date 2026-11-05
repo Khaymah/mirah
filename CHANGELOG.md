@@ -2,6 +2,16 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.4 - 2026-11-05
+
+تصليحات من تجربة alpha.3 على ويندوز.
+
+- **السطور البايظة على ويندوز** (زي `│└──drwxr-xr-x┴1─PC`) كان مصدرها ConPTY القديم اللي جوه ويندوز، مش مرآة. مرآة بقت بتشيل جواها النسخة الأحدث من ConPTY (`conpty.dll` و`OpenConsole.exe` من Microsoft، بترخيص MIT)، وبتفكّها في `%LOCALAPPDATA%\mirah\conpty\` أول مرة. ولو عايز ترجع للقديم: `MIRAH_CONPTY=system`. التفاصيل في [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md).
+- **Claude Code على ويندوز بيرتّب العربي بنفسه دايماً**، حتى من غير `WT_SESSION`. فمرآة بقت بتعرف إن الكلام جاي بترتيب مرئي، وبترجّعه للترتيب المنطقي الأول، وبعدين بتحاذيه يمين زي أي ترمنال تاني. وكمان الأقواس بقت بتتعكس صح. الوضع ده بيتختار لوحده لـ Claude Code على ويندوز، وممكن تغيّره بـ `MIRAH_INPUT=logical|visual`.
+- **اتشال إخفاء `WT_SESSION`** و`MIRAH_PASS_WT_SESSION`، لأنهم كانوا مبنيين على فرضية غلط.
+
+**English:** Fixes from the alpha.3 Windows test. The broken rows on Windows came from the old ConPTY that ships with Windows, not from mirah, so mirah now bundles Microsoft's newer ConPTY (`conpty.dll` and `OpenConsole.exe`, MIT licensed) and extracts it to `%LOCALAPPDATA%\mirah\conpty\` on first run (`MIRAH_CONPTY=system` goes back to the old one). Claude Code on Windows always reorders Arabic itself, so mirah now recognizes visual-order input, puts it back in logical order, then right-aligns it as on any other terminal, with brackets mirrored correctly. This is picked automatically for Claude Code on Windows and can be set with `MIRAH_INPUT=logical|visual`. Hiding `WT_SESSION` and `MIRAH_PASS_WT_SESSION` were removed because they rested on a wrong assumption.
+
 ## 0.1.0-alpha.3 - 2026-11-05
 
 تصليحات من أول تجربة حقيقية على Windows Terminal.
