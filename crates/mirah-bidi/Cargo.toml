@@ -1,0 +1,21 @@
+[package]
+name = "mirah-bidi"
+description = "Bidi reordering and Arabic shaping for terminal cell rows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+unicode-bidi.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "visual_row"
+harness = false
+
+[lints]
+workspace = true

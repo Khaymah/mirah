@@ -1,0 +1,20 @@
+[package]
+name = "mirah-term"
+description = "Terminal model for mirah: VT bytes in, bidi-correct frames out"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mirah-bidi.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+vt100.workspace = true
+
+[dev-dependencies]
+vt100.workspace = true
+
+[lints]
+workspace = true

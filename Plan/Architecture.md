@@ -25,6 +25,8 @@ flowchart LR
 
 ## المكونات
 
+> كل مكوّن موجود فين في الكود: `Plan/ADR/0002-cargo-workspace-layout.md`. باختصار: الـ Segmenter والـ Bidi والـ Shaper والـ Cell Map في `crates/mirah-bidi`. الـ VT Parser والـ Diff Renderer وأسئلة الترمنال في `crates/mirah-term`. الـ PTY Host والـ Input والـ logging في `crates/mirah`.
+
 | المكوّن | المسؤولية | المكتبة | ملاحظات |
 |---|---|---|---|
 | PTY Host | يشغّل البرنامج، ويوصّل SIGWINCH والـ resize، ويرجّع الـ exit code | `portable-pty` | ConPTY على Windows في مرحلة متأخرة |
@@ -115,7 +117,7 @@ flowchart LR
 
 **التوصية: Rust.** الـ stack الافتراضي (Bun/Hono) معمول للويب، والأداة دي terminal native. Rust هي اللغة الوحيدة اللي بتجمع binary واحد ومكتبة VT ناضجة ومكتبة bidi كاملة، وده كمان اللي يميّزها عن `agent-rtl` المبنية على Node.
 
-> القرار الكامل والبدائل في `Plan/ADR/0001-Stack.md`.
+> القرار الكامل والبدائل في `Plan/ADR/0001-rust-as-language.md`.
 
 ## المخاطر التقنية بالترتيب
 

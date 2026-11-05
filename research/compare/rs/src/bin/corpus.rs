@@ -1,15 +1,12 @@
-#[path = "../../../../../src/shape.rs"]
-mod shape;
-#[path = "../../../../../src/segment.rs"]
-mod segment;
+use mirah_bidi as segment;
 
 fn main() {
     let data = std::fs::read_to_string(std::env::args().nth(1).unwrap_or_default()).unwrap_or_default();
     let rows: Vec<Vec<segment::Cell>> = data
         .lines()
         .map(|l| {
-            let mut v: Vec<segment::Cell> = l.chars().map(|c| segment::Cell { text: c.to_string(), ..Default::default() }).collect();
-            v.resize(80, segment::Cell { text: " ".into(), ..Default::default() });
+            let mut v: Vec<segment::Cell> = l.chars().map(|c| segment::Cell::plain(c.to_string())).collect();
+            v.resize(80, segment::Cell::plain(" "));
             v
         })
         .collect();

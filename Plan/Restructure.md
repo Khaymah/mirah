@@ -1,6 +1,8 @@
 # خطة إعادة الهيكلة: من crate واحد لـ workspace
 
 > القرار وأسبابه في `Plan/ADR/0002-cargo-workspace-layout.md`. الملف ده فيه **التنفيذ** بس.
+> **الحالة: اتنفّذت (2026-11-05).** التغييرات اللي حصلت عن الخطة مكتوبة في آخر الملف.
+>
 > القاعدة: **مفيش تغيير في السلوك.** أي feature جديدة (المؤشر الوهمي، copy mode، `doctor`) مش جوه الخطة دي.
 
 ## الشكل المستهدف
@@ -77,7 +79,7 @@ mirah/
 | `src/bridge.rs` | `crates/mirah-term/src/bridge/*` |
 | `src/main.rs` (ENTER وLEAVE والثوابت) | `crates/mirah-term/src/sequences.rs` |
 | `src/main.rs` (الباقي) | `crates/mirah/src/*` |
-| `Plan/ADR/0001-Stack.md` | `Plan/ADR/0001-rust-as-language.md`، عشان التسمية تمشي على `Decisions/README.md` |
+| `Plan/ADR/0001-rust-as-language.md` | `Plan/ADR/0001-rust-as-language.md`، عشان التسمية تمشي على `Decisions/README.md` |
 
 ## الثوابت اللي هتاخد أسماء
 
@@ -232,3 +234,13 @@ print_stderr = "warn"
 - `mirah doctor` وflags زي `--no-bdsm`، وأماكنها `command.rs` و`doctor.rs` لما ييجي وقتها.
 - copy mode وOSC 52 من عندنا.
 - Windows ConPTY.
+
+## التغييرات اللي حصلت وقت التنفيذ
+
+| البند | الخطة | اللي حصل | السبب |
+|---|---|---|---|
+| R3.2: exit code لما البرنامج يموت بـ signal | 128+n | فضل 1 زي القديم، واسم الـ signal بيتسجّل في الـ log | `portable-pty` بيرجّع اسم الـ signal كنص وصفي (`strsignal`)، مش رقم |
+| آخر frame | مفيش تغيير | **اتصلح bug:** الـ frame الأخير بيترسم قبل الخروج | لو البرنامج طبع حاجة وخرج على طول، كان آخر output بيضيع. اختبار `tests/run.rs` اكتشفه |
+| `research/` | يعتمد على `mirah-bidi` | اتعمل كده، واتضاف `exclude = ["research"]` للـ workspace | crates الـ research ليها `Cargo.lock` لوحدها |
+| `research/compare/record.py` | | **اتصلح bug** في ترميز الحروف العربية اللي بتتكتب كـ keystrokes | `unicode_escape` كان بيبوّظ UTF-8 |
+| حجم الـ binary | | زاد من 0.93 لـ 2.0 MB | `tracing` و`tracing-subscriber` |

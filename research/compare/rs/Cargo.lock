@@ -12,6 +12,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 name = "conf"
 version = "0.0.1"
 dependencies = [
+ "mirah-bidi",
  "unicode-bidi",
  "vt100",
 ]
@@ -27,6 +28,13 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "mirah-bidi"
+version = "0.0.1"
+dependencies = [
+ "unicode-bidi",
+]
 
 [[package]]
 name = "unicode-bidi"

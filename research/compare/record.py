@@ -1,5 +1,5 @@
 import os, pty, sys, time, select, fcntl, termios, struct, re
-out, keys, secs, argv = sys.argv[1], sys.argv[2].encode().decode('unicode_escape').encode('utf-8', 'surrogatepass'), float(sys.argv[3]), sys.argv[4:]
+out, keys, secs, argv = sys.argv[1], sys.argv[2].replace('\\r', '\r').encode('utf-8'), float(sys.argv[3]), sys.argv[4:]
 pid, fd = pty.fork()
 if pid == 0:
     os.environ['TERM'] = 'xterm-256color'; os.environ['COLUMNS']='80'; os.environ['LINES']='24'

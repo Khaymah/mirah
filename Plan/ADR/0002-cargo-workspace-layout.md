@@ -1,6 +1,6 @@
 # ADR-0002: تقسيم مرآة لـ Cargo workspace من 3 crates
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-05)
 - **Date:** 2026-11-05
 - **Deciders:** المالك (Sabry Dawood)
 - **Project:** mirah
