@@ -9,6 +9,8 @@
 | [Restructure.md](Restructure.md) | خطة إعادة الهيكلة بالمهام |
 | [Research/RustVsGo.md](Research/RustVsGo.md) | المقارنة العملية بين Rust وGo |
 | [FakeCursor.md](FakeCursor.md) | تصليح المؤشر الوهمي جوه الكلام العربي (منفّذ) |
+| [ADR/0003-windows-first-releases-and-updates.md](ADR/0003-windows-first-releases-and-updates.md) | ويندوز أولوية، وreleases، وتحديث بإذن المستخدم (مقترح) |
+| [WindowsAndReleases.md](WindowsAndReleases.md) | خطة ويندوز والـ releases والتحديث بالمهام |
 | [Roadmap.md](Roadmap.md) | المراحل والبوابات والمهام بالتفصيل |
 | [Progress/](Progress/README.md) | سجل الشغل اليومي |
 
