@@ -53,7 +53,15 @@ pub(crate) fn run(cmd: CommandBuilder) -> Result<u32> {
     }
     let code = life.code.unwrap_or(UNKNOWN_EXIT);
     tracing::info!(code, output_closed = life.output_closed, "session ended");
+    close_in_background(pty);
     Ok(code)
+}
+
+fn close_in_background(pty: Pty) {
+    std::thread::spawn(move || {
+        drop(pty);
+        tracing::debug!("pty closed");
+    });
 }
 
 fn next_event(inbox: &Receiver<Event>, life: &Lifecycle) -> Option<Event> {
