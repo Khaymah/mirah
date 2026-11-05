@@ -26,7 +26,8 @@ struct Lifecycle {
     output_closed: bool,
 }
 
-pub(crate) fn run(cmd: CommandBuilder) -> Result<u32> {
+pub(crate) fn run(mut cmd: CommandBuilder) -> Result<u32> {
+    host::prepare_child(&mut cmd);
     let size = host::size();
     let (pty, child) = Pty::spawn(cmd, size)?;
     let (events, inbox) = mpsc::channel();

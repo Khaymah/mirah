@@ -9,6 +9,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const SHAPING_ENV: &str = "MIRAH_SHAPING";
 const ALIGN_ENV: &str = "MIRAH_ALIGN";
 const WINDOWS_TERMINAL_ENV: &str = "WT_SESSION";
+const PASS_WINDOWS_TERMINAL_ENV: &str = "MIRAH_PASS_WT_SESSION";
+const TERM_ENV: &str = "TERM";
+const UNICODE_TERM: &str = "xterm-256color";
 const FALLBACK_COLS: u16 = 80;
 const FALLBACK_ROWS: u16 = 24;
 
@@ -31,7 +34,7 @@ pub(crate) fn size() -> TerminalSize {
 fn shaping() -> Shaping {
     match std::env::var(SHAPING_ENV).as_deref() {
         Ok("full") => Shaping::Full,
-        Ok("words") => Shaping::Words,
+        Ok("plain") => Shaping::Plain,
         Ok(other) => {
             tracing::warn!(value = other, "unknown MIRAH_SHAPING, detecting instead");
             detected_shaping()
@@ -42,7 +45,7 @@ fn shaping() -> Shaping {
 
 fn detected_shaping() -> Shaping {
     if std::env::var_os(WINDOWS_TERMINAL_ENV).is_some() {
-        Shaping::Words
+        Shaping::Plain
     } else {
         Shaping::Full
     }
@@ -58,6 +61,19 @@ fn align() -> Align {
             Align::Prose
         }
     }
+}
+
+pub(crate) fn prepare_child(cmd: &mut portable_pty::CommandBuilder) {
+    let in_windows_terminal = std::env::var_os(WINDOWS_TERMINAL_ENV).is_some();
+    let pass = std::env::var(PASS_WINDOWS_TERMINAL_ENV).is_ok_and(|v| v == "1");
+    if !in_windows_terminal || pass {
+        return;
+    }
+    cmd.env_remove(WINDOWS_TERMINAL_ENV);
+    if std::env::var_os(TERM_ENV).is_none() {
+        cmd.env(TERM_ENV, UNICODE_TERM);
+    }
+    tracing::info!("hid WT_SESSION from the child so it does not reorder text itself");
 }
 
 pub(crate) fn render_options() -> RenderOptions {

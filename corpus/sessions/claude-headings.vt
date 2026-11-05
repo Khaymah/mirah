@@ -1,0 +1,12 @@
+[?25l  [1m[97m5. Type System و Error Handling[m
+  Rust أغنى بمراحل، وده سلاح وعبء في نفس الوقت.
+
+  - [1m[97mGo:[m interfaces ضمنية (implicit)، generics محدودة.
+
+  [34mfor[m t [34min[m tasks {
+      [33mOk[m((u, n)) => [36mprintln![m("{u}"),
+  }
+  https://a.com -> 1256
+  failed: error sending request for url (https://c.com)
+
+  نفسه الكود من الخلاصة

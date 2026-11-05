@@ -12,8 +12,10 @@ Environment:
   MIRAH_LOG=debug             write a log file (never to the terminal)
   MIRAH_ALIGN=prose|arabic|off
                               right-align prose (default), Arabic only, or nothing
-  MIRAH_SHAPING=full|words    full: mirah joins letters (default)
-                              words: the terminal joins letters (Windows Terminal)
+  MIRAH_SHAPING=full|plain    full: mirah joins letters (default)
+                              plain: the terminal joins letters (Windows Terminal)
+  MIRAH_PASS_WT_SESSION=1     let the program see Windows Terminal (it may then
+                              reorder Arabic itself and mirah would reverse it)
   MIRAH_RECORD=<file>         save the program's raw output for bug reports
 
 https://github.com/Khaymah/mirah";

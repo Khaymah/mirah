@@ -8,6 +8,15 @@ const CODE_CHAR_RATIO: f32 = 0.12;
 const CODE_CHARS: &str = "{}[]();=<>&|$`\\_#";
 const COLORED_RATIO: f32 = 0.5;
 const MIN_LETTERS: usize = 2;
+const WHITE: u8 = 7;
+const BRIGHT_WHITE: u8 = 15;
+
+fn is_syntax_color(color: Color) -> bool {
+    !matches!(
+        color,
+        Color::Default | Color::Indexed(WHITE) | Color::Indexed(BRIGHT_WHITE)
+    )
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -57,7 +66,7 @@ fn looks_like_code(row: &[Cell]) -> bool {
     let total = content.len() as f32;
     let colored = content
         .iter()
-        .filter(|c| c.style.fg != Color::Default)
+        .filter(|c| is_syntax_color(c.style.fg))
         .count() as f32;
     let highlighted = content.iter().any(|c| c.style.bg != Color::Default);
     let code_chars = content
@@ -89,13 +98,40 @@ fn is_prose(row: &[Cell]) -> bool {
     letters >= MIN_LETTERS && !looks_like_code(row) && !has_gap(row)
 }
 
+fn is_empty_row(row: &[Cell]) -> bool {
+    row.iter().all(is_blank)
+}
+
+fn rows_in_code_blocks(logical: &[Vec<Cell>]) -> Vec<bool> {
+    let mut in_code = vec![false; logical.len()];
+    let mut start = 0;
+    while start < logical.len() {
+        if is_empty_row(&logical[start]) {
+            start += 1;
+            continue;
+        }
+        let end = (start..logical.len())
+            .find(|&i| is_empty_row(&logical[i]))
+            .unwrap_or(logical.len());
+        if logical[start..end].iter().any(|row| looks_like_code(row)) {
+            for (i, row) in logical.iter().enumerate().take(end).skip(start) {
+                in_code[i] = !has_rtl(row);
+            }
+        }
+        start = end;
+    }
+    in_code
+}
+
 pub(super) fn classify(logical: &[Vec<Cell>], cursor: &Cursor, align: Align) -> Vec<Kind> {
     let input = input_row(logical, cursor);
+    let in_code = rows_in_code_blocks(logical);
     let prose: Vec<bool> = logical
         .iter()
         .enumerate()
         .map(|(i, row)| {
             !input.is_some_and(|r| i >= r)
+                && !in_code[i]
                 && !row.iter().any(|c| is_frame(base(c)))
                 && is_prose(row)
         })

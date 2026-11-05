@@ -1,4 +1,4 @@
-use mirah_bidi::{Cell, Shaping, Style, visual_row_with};
+use mirah_bidi::{BidiOptions, Cell, Shaping, Style, visual_row_with};
 use std::path::PathBuf;
 
 struct Case {
@@ -49,17 +49,24 @@ fn render(case: &Case, shaping: Shaping) -> String {
             ..Style::default()
         };
     }
-    visual_row_with(&row, None, shaping)
-        .cells
-        .iter()
-        .map(|c| {
-            if c.style.inverse {
-                format!("[{}]", c.text)
-            } else {
-                c.text.clone()
-            }
-        })
-        .collect()
+    visual_row_with(
+        &row,
+        None,
+        BidiOptions {
+            shaping,
+            rtl_base: false,
+        },
+    )
+    .cells
+    .iter()
+    .map(|c| {
+        if c.style.inverse {
+            format!("[{}]", c.text)
+        } else {
+            c.text.clone()
+        }
+    })
+    .collect()
 }
 
 #[test]
@@ -76,8 +83,8 @@ fn every_row_in_the_corpus_matches_its_expected_visual_form() {
         let data = std::fs::read_to_string(&file).expect("corpus file is UTF-8");
         let words = file
             .file_name()
-            .is_some_and(|n| n.to_string_lossy().starts_with("words"));
-        let shaping = if words { Shaping::Words } else { Shaping::Full };
+            .is_some_and(|n| n.to_string_lossy().starts_with("plain"));
+        let shaping = if words { Shaping::Plain } else { Shaping::Full };
         for case in parse(&data) {
             let got = render(&case, shaping);
             if got != case.expected {

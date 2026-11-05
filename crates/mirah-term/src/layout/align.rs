@@ -1,6 +1,5 @@
 use super::classify::{base, is_blank, is_frame, is_rtl};
 use mirah_bidi::{Cell, VisualRow};
-use unicode_bidi::{BidiClass, bidi_class};
 
 const MARKERS: [char; 12] = ['●', '•', '◦', '▪', '■', '○', '·', '-', '*', '⏺', '❯', '>'];
 const FRAME_PADDING: usize = 1;
@@ -25,12 +24,8 @@ pub(super) fn has_marker(row: &[Cell], indent: usize) -> bool {
     marker_len(row, indent) > 0
 }
 
-fn first_strong_is_rtl(cells: &[Cell]) -> bool {
-    cells
-        .iter()
-        .flat_map(|c| c.text.chars())
-        .find(|c| matches!(bidi_class(*c), BidiClass::L | BidiClass::R | BidiClass::AL))
-        .is_some_and(is_rtl)
+fn has_rtl(cells: &[Cell]) -> bool {
+    cells.iter().any(|c| c.text.chars().any(is_rtl))
 }
 
 fn place(visual: &mut VisualRow, order: &[usize], start: usize) {
@@ -66,7 +61,7 @@ pub(super) fn align_prose(logical: &[Cell], visual: &mut VisualRow) {
     if total > end {
         return;
     }
-    let order: Vec<usize> = if first_strong_is_rtl(&logical[body_start..=last]) {
+    let order: Vec<usize> = if has_rtl(&logical[body_start..=last]) {
         body.into_iter().chain(markers.into_iter().rev()).collect()
     } else {
         markers.into_iter().chain(body).collect()

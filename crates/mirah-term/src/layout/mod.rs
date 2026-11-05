@@ -3,7 +3,7 @@ mod classify;
 mod table;
 
 use classify::Kind;
-use mirah_bidi::{Cell, Shaping, VisualRow, visual_row_with};
+use mirah_bidi::{BidiOptions, Cell, Shaping, VisualRow, visual_row_with};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Align {
@@ -41,7 +41,11 @@ pub(crate) fn layout(
         .enumerate()
         .map(|(i, row)| {
             let col = (cursor.visible && i == cursor.row).then_some(cursor.col);
-            visual_row_with(row, col, options.shaping)
+            let bidi = BidiOptions {
+                shaping: options.shaping,
+                rtl_base: options.align != Align::Off,
+            };
+            visual_row_with(row, col, bidi)
         })
         .collect();
     if options.align == Align::Off {

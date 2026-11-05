@@ -79,7 +79,8 @@ With no command, mirah opens your shell.
 | Variable | Values | What it does |
 |---|---|---|
 | `MIRAH_ALIGN` | `prose` (default), `arabic`, `off` | Right-align prose (Arabic and English), Arabic only, or nothing |
-| `MIRAH_SHAPING` | `full`, `words` | `full`: mirah joins letters. `words`: the terminal joins them, picked automatically in Windows Terminal |
+| `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
+| `MIRAH_PASS_WT_SESSION` | `1` | mirah hides `WT_SESSION` from the program so Claude does not reorder Arabic itself and get reversed twice. `1` keeps it |
 | `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
 | `MIRAH_LOG` | `debug` | Writes a log file | To see what happens inside without printing anything to the screen:
 

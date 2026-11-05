@@ -1,8 +1,8 @@
 L|مرحبا، افتح الملف src/main.rs في السطر 42
-V|42 السطر في src/main.rs الملف افتح مرحبا،
+V|42 رطسلا يف src/main.rs فلملا حتفا ،ابحرم
 L|│ مرحبا بك في Claude Code  │  status: جاهز
-V|│ Claude Code في بك مرحبا  │  status: جاهز
+V|│ Claude Code يف كب ابحرم  │  status: زهاج
 L|hello world
 V|hello world
 L|> اكتب ملف main.rs
-V|> main.rs ملف اكتب
+V|> main.rs فلم بتكا
