@@ -109,7 +109,7 @@ flowchart LR
 | iTerm2 3.7 | macOS | ✅ شغال افتراضياً | ✅ | ✅ (من nightly 2026-10-01) |
 | WezTerm | الكل | ⚠️ تجريبي | ؟ | ؟ |
 | Kitty · Alacritty · Ghostty | الكل | ❌ | ❌ أو جزئي | مش محتاجين |
-| Windows Terminal | Windows | ❌ | ⚠️ (PR 20159) | مش محتاج |
+| Windows Terminal | Windows | ⚠️ **بيقلب الحروف جوه كل كلمة بس** (اتأكدنا منه بتجربة المالك في 2026-11-05) | ✅ | مش محتاج |
 | xterm.js (VS Code / Cursor) | الكل | ❌ | ❌ | مش محتاج |
 | Terminal.app | macOS | ⚠️ | ✅ | ؟ |
 
