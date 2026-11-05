@@ -5,6 +5,9 @@
 | [MarketResearch.md](MarketResearch.md) | بحث السوق والطلب والمنافسين وجدول الترمنالات والقرار |
 | [Architecture.md](Architecture.md) | المعمارية والرسومات والمخاطر التقنية |
 | [ADR/0001-Stack.md](ADR/0001-Stack.md) | ليه Rust |
+| [ADR/0002-cargo-workspace-layout.md](ADR/0002-cargo-workspace-layout.md) | تقسيم المشروع لـ 3 crates (مقترح) |
+| [Restructure.md](Restructure.md) | خطة إعادة الهيكلة بالمهام |
+| [Research/RustVsGo.md](Research/RustVsGo.md) | المقارنة العملية بين Rust وGo |
 | [Roadmap.md](Roadmap.md) | المراحل والبوابات والمهام بالتفصيل |
 | [Progress/](Progress/README.md) | سجل الشغل اليومي |
 
