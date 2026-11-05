@@ -1,5 +1,4 @@
 use crate::cell::{Cell, Style, VisualRow};
-use crate::classify::{is_rtl, is_strong};
 use crate::mirror::mirror;
 use crate::shape::{Shaped, shape};
 use crate::{BidiOptions, Shaping};
@@ -14,8 +13,13 @@ struct Item {
     style: Style,
 }
 
+fn width(row: &[Cell], column: usize) -> usize {
+    if row[column].wide { 2 } else { 1 }
+}
+
 fn plain_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
     span.clone()
+        .filter(|&column| !row[column].continuation)
         .map(|column| Item {
             column,
             glyph: row[column].text.clone(),
@@ -31,6 +35,9 @@ fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
     let mut pads = Vec::new();
     for (offset, glyph) in shaped.iter().enumerate() {
         let column = span.start + offset;
+        if row[column].continuation {
+            continue;
+        }
         match glyph {
             Shaped::Glyph(glyph) => {
                 let mut style = row[column].style;
@@ -65,14 +72,14 @@ fn bidi_char(row: &[Cell], item: &Item) -> char {
     }
 }
 
-fn visual_order(row: &[Cell], items: &[Item], base: Option<Level>) -> Vec<(usize, bool)> {
+fn visual_order(row: &[Cell], items: &[Item], rtl_base: bool) -> Vec<(usize, bool)> {
     let mut text = String::new();
     let mut starts = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
         starts.push((text.len(), index));
         text.push(bidi_char(row, item));
     }
-    let info = BidiInfo::new(&text, base);
+    let info = BidiInfo::new(&text, rtl_base.then(Level::rtl));
     let Some(para) = info.paragraphs.first() else {
         return Vec::new();
     };
@@ -103,48 +110,26 @@ pub(crate) fn reorder_segment(
         Shaping::Full => shaped_items(row, &span),
         Shaping::Plain => plain_items(row, &span),
     };
-    let base = options.rtl_base.then(Level::rtl);
-    for (slot, (index, rtl)) in visual_order(row, &items, base).into_iter().enumerate() {
+    let mut visual_column = span.start;
+    for (index, rtl) in visual_order(row, &items, options.rtl_base) {
         let item = &items[index];
-        let visual_column = span.start + slot;
         let text = if rtl {
             item.glyph.chars().map(mirror).collect()
         } else {
             item.glyph.clone()
         };
+        let wide = item.glyph != PAD && row[item.column].wide;
         out.cells[visual_column] = Cell {
             text,
             style: item.style,
-            wide: false,
+            wide,
             continuation: false,
         };
         out.logical_to_visual[item.column] = visual_column;
-    }
-}
-
-fn ends_right_to_left(row: &[Cell], span: &Range<usize>) -> bool {
-    row[span.clone()]
-        .iter()
-        .rev()
-        .map(Cell::base)
-        .find(|c| is_strong(*c))
-        .is_some_and(is_rtl)
-}
-
-pub(crate) fn unreorder_segment(row: &[Cell], span: Range<usize>, out: &mut VisualRow) {
-    let items = plain_items(row, &span);
-    let base = if ends_right_to_left(row, &span) {
-        Level::rtl()
-    } else {
-        Level::ltr()
-    };
-    for (slot, (index, _)) in visual_order(row, &items, Some(base))
-        .into_iter()
-        .enumerate()
-    {
-        let item = &items[index];
-        let column = span.start + slot;
-        out.cells[column] = row[item.column].clone();
-        out.logical_to_visual[item.column] = column;
+        if wide {
+            out.cells[visual_column + 1] = row[item.column + 1].clone();
+            out.logical_to_visual[item.column + 1] = visual_column + 1;
+        }
+        visual_column += if wide { width(row, item.column) } else { 1 };
     }
 }

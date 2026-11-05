@@ -62,3 +62,28 @@ fn mirrors_brackets_inside_rtl_runs() {
     assert!(out.contains('(') && out.contains(')'));
     assert!(out.find('(').unwrap_or(0) < out.find(')').unwrap_or(0));
 }
+
+#[test]
+fn a_wide_emoji_moves_with_its_sentence() {
+    let mut r = row("⚠ ب");
+    r[0].wide = true;
+    r.insert(
+        1,
+        Cell {
+            continuation: true,
+            ..Cell::plain("")
+        },
+    );
+    let v = mirah_bidi::visual_row_with(
+        &r,
+        None,
+        mirah_bidi::BidiOptions {
+            shaping: mirah_bidi::Shaping::Plain,
+            rtl_base: true,
+        },
+    );
+    assert_eq!(render(&v), "ب ⚠");
+    assert!(v.cells[2].wide);
+    assert!(v.cells[3].continuation);
+    assert_eq!(v.logical_to_visual, [2, 3, 1, 0]);
+}

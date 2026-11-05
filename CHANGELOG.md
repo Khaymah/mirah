@@ -2,6 +2,20 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.5 - 2026-11-05
+
+تصليحات من أول تسجيل لـ alpha.4 على ويندوز.
+
+- **الكلام اللي Claude بيرتّبه بنفسه على ويندوز:** مرآة بقت بترجّع كل سطر للترتيب المنطقي، **وبتتأكد** إن تشغيل نفس خوارزمية Claude على النتيجة بيطلّع بالظبط اللي اترسم. ولو مش متأكدة، بتسيب السطر زي ما Claude رسمه وبتصلّح الأقواس المعكوسة بس.
+  - **الجداول بقت بتتعكس كلها صح.** Claude بيعكس كل صف لوحده حسب أول حرف فيه، فالجدول كان بيطلع نصه معكوس ونصه لأ. مرآة بقت بتاخد أماكن الأعمدة من الإطار اللي فوق الجدول، وبتختار القراية اللي بتحط `│` في مكانها.
+  - **الأقواس** بقت بتطلع صح، حتى حوالين كلام إنجليزي جوه العربي، زي `(mirah)`.
+- **في كل الترمنالات:**
+  - **الـ emoji جوه الجملة** بقى بيتحرك معاها، بعد ما كان بيقسمها نصين.
+  - **علامات الـ markdown والأقواس اللازقة في أول كلمة** (`**`، `` ` ``، `(`، `«`) بقت بتتحرك مع الجملة. اللي بيفضل مكانه هو العلامات بس (`●`، `-`، `>`، `1.`).
+- **README:** صف `MIRAH_LOG` في جدول الإعدادات كان ناقصه `|`، فالجملة اللي بعده كانت داخلة في الجدول. Claude نفسه هو اللي لقاه وهو شغال جوه مرآة.
+
+**English:** Fixes from the first alpha.4 recording on Windows. For programs that reorder Arabic themselves (Claude Code on Windows), mirah now puts each row back in logical order and verifies that running the program's own algorithm on the result reproduces exactly what was drawn; when it cannot confirm that, it keeps the row as drawn and only fixes reversed brackets. Tables now mirror consistently: the program reverses each row on its own, and mirah uses the column positions of the table's top border to choose the reading that puts every `│` in place. Brackets now come out right, including around Latin words inside Arabic. On every terminal, an emoji inside a sentence now moves with it instead of splitting it, and markdown marks or brackets attached to the first word move with the sentence; only list and prompt markers stay in place. The `MIRAH_LOG` row in the README settings table was missing its closing `|`; Claude found it while running inside mirah.
+
 ## 0.1.0-alpha.4 - 2026-11-05
 
 تصليحات من تجربة alpha.3 على ويندوز.

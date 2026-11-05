@@ -46,19 +46,34 @@ pub(crate) fn layout(
             let logical = if options.align == Align::Off {
                 rows
             } else {
-                table::mirror_rtl_tables(rows)
+                table::mirror_rtl_tables(rows, &[])
             };
-            arrange(logical, cursor, options)
+            arrange(logical, cursor, options, &[])
         }
         InputOrder::Visual => visual::layout(rows, cursor, options),
     }
 }
 
-fn arrange(logical: Vec<Vec<Cell>>, cursor: &Cursor, options: RenderOptions) -> Vec<VisualRow> {
+fn unchanged(row: &[Cell]) -> VisualRow {
+    VisualRow {
+        cells: row.to_vec(),
+        logical_to_visual: (0..row.len()).collect(),
+    }
+}
+
+fn arrange(
+    logical: Vec<Vec<Cell>>,
+    cursor: &Cursor,
+    options: RenderOptions,
+    settled: &[bool],
+) -> Vec<VisualRow> {
     let mut visual: Vec<VisualRow> = logical
         .iter()
         .enumerate()
         .map(|(i, row)| {
+            if settled.get(i) == Some(&true) {
+                return unchanged(row);
+            }
             let col = (cursor.visible && i == cursor.row).then_some(cursor.col);
             let bidi = BidiOptions {
                 shaping: options.shaping,
@@ -67,10 +82,15 @@ fn arrange(logical: Vec<Vec<Cell>>, cursor: &Cursor, options: RenderOptions) -> 
             visual_row_with(row, col, bidi)
         })
         .collect();
-    if options.align == Align::Off {
-        return visual;
+    align_rows(&logical, &mut visual, cursor, options.align);
+    visual
+}
+
+fn align_rows(logical: &[Vec<Cell>], visual: &mut [VisualRow], cursor: &Cursor, align: Align) {
+    if align == Align::Off {
+        return;
     }
-    let kinds = classify::classify(&logical, cursor, options.align);
+    let kinds = classify::classify(logical, cursor, align);
     for (i, kind) in kinds.into_iter().enumerate() {
         match kind {
             Kind::Prose => align::align_prose(&logical[i], &mut visual[i]),
@@ -78,5 +98,4 @@ fn arrange(logical: Vec<Vec<Cell>>, cursor: &Cursor, options: RenderOptions) -> 
             Kind::Fixed => {}
         }
     }
-    visual
 }

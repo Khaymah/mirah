@@ -1,12 +1,5 @@
-use super::{Align, Cursor, RenderOptions, arrange};
-use mirah_bidi::{Cell, VisualRow, logical_row};
-
-fn identity(row: Vec<Cell>) -> VisualRow {
-    VisualRow {
-        logical_to_visual: (0..row.len()).collect(),
-        cells: row,
-    }
-}
+use super::{Align, Cursor, RenderOptions, arrange, table, unchanged};
+use mirah_bidi::{Cell, VisualRow, logical_row, mirror_reversed_brackets};
 
 pub(super) fn layout(
     rows: Vec<Vec<Cell>>,
@@ -14,30 +7,37 @@ pub(super) fn layout(
     options: RenderOptions,
 ) -> Vec<VisualRow> {
     if options.align == Align::Off {
-        return rows.into_iter().map(identity).collect();
+        return rows.iter().map(|row| unchanged(row)).collect();
     }
-    let undone: Vec<VisualRow> = rows
-        .iter()
-        .enumerate()
-        .map(|(i, row)| {
-            logical_row(
-                row,
-                (cursor.visible && i == cursor.row).then_some(cursor.col),
-            )
-        })
-        .collect();
+    let mut settled = Vec::with_capacity(rows.len());
+    let mut from_visual = Vec::with_capacity(rows.len());
+    let mut logical = Vec::with_capacity(rows.len());
+    let hints = table::frame_hints(&rows);
+    for (row, hint) in rows.iter().zip(&hints) {
+        match logical_row(row, hint.as_deref()) {
+            Some(undone) => {
+                settled.push(false);
+                from_visual.push(undone.from_visual);
+                logical.push(undone.cells);
+            }
+            None => {
+                settled.push(true);
+                from_visual.push((0..row.len()).collect());
+                logical.push(mirror_reversed_brackets(row));
+            }
+        }
+    }
     let logical_cursor = Cursor {
-        col: undone
+        col: from_visual
             .get(cursor.row)
-            .and_then(|row| row.logical_to_visual.get(cursor.col).copied())
+            .and_then(|map: &Vec<usize>| map.get(cursor.col).copied())
             .unwrap_or(cursor.col),
         ..*cursor
     };
-    let logical = undone.iter().map(|row| row.cells.clone()).collect();
-    let mut visual = arrange(logical, &logical_cursor, options);
-    for (row, first) in visual.iter_mut().zip(&undone) {
+    let logical = table::mirror_rtl_tables(logical, &settled);
+    let mut visual = arrange(logical, &logical_cursor, options, &settled);
+    for (row, first) in visual.iter_mut().zip(&from_visual) {
         row.logical_to_visual = first
-            .logical_to_visual
             .iter()
             .map(|&middle| row.logical_to_visual.get(middle).copied().unwrap_or(middle))
             .collect();

@@ -95,6 +95,31 @@ fn find_table(rows: &[Vec<Cell>], top: usize) -> Option<Table> {
     None
 }
 
+pub(super) fn frame_hints(rows: &[Vec<Cell>]) -> Vec<Option<Vec<usize>>> {
+    let mut hints = vec![None; rows.len()];
+    let mut i = 0;
+    while i < rows.len() {
+        let Some(columns) = top_border(&rows[i]) else {
+            i += 1;
+            continue;
+        };
+        let mut j = i + 1;
+        while let Some(row) = rows.get(j) {
+            let edge = columns[0];
+            if !row.get(edge).is_some_and(|c| is_border_joint(base(c))) {
+                break;
+            }
+            hints[j] = Some(columns.clone());
+            j += 1;
+            if is_bottom(row, &columns) {
+                break;
+            }
+        }
+        i = j;
+    }
+    hints
+}
+
 fn has_rtl(rows: &[Vec<Cell>], table: &Table) -> bool {
     let (left, right) = (table.columns[0], table.columns[table.columns.len() - 1]);
     rows[table.top..=table.bottom]
@@ -141,11 +166,15 @@ fn mirror_row(row: &mut [Cell], columns: &[usize]) {
     }
 }
 
-pub(super) fn mirror_rtl_tables(mut rows: Vec<Vec<Cell>>) -> Vec<Vec<Cell>> {
+pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
+    let mut rows = rows;
     let mut i = 0;
     while i < rows.len() {
         match find_table(&rows, i) {
-            Some(table) if has_rtl(&rows, &table) => {
+            Some(table)
+                if has_rtl(&rows, &table)
+                    && !(table.top..=table.bottom).any(|r| settled.get(r) == Some(&true)) =>
+            {
                 for row in &mut rows[table.top..=table.bottom] {
                     mirror_row(row, &table.columns);
                 }
@@ -185,7 +214,7 @@ mod tests {
             "└───────┴────┘",
         ]);
         assert_eq!(
-            texts(&mirror_rtl_tables(input)),
+            texts(&mirror_rtl_tables(input, &[])),
             [
                 "┌────┬───────┐",
                 "│ id │ الاسم │",
@@ -199,12 +228,47 @@ mod tests {
     #[test]
     fn leaves_english_tables_alone() {
         let input = rows(&["┌───┬───┐", "│ a │ b │", "└───┴───┘"]);
-        assert_eq!(texts(&mirror_rtl_tables(input.clone())), texts(&input));
+        assert_eq!(texts(&mirror_rtl_tables(input.clone(), &[])), texts(&input));
     }
 
     #[test]
     fn leaves_a_broken_table_alone() {
         let input = rows(&["┌────┬───┐", "│ نص │ b", "└────┴───┘"]);
-        assert_eq!(texts(&mirror_rtl_tables(input.clone())), texts(&input));
+        assert_eq!(texts(&mirror_rtl_tables(input.clone(), &[])), texts(&input));
+    }
+}
+
+#[cfg(test)]
+mod hint_tests {
+    use super::*;
+
+    #[test]
+    fn rows_under_a_top_border_get_its_columns() {
+        let input: Vec<Vec<Cell>> = ["x", "┌──┬──┐", "│ ب│ a│", "└──┴──┘", "y"]
+            .iter()
+            .map(|l| l.chars().map(|c| Cell::plain(c.to_string())).collect())
+            .collect();
+        let hints = frame_hints(&input);
+        assert_eq!(hints[0], None);
+        assert_eq!(hints[2], Some(vec![0, 3, 6]));
+        assert_eq!(hints[3], Some(vec![0, 3, 6]));
+        assert_eq!(hints[4], None);
+    }
+}
+
+#[cfg(test)]
+mod settled_tests {
+    use super::*;
+
+    #[test]
+    fn leaves_a_table_with_a_settled_row_alone() {
+        let input: Vec<Vec<Cell>> = ["┌──┬──┐", "│ ب│ a│", "└──┴──┘"]
+            .iter()
+            .map(|l| l.chars().map(|c| Cell::plain(c.to_string())).collect())
+            .collect();
+        assert_eq!(
+            mirror_rtl_tables(input.clone(), &[false, true, false]),
+            input
+        );
     }
 }

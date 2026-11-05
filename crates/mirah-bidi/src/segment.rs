@@ -2,6 +2,12 @@ use crate::cell::{Cell, Color};
 use crate::classify::{MIN_GAP_COLUMNS, is_frame, is_strong};
 use std::ops::Range;
 
+const PREFIX_MARKERS: &str = "●•◦-*>⎿❯#.)";
+
+fn is_prefix(c: char) -> bool {
+    !is_strong(c) && (c == ' ' || c.is_ascii_digit() || PREFIX_MARKERS.contains(c))
+}
+
 pub(crate) struct Row<'a> {
     pub(crate) cells: &'a [Cell],
     pub(crate) cursor: Option<usize>,
@@ -21,7 +27,7 @@ impl Row<'_> {
     }
 
     fn is_open_blank(&self, i: usize) -> bool {
-        self.cells[i].is_blank() && !self.is_cursor(i)
+        !self.cells[i].continuation && self.cells[i].is_blank() && !self.is_cursor(i)
     }
 
     fn style_key(&self, i: usize) -> (Color, bool) {
@@ -31,10 +37,7 @@ impl Row<'_> {
 
     fn fixed_columns(&self) -> Vec<bool> {
         let cells = self.cells;
-        let mut fixed: Vec<bool> = cells
-            .iter()
-            .map(|c| c.wide || c.continuation || is_frame(c.base()))
-            .collect();
+        let mut fixed: Vec<bool> = cells.iter().map(|c| is_frame(c.base())).collect();
         let mut i = 0;
         while i < cells.len() {
             if !self.is_open_blank(i) {
@@ -72,24 +75,18 @@ impl Row<'_> {
     }
 
     pub(crate) fn trim(&self, span: Range<usize>) -> Range<usize> {
+        let floor = span.start;
         let (mut start, mut end) = (span.start, span.end);
-        while start < end && !is_strong(self.cells[start].base()) {
+        while start < end && is_prefix(self.cells[start].base()) {
             start += 1;
+        }
+        while start > floor && start < end && !self.cells[start - 1].is_blank() {
+            start -= 1;
         }
         while end > start && self.is_open_blank(end - 1) {
             end -= 1;
         }
         start..end
-    }
-
-    pub(crate) fn trim_attached(&self, span: Range<usize>) -> Range<usize> {
-        let floor = span.start;
-        let trimmed = self.trim(span);
-        let mut start = trimmed.start;
-        while start > floor && !self.cells[start - 1].is_blank() {
-            start -= 1;
-        }
-        start..trimmed.end
     }
 }
 
@@ -145,15 +142,9 @@ mod tests {
     }
 
     #[test]
-    fn attached_trim_keeps_punctuation_touching_the_text() {
-        let r = row("> )ab( ");
-        let span = 0..r.len();
-        assert_eq!(trim(&r, span.clone()), 3..6);
-        let layout = Row {
-            cells: &r,
-            cursor: None,
-        };
-        assert_eq!(layout.trim_attached(span), 2..6);
+    fn trim_keeps_punctuation_touching_the_first_word() {
+        let r = row("● **ab** ");
+        assert_eq!(trim(&r, 0..r.len()), 2..8);
     }
 
     #[test]

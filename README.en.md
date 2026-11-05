@@ -80,10 +80,12 @@ With no command, mirah opens your shell.
 |---|---|---|
 | `MIRAH_ALIGN` | `prose` (default), `arabic`, `off` | Right-align prose (Arabic and English), Arabic only, or nothing |
 | `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
-| `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it, so mirah first puts it back in logical order. Picked automatically for Claude Code on Windows |
+| `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it. mirah puts each row back in logical order and checks that this reproduces exactly what the program drew; when it cannot confirm that, it keeps the row as drawn and only fixes brackets. Picked automatically for Claude Code on Windows |
 | `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
 | `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
-| `MIRAH_LOG` | `debug` | Writes a log file | To see what happens inside without printing anything to the screen:
+| `MIRAH_LOG` | `debug` | Writes a log file |
+
+To see what happens inside without printing anything to the screen:
 
 ```bash
 MIRAH_LOG=debug mirah codex
