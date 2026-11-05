@@ -1,0 +1,8 @@
+L|مرحبا، افتح الملف src/main.rs في السطر 42
+V|42 السطر في src/main.rs الملف افتح مرحبا،
+L|│ مرحبا بك في Claude Code  │  status: جاهز
+V|│ Claude Code في بك مرحبا  │  status: جاهز
+L|hello world
+V|hello world
+L|> اكتب ملف main.rs
+V|> main.rs ملف اكتب

@@ -11,6 +11,7 @@ repository.workspace = true
 mirah-bidi.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+unicode-bidi.workspace = true
 vt100.workspace = true
 
 [dev-dependencies]

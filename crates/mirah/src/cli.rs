@@ -10,6 +10,11 @@ Usage:
 
 Environment:
   MIRAH_LOG=debug             write a log file (never to the terminal)
+  MIRAH_ALIGN=prose|arabic|off
+                              right-align prose (default), Arabic only, or nothing
+  MIRAH_SHAPING=full|words    full: mirah joins letters (default)
+                              words: the terminal joins letters (Windows Terminal)
+  MIRAH_RECORD=<file>         save the program's raw output for bug reports
 
 https://github.com/Khaymah/mirah";
 

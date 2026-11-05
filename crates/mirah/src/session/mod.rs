@@ -1,6 +1,7 @@
 mod event;
 mod io;
 mod pty;
+mod record;
 mod resize;
 
 use crate::host::{self, TerminalGuard};
@@ -10,6 +11,7 @@ use io::SharedWriter;
 use mirah_term::Emulator;
 use portable_pty::CommandBuilder;
 use pty::Pty;
+use record::Recorder;
 use std::io::Write;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
@@ -42,10 +44,15 @@ pub(crate) fn run(cmd: CommandBuilder) -> Result<u32> {
         term_program = std::env::var("TERM_PROGRAM").unwrap_or_default(),
         "session started with explicit bidi mode"
     );
-    let mut emulator = Emulator::new(size.rows, size.cols)?;
+    let options = host::render_options();
+    tracing::info!(?options, "render options");
+    let mut emulator = Emulator::with_options(size.rows, size.cols, options)?;
+    let mut recorder = Recorder::from_env();
     let mut life = Lifecycle::default();
     while let Some(first) = next_event(&inbox, &life) {
-        apply(drain(first, &inbox), &pty, &mut emulator, &mut life)?;
+        let events = drain(first, &inbox);
+        record(&mut recorder, &events);
+        apply(events, &pty, &mut emulator, &mut life)?;
         flush(&mut emulator, &writer)?;
         if life.code.is_some() && life.output_closed {
             break;
@@ -69,6 +76,14 @@ fn next_event(inbox: &Receiver<Event>, life: &Lifecycle) -> Option<Event> {
         inbox.recv_timeout(EXIT_GRACE).ok()
     } else {
         inbox.recv().ok()
+    }
+}
+
+fn record(recorder: &mut Recorder, events: &[Event]) {
+    for event in events {
+        if let Event::Output(bytes) = event {
+            recorder.write(bytes);
+        }
     }
 }
 

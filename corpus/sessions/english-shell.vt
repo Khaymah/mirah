@@ -1,0 +1,7 @@
+$ ls -la
+total 8
+drwxr-xr-x  2 user user 4096 Nov  5 .
+-rw-r--r--  1 user user  120 Nov  5 README.md
+$ echo hello world
+hello world
+$ 

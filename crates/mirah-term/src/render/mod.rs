@@ -1,15 +1,20 @@
 mod cursor;
 mod sgr;
 
+use crate::layout::{Cursor, RenderOptions, layout};
 use crate::screen::logical_row;
 use crate::sequences::{
     CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
 };
-use mirah_bidi::{Cell, Style, VisualRow, visual_row_with_cursor};
+use mirah_bidi::{Cell, Style};
+
+const EDITOR_CURSOR_NUM: u32 = 2;
+const EDITOR_CURSOR_DEN: u32 = 3;
 
 pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
     prev_input_modes: String,
+    options: RenderOptions,
 }
 
 fn draw_row(out: &mut String, row: u16, cells: &[Cell]) {
@@ -30,10 +35,11 @@ fn draw_row(out: &mut String, row: u16, cells: &[Cell]) {
 }
 
 impl Renderer {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(options: RenderOptions) -> Self {
         Self {
             prev: Vec::new(),
             prev_input_modes: String::new(),
+            options,
         }
     }
 
@@ -52,20 +58,27 @@ impl Renderer {
         }
 
         let (cursor_row, cursor_col) = screen.cursor_position();
+        let visible = !screen.hide_cursor();
+        let cursor = Cursor {
+            row: usize::from(cursor_row),
+            col: usize::from(cursor_col),
+            visible,
+            editor: screen.alternate_screen()
+                && visible
+                && u32::from(cursor_row) * EDITOR_CURSOR_DEN < u32::from(rows) * EDITOR_CURSOR_NUM,
+        };
+        let logical: Vec<Vec<Cell>> = (0..rows)
+            .map(|row| logical_row(screen, row, cols))
+            .collect();
+        let visual = layout(logical, &cursor, self.options);
         let mut cursor_visual = cursor_col;
-        for row in 0..rows {
-            let cursor =
-                (row == cursor_row && !screen.hide_cursor()).then_some(usize::from(cursor_col));
-            let VisualRow {
-                cells,
-                logical_to_visual,
-            } = visual_row_with_cursor(&logical_row(screen, row, cols), cursor);
+        for (row, line) in (0..rows).zip(visual) {
             if row == cursor_row {
-                cursor_visual = cursor::visual_column(&logical_to_visual, cursor_col);
+                cursor_visual = cursor::visual_column(&line.logical_to_visual, cursor_col);
             }
-            if self.prev[usize::from(row)] != cells {
-                draw_row(&mut out, row, &cells);
-                self.prev[usize::from(row)] = cells;
+            if self.prev[usize::from(row)] != line.cells {
+                draw_row(&mut out, row, &line.cells);
+                self.prev[usize::from(row)] = line.cells;
             }
         }
 

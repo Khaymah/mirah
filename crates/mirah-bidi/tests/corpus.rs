@@ -1,4 +1,4 @@
-use mirah_bidi::{Cell, Style, visual_row};
+use mirah_bidi::{Cell, Shaping, Style, visual_row_with};
 use std::path::PathBuf;
 
 struct Case {
@@ -34,7 +34,7 @@ fn parse(data: &str) -> Vec<Case> {
     cases
 }
 
-fn render(case: &Case) -> String {
+fn render(case: &Case, shaping: Shaping) -> String {
     let mut row: Vec<Cell> = case
         .logical
         .chars()
@@ -49,7 +49,7 @@ fn render(case: &Case) -> String {
             ..Style::default()
         };
     }
-    visual_row(&row)
+    visual_row_with(&row, None, shaping)
         .cells
         .iter()
         .map(|c| {
@@ -74,8 +74,12 @@ fn every_row_in_the_corpus_matches_its_expected_visual_form() {
     let mut failures = Vec::new();
     for file in files {
         let data = std::fs::read_to_string(&file).expect("corpus file is UTF-8");
+        let words = file
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy().starts_with("words"));
+        let shaping = if words { Shaping::Words } else { Shaping::Full };
         for case in parse(&data) {
-            let got = render(&case);
+            let got = render(&case, shaping);
             if got != case.expected {
                 failures.push(format!(
                     "{}: {:?} inverse={:?}\n  expected {:?}\n  got      {:?}",

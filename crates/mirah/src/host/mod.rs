@@ -2,10 +2,13 @@
 mod windows;
 
 use anyhow::{Context, Result};
-use mirah_term::sequences;
+use mirah_term::{Align, RenderOptions, Shaping, sequences};
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+const SHAPING_ENV: &str = "MIRAH_SHAPING";
+const ALIGN_ENV: &str = "MIRAH_ALIGN";
+const WINDOWS_TERMINAL_ENV: &str = "WT_SESSION";
 const FALLBACK_COLS: u16 = 80;
 const FALLBACK_ROWS: u16 = 24;
 
@@ -22,6 +25,45 @@ pub(crate) fn size() -> TerminalSize {
     TerminalSize {
         rows: rows.max(1),
         cols: cols.max(1),
+    }
+}
+
+fn shaping() -> Shaping {
+    match std::env::var(SHAPING_ENV).as_deref() {
+        Ok("full") => Shaping::Full,
+        Ok("words") => Shaping::Words,
+        Ok(other) => {
+            tracing::warn!(value = other, "unknown MIRAH_SHAPING, detecting instead");
+            detected_shaping()
+        }
+        Err(_) => detected_shaping(),
+    }
+}
+
+fn detected_shaping() -> Shaping {
+    if std::env::var_os(WINDOWS_TERMINAL_ENV).is_some() {
+        Shaping::Words
+    } else {
+        Shaping::Full
+    }
+}
+
+fn align() -> Align {
+    match std::env::var(ALIGN_ENV).as_deref() {
+        Ok("arabic") => Align::Arabic,
+        Ok("off") => Align::Off,
+        Ok("prose") | Err(_) => Align::Prose,
+        Ok(other) => {
+            tracing::warn!(value = other, "unknown MIRAH_ALIGN, using prose");
+            Align::Prose
+        }
+    }
+}
+
+pub(crate) fn render_options() -> RenderOptions {
+    RenderOptions {
+        shaping: shaping(),
+        align: align(),
     }
 }
 

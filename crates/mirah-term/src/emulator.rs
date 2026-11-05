@@ -1,5 +1,6 @@
 use crate::bridge::Bridge;
 use crate::error::TermError;
+use crate::layout::RenderOptions;
 use crate::render::Renderer;
 use std::num::NonZeroU16;
 
@@ -25,6 +26,10 @@ fn non_zero(rows: u16, cols: u16) -> Result<(NonZeroU16, NonZeroU16), TermError>
 
 impl Emulator {
     pub fn new(rows: u16, cols: u16) -> Result<Self, TermError> {
+        Self::with_options(rows, cols, RenderOptions::default())
+    }
+
+    pub fn with_options(rows: u16, cols: u16, options: RenderOptions) -> Result<Self, TermError> {
         let (rows, cols) = non_zero(rows, cols)?;
         Ok(Self {
             parser: vt100::Parser::new_with_callbacks(
@@ -33,7 +38,7 @@ impl Emulator {
                 SCROLLBACK_ROWS,
                 Bridge::default(),
             ),
-            renderer: Renderer::new(),
+            renderer: Renderer::new(options),
         })
     }
 

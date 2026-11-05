@@ -1,3 +1,4 @@
+use crate::Shaping;
 use crate::cell::{Cell, Style, VisualRow};
 use crate::mirror::mirror;
 use crate::shape::{Shaped, shape};
@@ -10,6 +11,16 @@ struct Item {
     column: usize,
     glyph: String,
     style: Style,
+}
+
+fn plain_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
+    span.clone()
+        .map(|column| Item {
+            column,
+            glyph: row[column].text.clone(),
+            style: row[column].style,
+        })
+        .collect()
 }
 
 fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
@@ -53,7 +64,21 @@ fn bidi_char(row: &[Cell], item: &Item) -> char {
     }
 }
 
-fn visual_order(row: &[Cell], items: &[Item]) -> Vec<(usize, bool)> {
+fn reverse_words(in_run: &[usize], items: &[Item]) -> Vec<usize> {
+    let is_space = |index: &usize| items[*index].glyph.chars().all(char::is_whitespace);
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    for &index in in_run {
+        match groups.last_mut() {
+            Some(group) if group.first().map(is_space) == Some(is_space(&index)) => {
+                group.push(index);
+            }
+            _ => groups.push(vec![index]),
+        }
+    }
+    groups.into_iter().rev().flatten().collect()
+}
+
+fn visual_order(row: &[Cell], items: &[Item], shaping: Shaping) -> Vec<(usize, bool)> {
     let mut text = String::new();
     let mut starts = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
@@ -74,19 +99,30 @@ fn visual_order(row: &[Cell], items: &[Item]) -> Vec<(usize, bool)> {
             .map(|(_, index)| *index)
             .collect();
         if rtl {
-            in_run.reverse();
+            in_run = match shaping {
+                Shaping::Full => in_run.into_iter().rev().collect(),
+                Shaping::Words => reverse_words(&in_run, items),
+            };
         }
         order.extend(in_run.into_iter().map(|index| (index, rtl)));
     }
     order
 }
 
-pub(crate) fn reorder_segment(row: &[Cell], span: Range<usize>, out: &mut VisualRow) {
-    let items = shaped_items(row, &span);
-    for (slot, (index, rtl)) in visual_order(row, &items).into_iter().enumerate() {
+pub(crate) fn reorder_segment(
+    row: &[Cell],
+    span: Range<usize>,
+    shaping: Shaping,
+    out: &mut VisualRow,
+) {
+    let items = match shaping {
+        Shaping::Full => shaped_items(row, &span),
+        Shaping::Words => plain_items(row, &span),
+    };
+    for (slot, (index, rtl)) in visual_order(row, &items, shaping).into_iter().enumerate() {
         let item = &items[index];
         let visual_column = span.start + slot;
-        let text = if rtl {
+        let text = if rtl && shaping == Shaping::Full {
             item.glyph.chars().map(mirror).collect()
         } else {
             item.glyph.clone()
