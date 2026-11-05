@@ -1,6 +1,6 @@
 use mirah_term::sequences::{ALT_SCREEN_LEAVE, BDSM_EXPLICIT, BDSM_IMPLICIT};
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -8,6 +8,9 @@ const CHILD_EXIT_CODE: u32 = 3;
 const SHAPED_MARHABA: &str = "\u{FEA3}\u{FEAE}\u{FEE3}";
 const MIRAH_DEADLINE: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_millis(50);
+const CURSOR_QUERY: &[u8] = b"\x1b[6n";
+const CURSOR_REPLY: &[u8] = b"\x1b[1;1R";
+const READ_BUFFER: usize = 4096;
 
 #[cfg(windows)]
 const CHILD: [&str; 3] = ["cmd", "/c", "echo مرحبا& exit 3"];
@@ -46,9 +49,22 @@ fn restores_the_terminal_and_returns_the_child_exit_code() {
     drop(pair.slave);
 
     let mut reader = pair.master.try_clone_reader().expect("reader");
+    let mut writer = pair.master.take_writer().expect("writer");
     let collector = std::thread::spawn(move || {
         let mut out = Vec::new();
-        let _ = reader.read_to_end(&mut out);
+        let mut buf = [0u8; READ_BUFFER];
+        while let Ok(n) = reader.read(&mut buf) {
+            if n == 0 {
+                break;
+            }
+            out.extend_from_slice(&buf[..n]);
+            if buf[..n]
+                .windows(CURSOR_QUERY.len())
+                .any(|w| w == CURSOR_QUERY)
+            {
+                let _ = writer.write_all(CURSOR_REPLY).and_then(|()| writer.flush());
+            }
+        }
         out
     });
 
