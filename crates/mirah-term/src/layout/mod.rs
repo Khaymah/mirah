@@ -1,5 +1,6 @@
 mod align;
 mod classify;
+mod highlight;
 mod memo;
 mod panes;
 mod table;
@@ -30,6 +31,7 @@ pub struct RenderOptions {
     pub align: Align,
     pub input: InputOrder,
     pub tables: bool,
+    pub highlight: bool,
 }
 
 impl Default for RenderOptions {
@@ -39,6 +41,7 @@ impl Default for RenderOptions {
             align: Align::default(),
             input: InputOrder::default(),
             tables: true,
+            highlight: true,
         }
     }
 }
@@ -137,6 +140,9 @@ fn arrange(
         })
         .collect();
     align_rows(&logical, &mut visual, &kinds);
+    if options.highlight && options.align != Align::Off {
+        highlight::paint(&logical, &mut visual, &kinds, classify::palette(&logical));
+    }
     visual
 }
 

@@ -91,6 +91,10 @@ impl Emulator {
         frame
     }
 
+    pub fn take_copy(&mut self) -> Option<String> {
+        self.parser.callbacks_mut().copied.take()
+    }
+
     pub fn wants_mouse(&self) -> bool {
         self.parser.screen().mouse_protocol_mode() != vt100::MouseProtocolMode::None
     }

@@ -181,6 +181,7 @@ fn main() {
         config,
         agents: extra,
     };
+    let root = start.store.as_ref().map(|s| s.root().to_path_buf());
     let result = session::run(start);
     drop(log_guard);
     let code = match result {
@@ -189,6 +190,9 @@ fn main() {
                 report(&format!(
                     "session {id} · continue it with `mirah resume {id}`"
                 ));
+            }
+            if let (Some(root), false) = (&root, outcome.sessions.is_empty()) {
+                report(&format!("sessions are kept in {}", root.display()));
             }
             outcome.code
         }

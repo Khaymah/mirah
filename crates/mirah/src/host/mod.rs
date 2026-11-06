@@ -44,6 +44,35 @@ pub(crate) fn detected_input_order(program: &str, windows: bool) -> InputOrder {
     }
 }
 
+const CLIPBOARD_RETRIES: [std::time::Duration; 2] = [
+    std::time::Duration::from_millis(250),
+    std::time::Duration::from_millis(900),
+];
+
+#[cfg(windows)]
+pub(crate) fn keep_clipboard(text: String) {
+    std::thread::spawn(move || {
+        for wait in CLIPBOARD_RETRIES {
+            std::thread::sleep(wait);
+            let stored = windows::set_clipboard(&text);
+            tracing::debug!(
+                stored,
+                chars = text.chars().count(),
+                "clipboard set in reading order"
+            );
+        }
+    });
+}
+
+#[cfg(not(windows))]
+pub(crate) fn keep_clipboard(text: String) {
+    tracing::debug!(
+        chars = text.chars().count(),
+        "copy restored to reading order"
+    );
+    let _ = CLIPBOARD_RETRIES;
+}
+
 pub(crate) fn prepare_pty() {
     #[cfg(windows)]
     windows::install_conpty();

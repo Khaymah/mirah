@@ -7,6 +7,7 @@ use toml_edit::{DocumentMut, Item, Table, value};
 
 const PROGRAMS: &str = "programs";
 const AGENTS: &str = "agents";
+const SESSIONS_DIR: &str = "sessions_dir";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Choice<T> {
@@ -25,6 +26,7 @@ pub(crate) struct Settings {
     pub(crate) bar: bool,
     pub(crate) record: bool,
     pub(crate) clipboard: bool,
+    pub(crate) highlight: bool,
 }
 
 impl Default for Settings {
@@ -39,6 +41,7 @@ impl Default for Settings {
             bar: true,
             record: false,
             clipboard: true,
+            highlight: true,
         }
     }
 }
@@ -86,6 +89,7 @@ impl Settings {
             Key::UpdateCheck => return flag().map(|f| self.update_check = f).is_some(),
             Key::Record => return flag().map(|f| self.record = f).is_some(),
             Key::Clipboard => return flag().map(|f| self.clipboard = f).is_some(),
+            Key::Highlight => return flag().map(|f| self.highlight = f).is_some(),
         }
         true
     }
@@ -113,6 +117,7 @@ impl Settings {
             Key::UpdateCheck => flag(self.update_check),
             Key::Record => flag(self.record),
             Key::Clipboard => flag(self.clipboard),
+            Key::Highlight => flag(self.highlight),
         }
     }
 
@@ -166,6 +171,7 @@ impl Settings {
                 Choice::Fixed(i) => i,
             },
             tables: self.tables,
+            highlight: self.highlight,
         }
     }
 }
@@ -219,6 +225,14 @@ impl Config {
         }
         settings.apply_env();
         settings
+    }
+
+    pub(crate) fn sessions_dir(&self) -> Option<PathBuf> {
+        self.doc
+            .get(SESSIONS_DIR)
+            .and_then(Item::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .map(PathBuf::from)
     }
 
     pub(crate) fn agents(&self) -> Vec<crate::agents::Agent> {
@@ -311,6 +325,15 @@ mod tests {
         assert_eq!(c.settings("claude").align, Align::Arabic);
         assert!(!c.settings("claude").tables);
         assert_eq!(c.settings("C:\\npm\\OpenCode.cmd").align, Align::Off);
+    }
+
+    #[test]
+    fn the_sessions_folder_can_be_set() {
+        assert_eq!(
+            config("sessions_dir = 'D:/mirah/sessions'\n").sessions_dir(),
+            Some(PathBuf::from("D:/mirah/sessions"))
+        );
+        assert_eq!(config("").sessions_dir(), None);
     }
 
     #[test]

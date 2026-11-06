@@ -236,6 +236,9 @@ impl Workspace {
             self.apply(events)?;
             for (i, tab) in self.tabs.iter_mut().enumerate() {
                 tab.forward(i == self.active)?;
+                if let Some(text) = tab.emulator.take_copy() {
+                    host::keep_clipboard(text);
+                }
             }
             let now = Instant::now();
             if self.tabs.iter().any(|t| t.life.done(now)) {

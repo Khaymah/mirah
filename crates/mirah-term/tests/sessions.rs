@@ -19,6 +19,7 @@ fn options_for(vt: &Path) -> RenderOptions {
             align: Align::Prose,
             input: InputOrder::Visual,
             tables: true,
+            highlight: true,
         }
     } else {
         RenderOptions::default()

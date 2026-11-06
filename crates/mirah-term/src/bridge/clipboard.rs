@@ -80,11 +80,16 @@ fn logical_line(line: &str) -> String {
     }
 }
 
-pub(crate) fn to_logical(data: &[u8]) -> Option<Vec<u8>> {
+pub(crate) fn logical_text(data: &[u8]) -> Option<String> {
     let decoded = decode(data)?;
     let text = std::str::from_utf8(&decoded).ok()?;
     let fixed: Vec<String> = text.split('\n').map(logical_line).collect();
-    Some(encode(fixed.join("\n").as_bytes()))
+    Some(fixed.join("\n"))
+}
+
+#[cfg(test)]
+pub(crate) fn to_logical(data: &[u8]) -> Option<Vec<u8>> {
+    logical_text(data).map(|text| encode(text.as_bytes()))
 }
 
 #[cfg(test)]

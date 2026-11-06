@@ -208,13 +208,16 @@ fn move_right(rows: &mut [Vec<Cell>], table: &Table) {
 pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
     let mut rows = rows;
     for table in find_tables(&rows) {
+        if !has_rtl(&rows, &table) {
+            continue;
+        }
         let unsettled = !(table.top..=table.bottom).any(|r| settled.get(r) == Some(&true));
-        if unsettled && has_rtl(&rows, &table) {
+        if unsettled {
             for row in &mut rows[table.top..=table.bottom] {
                 mirror_row(row, &table.columns);
             }
-            move_right(&mut rows, &table);
         }
+        move_right(&mut rows, &table);
     }
     rows
 }
@@ -255,6 +258,13 @@ mod tests {
         );
         let busy = rows(&["┌───────┬────┐ x", "│ الاسم │ id │  ", "└───────┴────┘  "]);
         assert_eq!(texts(&mirror_rtl_tables(busy, &[]))[0], "┌────┬───────┐ x");
+    }
+
+    #[test]
+    fn a_table_the_program_already_mirrored_still_moves_right() {
+        let input = rows(&["┌────┬───────┐    ", "│ id │ الاسم │    ", "└────┴───────┘    "]);
+        let out = mirror_rtl_tables(input, &[true, true, true]);
+        assert_eq!(texts(&out)[1], "    │ id │ الاسم │");
     }
 
     #[test]

@@ -4,7 +4,7 @@ resolver = "3"
 exclude = ["research"]
 
 [workspace.package]
-version = "0.4.0-alpha.4"
+version = "0.4.0-alpha.5"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -30,7 +30,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 unicode-bidi = "0.3"
 unicode-width = "0.2"
 vt100 = "0.18"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_LibraryLoader"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_DataExchange", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Ole"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

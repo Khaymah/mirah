@@ -8,6 +8,7 @@ pub(crate) enum Key {
     UpdateCheck,
     Record,
     Clipboard,
+    Highlight,
 }
 
 pub(crate) struct Spec {
@@ -20,7 +21,7 @@ pub(crate) struct Spec {
 
 const ON_OFF: &[(&str, &str)] = &[("true", "تشغيل"), ("false", "إيقاف")];
 
-pub(crate) const SPECS: [Spec; 8] = [
+pub(crate) const SPECS: [Spec; 9] = [
     Spec {
         key: Key::Align,
         name: "align",
@@ -30,6 +31,13 @@ pub(crate) const SPECS: [Spec; 8] = [
             ("arabic", "العربي فقط"),
             ("off", "إيقاف"),
         ],
+        advanced: false,
+    },
+    Spec {
+        key: Key::Highlight,
+        name: "highlight",
+        label: "تلوين Markdown",
+        values: ON_OFF,
         advanced: false,
     },
     Spec {

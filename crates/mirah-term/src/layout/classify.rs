@@ -22,9 +22,9 @@ fn is_syntax_color(color: Color, text: Color) -> bool {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Palette {
-    fg: Color,
-    bg: Color,
+pub(super) struct Palette {
+    pub(super) fg: Color,
+    pub(super) bg: Color,
 }
 
 fn dominant(colors: impl Iterator<Item = Color>) -> Color {
@@ -41,7 +41,7 @@ fn dominant(colors: impl Iterator<Item = Color>) -> Color {
         .map_or(Color::Default, |(c, _)| c)
 }
 
-fn palette(logical: &[Vec<Cell>]) -> Palette {
+pub(super) fn palette(logical: &[Vec<Cell>]) -> Palette {
     let letters = || {
         logical
             .iter()

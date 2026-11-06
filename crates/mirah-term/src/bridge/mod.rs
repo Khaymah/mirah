@@ -11,6 +11,7 @@ pub(crate) struct Bridge {
     pub(crate) synchronized: bool,
     pub(crate) clipboard: clipboard::Clipboard,
     pub(crate) focus_events: bool,
+    pub(crate) copied: Option<String>,
 }
 
 fn synchronized_output(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c: char) -> Option<bool> {
@@ -47,11 +48,15 @@ impl vt100::Callbacks for Bridge {
             );
             return;
         }
-        let fixed = self
+        let text = self
             .clipboard
             .visual_text
-            .then(|| clipboard::to_logical(data))
+            .then(|| clipboard::logical_text(data))
             .flatten();
+        let fixed = text.as_ref().map(|t| clipboard::encode(t.as_bytes()));
+        if let Some(text) = text {
+            self.copied = Some(text);
+        }
         let data = fixed.as_deref().unwrap_or(data);
         tracing::debug!(bytes = data.len(), "forwarding OSC 52 clipboard write");
         self.to_host.extend(passthrough::clipboard(selection, data));

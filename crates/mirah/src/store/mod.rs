@@ -75,7 +75,17 @@ pub(crate) struct Store {
 
 impl Store {
     pub(crate) fn open() -> Option<Self> {
-        crate::paths::state_dir().map(|dir| Self::at(dir.join(SESSIONS_DIR)))
+        let custom = crate::config::Config::load().sessions_dir();
+        let beside_app = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|dir| dir.join(SESSIONS_DIR)));
+        let fallback = crate::paths::state_dir().map(|dir| dir.join(SESSIONS_DIR));
+        custom
+            .into_iter()
+            .chain(beside_app)
+            .find(|dir| writable(dir))
+            .or(fallback)
+            .map(Self::at)
     }
 
     pub(crate) fn at(root: PathBuf) -> Self {
@@ -216,6 +226,16 @@ impl Store {
         }
         removed
     }
+}
+
+fn writable(dir: &Path) -> bool {
+    if std::fs::create_dir_all(dir).is_err() {
+        return false;
+    }
+    let probe = dir.join(format!(".mirah-write-{}", std::process::id()));
+    let ok = std::fs::write(&probe, b"").is_ok();
+    let _ = std::fs::remove_file(&probe);
+    ok
 }
 
 pub(crate) fn forget_if_empty(store: &Store, id: &str) {
