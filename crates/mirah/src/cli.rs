@@ -1,16 +1,23 @@
-use portable_pty::CommandBuilder;
-
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const HELP: &str = "mirah - run any terminal program with correct right-to-left text
 
 Usage:
-  mirah [PROGRAM [ARGS...]]   run PROGRAM inside mirah (default: your shell)
-  mirah --record PROGRAM ...  same, and save PROGRAM-session-N.vt and
-                              PROGRAM-session-N.log in the current folder
+  mirah                       pick a program (Claude Code, OpenCode, ...) to open
+  mirah PROGRAM [ARGS...]     run PROGRAM inside mirah
+  mirah --record PROGRAM ...  same, and save the output and a full log in the
+                              session folder
+  mirah sessions              list recent sessions and their IDs
+  mirah resume [ID]           continue a session (the newest one without an ID)
   mirah update                install the newest release
   mirah -- PROGRAM ...        run a program named like a mirah command
   mirah --version             print the version
   mirah --help                print this help
+
+Inside mirah:
+  Ctrl+]                      open the bar (arrows move, Enter picks, Esc closes)
+  Ctrl+] then 1-9             go to that tab
+  Ctrl+] then t               open a new tab
+  Ctrl+] Ctrl+]               send Ctrl+] to the program
 
 Environment:
   MIRAH_LOG=debug             write a log file (never to the terminal)
@@ -24,30 +31,30 @@ Environment:
                               instead of the one bundled with mirah
   MIRAH_RECORD=<file>         save the program's raw output for bug reports
   MIRAH_NO_UPDATE_CHECK=1     do not check for a new version at startup
-  MIRAH_BAR=0                 hide the mirah bar (Ctrl+] opens the bar when shown)
+  MIRAH_BAR=0                 hide the mirah bar
 
 Settings are saved in config.toml (%APPDATA%\\mirah on Windows,
-~/.config/mirah elsewhere).
+~/.config/mirah elsewhere). Sessions are kept in %LOCALAPPDATA%\\mirah\\sessions
+on Windows and ~/.local/state/mirah/sessions elsewhere.
 
 https://github.com/Khaymah/mirah";
 
 pub(crate) enum Invocation {
     Run(Run),
+    Resume(Option<String>),
+    Sessions,
     Update,
     Print(String),
 }
 
 pub(crate) struct Run {
-    pub(crate) cmd: CommandBuilder,
-    pub(crate) program: String,
+    pub(crate) argv: Vec<String>,
     pub(crate) record: bool,
 }
 
 fn run(args: impl Iterator<Item = String>, record: bool) -> Invocation {
-    let (cmd, program) = crate::command::from_args(args);
     Invocation::Run(Run {
-        cmd,
-        program,
+        argv: args.collect(),
         record,
     })
 }
@@ -58,6 +65,11 @@ pub(crate) fn parse(mut args: impl Iterator<Item = String>) -> Invocation {
         Some("--version" | "-V") => Invocation::Print(format!("mirah {VERSION}")),
         Some("--help" | "-h") => Invocation::Print(HELP.to_string()),
         Some("update") => Invocation::Update,
+        Some("sessions") => Invocation::Sessions,
+        Some("resume") => {
+            args.next();
+            Invocation::Resume(args.next())
+        }
         Some("--") => {
             args.next();
             run(args, false)
@@ -78,6 +90,13 @@ mod tests {
         parse(args.iter().map(|s| (*s).to_string()))
     }
 
+    fn argv(invocation: Invocation) -> (Vec<String>, bool) {
+        match invocation {
+            Invocation::Run(run) => (run.argv, run.record),
+            _ => panic!("expected a program to run"),
+        }
+    }
+
     #[test]
     fn prints_the_version() {
         assert!(
@@ -90,38 +109,35 @@ mod tests {
         assert!(matches!(parse_args(&["-h"]), Invocation::Print(h) if h.contains("Usage:")));
     }
 
-    fn argv(cmd: &CommandBuilder) -> Vec<String> {
-        cmd.get_argv()
-            .iter()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect()
+    #[test]
+    fn nothing_opens_the_launcher() {
+        assert_eq!(argv(parse_args(&[])), (vec![], false));
     }
 
     #[test]
-    fn update_is_a_command_and_double_dash_runs_a_program_with_that_name() {
+    fn commands_and_double_dash() {
         assert!(matches!(parse_args(&["update"]), Invocation::Update));
-        let Invocation::Run(run) = parse_args(&["--", "update", "x"]) else {
-            panic!("expected a program to run");
-        };
-        assert_eq!(argv(&run.cmd), ["update", "x"]);
+        assert!(matches!(parse_args(&["sessions"]), Invocation::Sessions));
+        assert!(matches!(parse_args(&["resume"]), Invocation::Resume(None)));
+        assert!(
+            matches!(parse_args(&["resume", "1106-0457-k3f2"]), Invocation::Resume(Some(id)) if id == "1106-0457-k3f2")
+        );
+        assert_eq!(argv(parse_args(&["--", "update", "x"])).0, ["update", "x"]);
     }
 
     #[test]
     fn record_comes_before_the_program() {
-        let Invocation::Run(run) = parse_args(&["--record", "claude", "-r"]) else {
-            panic!("expected a program to run");
-        };
-        assert!(run.record);
-        assert_eq!(run.program, "claude");
-        assert_eq!(argv(&run.cmd), ["claude", "-r"]);
+        assert_eq!(
+            argv(parse_args(&["--record", "claude", "-r"])),
+            (vec!["claude".to_string(), "-r".to_string()], true)
+        );
     }
 
     #[test]
     fn flags_after_the_program_belong_to_the_program() {
-        let Invocation::Run(run) = parse_args(&["claude", "--version"]) else {
-            panic!("expected a program to run");
-        };
-        assert!(!run.record);
-        assert_eq!(argv(&run.cmd), ["claude", "--version"]);
+        assert_eq!(
+            argv(parse_args(&["claude", "--version"])),
+            (vec!["claude".to_string(), "--version".to_string()], false)
+        );
     }
 }

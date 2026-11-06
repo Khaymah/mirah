@@ -89,25 +89,55 @@ The binary is at `target/release/mirah`.
 ## Usage
 
 ```bash
+mirah
+```
+
+mirah looks for the programs installed on your machine (Claude Code, OpenCode, Codex, Gemini and others) and opens a screen to pick one. The program you used last is preselected, and recent sessions you can continue are listed under the programs.
+
+To open a program directly, without that screen:
+
+```bash
 mirah claude
 ```
 
-With no command, mirah opens your shell.
-
-### The mirah bar
+### The mirah bar and tabs
 
 mirah keeps the first row of the screen for an Arabic bar, and the program runs below it:
 
 ```
- ✕   ↻ 0.2.1   ● تسجيل   ⚙ الإعدادات                         ◆ مرآة · claude
+ ✕  ⚙  ●                                 + ┃ opencode • ┃▐ claude ▌┃ مرآة ◆
 ```
 
-- **`Ctrl+]`** opens the bar. Arrows move, Enter chooses, Esc returns to the program. Pressing `Ctrl+]` twice sends it to the program.
-- **Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
-- **⚙ Settings:** alignment, letter joining, the program's text order, table mirroring, mouse mapping and the update check. Changes show at once and apply to every program or to this one only.
-- **● Record:** starts saving `claude-session-N.vt` (named after the program) in the current folder; press again to stop, and again to continue the same file.
+- **Tabs:** each tab runs one program; the open tab is highlighted. Other tabs keep running in the background, and one with new output shows `•`.
+- **`Ctrl+]`** opens the bar. Arrows move (moving onto a tab opens it), Enter chooses, Esc returns to the program. Pressing `Ctrl+]` twice sends it to the program.
+
+  | Shortcut | Does |
+  |---|---|
+  | `Ctrl+]` then 1 to 9 | go to that tab |
+  | `Ctrl+]` then `t`, or `+` | a new tab, from the picker |
+
+- **Mouse:** clicking the bar (a tab, `+` or a button) works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
+- **⚙ Settings:** alignment, letter joining, the program's text order, table mirroring, mouse mapping, the update check and "record every session". The values sit side by side with the current one highlighted; changes show at once and apply to every program or to this one only.
+- **● Record:** records the open tab into its session folder; press again to stop, and again to continue the same file.
 - **↻:** appears when a new version exists; clicking it installs it for the next start.
-- **✕:** asks first, then closes the program and mirah.
+- **✕:** asks first, then closes the open tab. Closing the last tab exits mirah.
+
+### Sessions
+
+Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder in `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere, holding:
+
+- `session.toml`: the program, the command, the folder it ran in, and when it started and ended.
+- `output.vt`: the recording, when recording was on.
+- `mirah.log`: the log, when recording was on from the start.
+
+```bash
+mirah sessions
+mirah resume 1106-0457-k3f2
+```
+
+- **`mirah sessions`** lists recent sessions.
+- **`mirah resume <ID>`** continues the same conversation: it opens the same program in the same folder with that program's own continue option (`claude --continue`, `opencode --continue`, `codex resume --last`, `gemini --resume`) and keeps recording into the same file. Without an ID it continues the newest session.
+- mirah keeps the newest 50 sessions, or the last 14 days if that is more.
 
 ### The settings file
 
@@ -120,7 +150,15 @@ update_check = true
 
 [programs.opencode]
 align = "arabic"
+
+[[agents]]
+name = "work"
+title = "Claude (work)"
+command = "claude-work"
+resume = ["--continue"]
 ```
+
+`[[agents]]` adds a program to the picker, even one mirah does not look for.
 
 `MIRAH_*` variables win over a program's section, which wins over the global settings. If the file is broken, mirah uses the defaults and never writes over it.
 
@@ -140,7 +178,7 @@ At startup mirah checks for a newer version and keeps the result for an hour. If
 mirah --record claude
 ```
 
-This saves `claude-session-N.vt` (the program's raw output) and `claude-session-N.log` (a full log), named after the program, **in the current folder**, numbered after the last session already there. mirah prints where they are when you exit.
+This saves the program's raw output and a full log in the session folder. mirah prints the session ID when you exit, and `mirah sessions` shows the folder. Turning on "record every session" in the settings does the same for every session.
 
 > A recording can contain paths from your machine or anything shown on screen. Review it before sending it.
 
@@ -165,7 +203,7 @@ To see what happens inside without printing anything to the screen:
 MIRAH_LOG=debug mirah codex
 ```
 
-The log is written to `~/.local/state/mirah/mirah.log`, or `%LOCALAPPDATA%\mirah\mirah.log` on Windows. With `--record` it goes to the current folder.
+The log is written to `~/.local/state/mirah/mirah.log`, or `%LOCALAPPDATA%\mirah\mirah.log` on Windows. With `--record` it goes to the session folder.
 
 ## Terminals
 

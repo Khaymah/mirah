@@ -12,15 +12,34 @@ const SHELL_ENV: &str = "SHELL";
 #[cfg(not(windows))]
 const FALLBACK_SHELL: &str = "/bin/sh";
 
-pub(crate) fn from_args(mut args: impl Iterator<Item = String>) -> (CommandBuilder, String) {
-    let program = args
-        .next()
-        .unwrap_or_else(|| std::env::var(SHELL_ENV).unwrap_or_else(|_| FALLBACK_SHELL.into()));
-    let mut cmd = build(program.clone(), args.collect());
-    if let Ok(dir) = std::env::current_dir() {
-        cmd.cwd(dir);
-    }
-    (cmd, program)
+pub(crate) fn shell() -> String {
+    std::env::var(SHELL_ENV).unwrap_or_else(|_| FALLBACK_SHELL.into())
+}
+
+pub(crate) fn command(argv: &[String], cwd: &std::path::Path) -> CommandBuilder {
+    let program = argv.first().cloned().unwrap_or_else(shell);
+    let mut cmd = build(program, argv.iter().skip(1).cloned().collect());
+    cmd.cwd(cwd);
+    cmd
+}
+
+#[cfg(windows)]
+pub(crate) fn installed(program: &str) -> bool {
+    let path = std::env::var("PATH").ok();
+    let pathext = std::env::var("PATHEXT").ok();
+    resolve::resolve(program, path.as_deref(), pathext.as_deref()).is_some()
+}
+
+#[cfg(not(windows))]
+pub(crate) fn installed(program: &str) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path).any(|dir| {
+        std::fs::metadata(dir.join(program))
+            .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+    })
 }
 
 #[cfg(not(windows))]
@@ -54,8 +73,8 @@ mod tests {
     use super::*;
 
     fn argv(args: &[&str]) -> Vec<String> {
-        from_args(args.iter().map(|s| (*s).to_string()))
-            .0
+        let args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
+        command(&args, std::path::Path::new("."))
             .get_argv()
             .iter()
             .map(|a| a.to_string_lossy().into_owned())

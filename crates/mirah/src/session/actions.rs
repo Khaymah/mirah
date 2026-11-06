@@ -1,37 +1,90 @@
 use super::event::Event;
 use super::mouse::MouseEvent;
-use super::{Session, io};
+use super::{Spawn, Workspace};
+use crate::agents;
 use crate::chrome::Action;
+use crate::chrome::launcher::{Entry, Launcher};
 use anyhow::Result;
 use std::time::{Duration, Instant};
 
 const NOTICE_FOR: Duration = Duration::from_secs(6);
 const CLOCK_TICK: Duration = Duration::from_secs(1);
+const RECENT_SESSIONS: usize = 5;
 
-impl Session<'_> {
+fn spawn_for(entry: Entry) -> Spawn {
+    match entry {
+        Entry::Start(agent) => Spawn {
+            argv: vec![agent.command.clone()],
+            agent: agent.name,
+            cwd: std::env::current_dir().unwrap_or_default(),
+            meta: None,
+        },
+        Entry::Resume(meta, agent) => Spawn {
+            argv: agents::resume_argv(&agent, &meta.argv),
+            agent: meta.agent.clone(),
+            cwd: meta.cwd.clone(),
+            meta: Some(*meta),
+        },
+    }
+}
+
+impl Workspace {
     pub(super) fn input(&mut self, bytes: &[u8]) -> Result<()> {
         let mut actions = Vec::new();
         let chrome = &mut self.chrome;
-        let emulator = &self.emulator;
+        let emulator = self.tabs.get(self.active).map(|t| &t.emulator);
         let bytes = self.mouse.apply(bytes, |e| {
             let e = chrome.mouse(e, &mut actions)?;
-            Some(if chrome.settings.mouse {
-                MouseEvent {
+            Some(match emulator {
+                Some(emulator) if chrome.settings.mouse => MouseEvent {
                     column: emulator.child_column(e.row, e.column),
                     ..e
-                }
-            } else {
-                e
+                },
+                _ => e,
             })
         });
         let bytes = self.chrome.input(&bytes, &mut actions);
-        if !bytes.is_empty() {
-            io::write_to_child(&self.writer, &bytes);
+        if !bytes.is_empty()
+            && let Some(tab) = self.tabs.get(self.active)
+        {
+            tab.write(&bytes);
         }
         for action in actions {
             self.act(action)?;
         }
         Ok(())
+    }
+
+    pub(super) fn launcher(&mut self) {
+        let mut entries: Vec<Entry> = agents::installed_agents(&self.agents)
+            .into_iter()
+            .map(Entry::Start)
+            .collect();
+        if let Some(store) = &self.store {
+            let open: Vec<&str> = self
+                .tabs
+                .iter()
+                .filter_map(|t| t.meta.as_ref().map(|m| m.id.as_str()))
+                .collect();
+            let recent = store
+                .list()
+                .into_iter()
+                .filter(|m| !open.contains(&m.id.as_str()))
+                .filter_map(|m| {
+                    let agent = agents::find(&m.agent, &self.agents)?;
+                    (!agent.resume.is_empty()).then(|| Entry::Resume(Box::new(m), agent))
+                })
+                .take(RECENT_SESSIONS);
+            entries.extend(recent);
+        }
+        let last = agents::last();
+        let launcher = Launcher::new(
+            entries,
+            last.as_deref(),
+            !self.tabs.is_empty(),
+            crate::store::now(),
+        );
+        self.chrome.launch(launcher);
     }
 
     fn act(&mut self, action: Action) -> Result<()> {
@@ -41,47 +94,77 @@ impl Session<'_> {
                 if let Err(err) = self.config.save() {
                     tracing::warn!(error = %err, "could not save config.toml");
                 }
-                let settings = self.config.settings(&self.program);
-                let options = settings.render_options(&self.program);
-                self.chrome.settings = settings;
-                self.chrome.set_shaping(options.shaping);
-                self.emulator.set_options(options);
-                tracing::info!(?options, "settings changed from the bar");
+                for tab in &mut self.tabs {
+                    tab.apply(&self.config);
+                }
+                match self.tabs.get(self.active) {
+                    Some(tab) => {
+                        self.chrome.settings = tab.settings;
+                        self.chrome
+                            .set_shaping(tab.settings.render_options(&tab.program).shaping);
+                    }
+                    None => self.chrome.settings = self.config.settings(""),
+                }
+                tracing::info!(?key, value, "settings changed from the bar");
             }
+            Action::Switch(index) => self.switch(index),
+            Action::NewTab => self.launcher(),
+            Action::Open(entry) => {
+                let spawn = spawn_for(entry);
+                let name = spawn.agent.clone();
+                agents::remember(&name);
+                if let Err(err) = self.open(spawn) {
+                    tracing::warn!(error = format!("{err:#}"), "could not start the program");
+                    self.notice(format!("مقدرتش أشغّل {name}"));
+                }
+            }
+            Action::Quit => self.exit = Some(0),
             Action::Record => self.toggle_recording(),
             Action::Update => self.start_update(),
             Action::Close => {
-                tracing::info!("closing the session from the bar");
-                if let Err(err) = self.killer.kill() {
-                    tracing::warn!(error = %err, "could not stop the program");
+                if let Some(tab) = self.tabs.get_mut(self.active) {
+                    tab.kill();
                 }
             }
         }
         Ok(())
     }
 
+    fn recording_path(&self) -> Option<std::path::PathBuf> {
+        let tab = self.tabs.get(self.active)?;
+        match (&self.store, &tab.meta) {
+            (Some(store), Some(meta)) => Some(store.output(&meta.id)),
+            _ => {
+                let dir = std::env::current_dir().unwrap_or_default();
+                Some(crate::debug_files::next_in(&dir, &tab.program).recording)
+            }
+        }
+    }
+
     fn toggle_recording(&mut self) {
-        if self.recorder.active() {
-            let saved = self.recorder.stop();
-            if let Some(since) = self.recording_since.take() {
-                self.recorded = since.elapsed();
+        let path = self.recording_path();
+        let Some(tab) = self.tabs.get_mut(self.active) else {
+            return;
+        };
+        if tab.recorder.active() {
+            tab.recorder.stop();
+            if let Some(since) = tab.recording_since.take() {
+                tab.recorded = since.elapsed();
             }
             self.chrome.state.recording = None;
-            if let Some(name) = saved.as_ref().and_then(|p| p.file_name()) {
-                self.notice(format!("اتحفظ {}", name.to_string_lossy()));
+            let id = tab.meta.as_ref().map(|m| m.id.clone());
+            match id {
+                Some(id) => self.notice(format!("اتحفظ في الجلسة {id}")),
+                None => self.notice("اتحفظ التسجيل".to_string()),
             }
         } else {
-            let started = match self.recorder.resume() {
+            let started = match tab.recorder.resume() {
                 Some(resumed) => resumed,
-                None => {
-                    let dir = std::env::current_dir().unwrap_or_default();
-                    let path = crate::debug_files::next_in(&dir, &self.program).recording;
-                    self.recorder.start(path)
-                }
+                None => path.is_some_and(|p| tab.recorder.start(p)),
             };
             if started {
-                self.recording_since = Some(Instant::now() - self.recorded);
-                self.chrome.state.recording = Some(self.recorded);
+                tab.recording_since = Some(Instant::now() - tab.recorded);
+                self.chrome.state.recording = Some(tab.recorded);
             } else {
                 self.notice("التسجيل مااشتغلش".to_string());
             }
@@ -127,14 +210,15 @@ impl Session<'_> {
             self.chrome.state.notice = None;
             self.chrome.dirty = true;
         }
-        if let Some(since) = self.recording_since {
+        let since = self.tabs.get(self.active).and_then(|t| t.recording_since);
+        if let Some(since) = since {
             let elapsed = Duration::from_secs(now.duration_since(since).as_secs());
             if self.chrome.state.recording != Some(elapsed) {
                 self.chrome.state.recording = Some(elapsed);
                 self.chrome.dirty = true;
             }
         }
-        let clock = self.recording_since.map(|_| now + CLOCK_TICK);
+        let clock = since.map(|_| now + CLOCK_TICK);
         match (clock, self.notice_until) {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),

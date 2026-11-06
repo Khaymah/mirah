@@ -6,6 +6,7 @@ pub(crate) enum Key {
     Tables,
     Mouse,
     UpdateCheck,
+    Record,
 }
 
 pub(crate) struct Spec {
@@ -17,7 +18,7 @@ pub(crate) struct Spec {
 
 const ON_OFF: &[(&str, &str)] = &[("true", "شغال"), ("false", "مقفول")];
 
-pub(crate) const SPECS: [Spec; 6] = [
+pub(crate) const SPECS: [Spec; 7] = [
     Spec {
         key: Key::Align,
         name: "align",
@@ -56,6 +57,12 @@ pub(crate) const SPECS: [Spec; 6] = [
         key: Key::UpdateCheck,
         name: "update_check",
         label: "فحص التحديث",
+        values: ON_OFF,
+    },
+    Spec {
+        key: Key::Record,
+        name: "record",
+        label: "سجّل كل جلسة",
         values: ON_OFF,
     },
 ];

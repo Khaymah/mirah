@@ -18,6 +18,8 @@ pub const BRACKETED_PASTE_OFF: &str = "\x1b[?2004l";
 pub const CURSOR_KEYS_NORMAL: &str = "\x1b[?1l";
 pub const KEYPAD_NUMERIC: &str = "\x1b>";
 pub const KITTY_KEYBOARD_POP: &str = "\x1b[<u";
+pub const RESET_INPUT_MODES: &str =
+    "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1l\x1b>";
 
 pub const MODE_SYNCHRONIZED_OUTPUT: u16 = 2026;
 

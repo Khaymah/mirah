@@ -1,10 +1,14 @@
-use super::bar::{ACCENT, TEXT, shaped, style};
 use super::keys::Key;
+use super::style::{
+    ACCENT, BOX_BG, DIM, Frame, Line, TEXT, blank, boxed, content_start, right_to_left, shaped,
+    style,
+};
 use crate::config::{SPECS, Scope, Settings, Spec};
 use mirah_bidi::{Cell, Shaping};
+use std::ops::Range;
 
-const MARGIN: usize = 2;
 const HINT: &str = "↑↓ تنقّل · ←→ تغيير · Esc قفل";
+const GAP: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Change {
@@ -19,12 +23,15 @@ pub(crate) struct Menu {
     program: String,
 }
 
-fn value_label(spec: &Spec, settings: &Settings) -> &'static str {
-    let current = settings.value(spec.key);
-    spec.values
-        .iter()
-        .find(|(v, _)| *v == current)
-        .map_or(current, |(_, label)| label)
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Pick {
+    Value(usize, &'static str),
+    Scope(bool),
+}
+
+pub(crate) struct Drawn {
+    pub(crate) frame: Frame,
+    picks: Vec<(usize, Range<usize>, Pick)>,
 }
 
 fn step(spec: &Spec, settings: &Settings, forward: bool) -> &'static str {
@@ -43,6 +50,41 @@ fn step(spec: &Spec, settings: &Settings, forward: bool) -> &'static str {
     spec.values[next].0
 }
 
+fn option(text: &str, chosen: bool, shaping: Shaping) -> Vec<Cell> {
+    if chosen {
+        shaped(&format!("[{text}]"), style(ACCENT, BOX_BG, true), shaping)
+    } else {
+        shaped(&format!(" {text} "), style(DIM, BOX_BG, false), shaping)
+    }
+}
+
+fn row(
+    label: &str,
+    label_width: usize,
+    options: Vec<Vec<Cell>>,
+    shaping: Shaping,
+) -> (Vec<Cell>, Vec<Range<usize>>) {
+    let mut name = shaped(label, style(TEXT, BOX_BG, false), shaping);
+    let pad = label_width.saturating_sub(name.len());
+    let mut padded = blank(pad, style(TEXT, BOX_BG, false));
+    padded.append(&mut name);
+    let mut parts = vec![padded];
+    parts.extend(options);
+    let width = parts.iter().map(Vec::len).sum::<usize>() + GAP * (parts.len() - 1);
+    let mut cells = blank(width, style(TEXT, BOX_BG, false));
+    right_to_left(&mut cells, width, &parts, GAP);
+    let mut ranges = Vec::new();
+    let mut edge = width;
+    for (i, part) in parts.iter().enumerate() {
+        let start = edge.saturating_sub(part.len());
+        if i > 0 {
+            ranges.push(start..edge);
+        }
+        edge = start.saturating_sub(GAP);
+    }
+    (cells, ranges)
+}
+
 impl Menu {
     pub(crate) fn new(program: &str) -> Self {
         Self {
@@ -56,11 +98,8 @@ impl Menu {
         SPECS.len() + 1
     }
 
-    fn scope_label(&self) -> String {
-        match self.scope {
-            Scope::Global => "كل البرامج".to_string(),
-            Scope::Program(_) => format!("{} بس", self.program),
-        }
+    fn program_scope(&self) -> Scope {
+        Scope::Program(self.program.clone())
     }
 
     fn change(&mut self, settings: &Settings, forward: bool) -> Option<Change> {
@@ -72,7 +111,7 @@ impl Menu {
             )),
             None => {
                 self.scope = match self.scope {
-                    Scope::Global => Scope::Program(self.program.clone()),
+                    Scope::Global => self.program_scope(),
                     Scope::Program(_) => Scope::Global,
                 };
                 None
@@ -92,46 +131,85 @@ impl Menu {
         None
     }
 
-    pub(crate) fn click(&mut self, row: usize, settings: &Settings) -> Option<Change> {
-        if row >= Self::rows() {
+    pub(crate) fn click(
+        &mut self,
+        drawn: &Drawn,
+        row: usize,
+        column: usize,
+        settings: &Settings,
+    ) -> Option<Change> {
+        let body = row.checked_sub(super::style::BODY_TOP)?;
+        if body >= Self::rows() {
             return None;
         }
-        self.row = row;
-        self.change(settings, true)
+        self.row = body;
+        let pick = drawn
+            .picks
+            .iter()
+            .find(|(r, range, _)| *r == body && range.contains(&column))
+            .map(|(_, _, p)| p.clone());
+        match pick {
+            Some(Pick::Value(i, value)) => SPECS
+                .get(i)
+                .map(|spec| Change::Set(self.scope.clone(), spec.key, value)),
+            Some(Pick::Scope(global)) => {
+                self.scope = if global {
+                    Scope::Global
+                } else {
+                    self.program_scope()
+                };
+                None
+            }
+            None => self.change(settings, true),
+        }
     }
 
-    pub(crate) fn lines(&self, settings: &Settings, shaping: Shaping) -> Vec<Vec<Cell>> {
-        let mut texts: Vec<(String, bool)> = SPECS
+    pub(crate) fn draw(&self, settings: &Settings, shaping: Shaping) -> Drawn {
+        let scope_label = "يتطبّق على";
+        let label_width = SPECS
             .iter()
-            .enumerate()
-            .map(|(i, spec)| {
-                (
-                    format!("{}: {}", spec.label, value_label(spec, settings)),
-                    i == self.row,
-                )
-            })
-            .collect();
-        texts.push((
-            format!("يتطبّق على: {}", self.scope_label()),
-            self.row == SPECS.len(),
-        ));
-        let mut lines: Vec<Vec<Cell>> = texts
-            .iter()
-            .map(|(text, focused)| shaped(text, style(TEXT, false, *focused), shaping))
-            .collect();
-        lines.push(shaped(HINT, style(ACCENT, false, false), shaping));
-        let width = lines.iter().map(Vec::len).max().unwrap_or(0) + 2 * MARGIN;
-        let pad = shaped(" ", style(TEXT, false, false), shaping);
-        lines
-            .into_iter()
-            .map(|line| {
-                let left = width - MARGIN - line.len();
-                let mut row: Vec<Cell> = pad.iter().cycle().take(left).cloned().collect();
-                row.extend(line);
-                row.extend(pad.iter().cycle().take(MARGIN).cloned());
-                row
-            })
-            .collect()
+            .map(|s| s.label.chars().count())
+            .chain([scope_label.chars().count()])
+            .max()
+            .unwrap_or(0);
+        let mut lines = Vec::new();
+        let mut ranges = Vec::new();
+        for (i, spec) in SPECS.iter().enumerate() {
+            let current = settings.value(spec.key);
+            let options = spec
+                .values
+                .iter()
+                .map(|(v, label)| option(label, *v == current, shaping))
+                .collect();
+            let (cells, r) = row(spec.label, label_width, options, shaping);
+            let picks: Vec<Pick> = spec.values.iter().map(|(v, _)| Pick::Value(i, v)).collect();
+            ranges.push((r, picks));
+            lines.push(Line::new(cells, i == self.row));
+        }
+        let global = self.scope == Scope::Global;
+        let options = vec![
+            option("كل البرامج", global, shaping),
+            option(&format!("{} بس", self.program), !global, shaping),
+        ];
+        let (cells, r) = row(scope_label, label_width, options, shaping);
+        ranges.push((r, vec![Pick::Scope(true), Pick::Scope(false)]));
+        lines.push(Line::new(cells, self.row == SPECS.len()));
+        let lens: Vec<usize> = lines.iter().map(|l| l.cells.len()).collect();
+        let title = shaped(
+            &format!("الإعدادات · {}", self.program),
+            style(TEXT, BOX_BG, true),
+            shaping,
+        );
+        let hint = shaped(HINT, style(DIM, BOX_BG, false), shaping);
+        let frame = boxed(&title, lines, &hint, shaping);
+        let mut picks = Vec::new();
+        for (body, ((r, p), len)) in ranges.into_iter().zip(lens).enumerate() {
+            let at = content_start(frame.width, len);
+            for (range, pick) in r.into_iter().zip(p) {
+                picks.push((body, at + range.start..at + range.end, pick));
+            }
+        }
+        Drawn { frame, picks }
     }
 }
 
@@ -139,6 +217,10 @@ impl Menu {
 mod tests {
     use super::*;
     use crate::config::Key as Setting;
+
+    fn text(cells: &[Cell]) -> String {
+        cells.iter().map(|c| c.text.as_str()).collect()
+    }
 
     #[test]
     fn arrows_move_and_wrap() {
@@ -181,13 +263,38 @@ mod tests {
     }
 
     #[test]
-    fn every_line_has_the_same_width_and_shows_values_in_arabic() {
+    fn values_sit_inline_and_the_chosen_one_is_bracketed() {
         let menu = Menu::new("claude");
-        let lines = menu.lines(&Settings::default(), Shaping::Plain);
-        assert_eq!(lines.len(), SPECS.len() + 2);
-        assert!(lines.windows(2).all(|w| w[0].len() == w[1].len()));
-        let first: String = lines[0].iter().map(|c| c.text.as_str()).collect();
-        assert!(first.contains("هلك مالكلا"), "{first}");
-        assert!(lines[0].iter().any(|c| c.style.inverse));
+        let drawn = menu.draw(&Settings::default(), Shaping::Plain);
+        let rows = &drawn.frame.rows;
+        assert_eq!(rows.len(), SPECS.len() + 1 + 6);
+        assert!(rows.iter().all(|r| r.len() == drawn.frame.width));
+        let first = text(&rows[super::super::style::BODY_TOP]);
+        assert!(first.starts_with("│▌"), "{first}");
+        assert!(first.contains("[هلك مالكلا]"), "{first}");
+        assert!(first.contains("سب يبرعلا"), "{first}");
+    }
+
+    #[test]
+    fn clicking_a_value_sets_exactly_that_value() {
+        let mut menu = Menu::new("claude");
+        let settings = Settings::default();
+        let drawn = menu.draw(&settings, Shaping::Plain);
+        let (row, range, _) = drawn
+            .picks
+            .iter()
+            .find(|(_, _, p)| *p == Pick::Value(0, "off"))
+            .cloned()
+            .expect("off is drawn");
+        let change = menu.click(
+            &drawn,
+            row + super::super::style::BODY_TOP,
+            range.start,
+            &settings,
+        );
+        assert_eq!(
+            change,
+            Some(Change::Set(Scope::Global, Setting::Align, "off"))
+        );
     }
 }

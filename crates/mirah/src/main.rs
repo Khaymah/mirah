@@ -1,3 +1,4 @@
+mod agents;
 mod chrome;
 mod cli;
 mod command;
@@ -7,7 +8,12 @@ mod host;
 mod logging;
 mod paths;
 mod session;
+mod store;
 mod update;
+
+use session::Spawn;
+use std::path::PathBuf;
+use store::Store;
 
 const FAILURE: u32 = 1;
 
@@ -15,62 +21,152 @@ const FAILURE: u32 = 1;
     clippy::print_stderr,
     reason = "the terminal is already restored when the error is reported"
 )]
-fn report(err: &anyhow::Error) {
-    eprintln!("mirah: {err:#}");
+fn report(text: &str) {
+    eprintln!("mirah: {text}");
 }
 
 #[allow(
     clippy::print_stdout,
-    reason = "version and help are printed before the terminal is taken over"
+    reason = "version, help and the session list are printed before the terminal is taken over"
 )]
 fn print(text: &str) {
     println!("{text}");
 }
 
-#[allow(
-    clippy::print_stderr,
-    reason = "the terminal is already restored when the saved files are listed"
-)]
-fn report_saved(files: &debug_files::DebugFiles) {
-    eprintln!(
-        "mirah: saved {} and {}",
-        files.recording.display(),
-        files.log.display()
-    );
+fn exit(code: u32) -> ! {
+    std::process::exit(i32::try_from(code).unwrap_or(1))
+}
+
+fn here() -> PathBuf {
+    std::env::current_dir().unwrap_or_default()
+}
+
+fn first_tab(argv: Vec<String>, extra: &[agents::Agent]) -> Option<Spawn> {
+    let program = argv.first()?;
+    let agent =
+        agents::find(program, extra).map_or_else(|| config::program_name(program), |a| a.name);
+    Some(Spawn {
+        agent,
+        argv,
+        cwd: here(),
+        meta: None,
+    })
+}
+
+fn resumed_tab(store: Option<&Store>, id: Option<&str>, extra: &[agents::Agent]) -> Spawn {
+    let meta = store.and_then(|store| match id {
+        Some(id) => store.load(id),
+        None => store.list().into_iter().next(),
+    });
+    let Some(meta) = meta else {
+        report(&match id {
+            Some(id) => format!("no session with the ID {id}. Run `mirah sessions` to list them."),
+            None => "there are no sessions yet.".to_string(),
+        });
+        exit(FAILURE);
+    };
+    let agent = agents::find(&meta.agent, extra).unwrap_or_else(|| agents::Agent {
+        name: meta.agent.clone(),
+        title: meta.agent.clone(),
+        command: meta.argv.first().cloned().unwrap_or_default(),
+        resume: Vec::new(),
+    });
+    Spawn {
+        argv: agents::resume_argv(&agent, &meta.argv),
+        agent: meta.agent.clone(),
+        cwd: meta.cwd.clone(),
+        meta: Some(meta),
+    }
+}
+
+fn log_file(store: Option<&Store>, first: Option<&Spawn>) -> (Option<PathBuf>, Option<String>) {
+    match (store, first.and_then(|s| s.meta.as_ref())) {
+        (Some(store), Some(meta)) => (Some(store.log(&meta.id)), None),
+        (Some(store), None) => {
+            let id = store.reserve();
+            (Some(store.log(&id)), Some(id))
+        }
+        (None, _) => {
+            let program = first
+                .and_then(|s| s.argv.first().cloned())
+                .unwrap_or_default();
+            (Some(debug_files::next_in(&here(), &program).log), None)
+        }
+    }
 }
 
 fn main() {
-    let run = match cli::parse(std::env::args().skip(1)) {
+    let (first, record) = match cli::parse(std::env::args().skip(1)) {
         cli::Invocation::Print(text) => {
             print(&text);
             return;
         }
         cli::Invocation::Update => {
             let _log_guard = logging::init(None);
-            let code = update::command();
-            std::process::exit(i32::try_from(code).unwrap_or(1));
+            exit(update::command());
         }
-        cli::Invocation::Run(run) => run,
+        cli::Invocation::Sessions => {
+            match Store::open() {
+                Some(store) => print(&store::table(&store, store::now())),
+                None => report("there is no folder to keep sessions in."),
+            }
+            return;
+        }
+        cli::Invocation::Resume(id) => (Err(id), false),
+        cli::Invocation::Run(run) => (Ok(run.argv), run.record),
     };
-    let files = run
-        .record
-        .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default(), &run.program));
-    let log_guard = logging::init(files.as_ref().map(|f| f.log.as_path()));
+    let config = config::Config::load();
+    let extra = config.agents();
+    let store = Store::open();
+    let first = match first {
+        Ok(argv) => first_tab(argv, &extra),
+        Err(id) => Some(resumed_tab(store.as_ref(), id.as_deref(), &extra)),
+    };
+    let program = first
+        .as_ref()
+        .and_then(|s| s.argv.first().cloned())
+        .unwrap_or_default();
+    let record = record || config.settings(&program).record;
+    let (log, reserved) = if record {
+        log_file(store.as_ref(), first.as_ref())
+    } else {
+        (None, None)
+    };
+    let log_guard = logging::init(log.as_deref());
     update::remove_leftover();
     host::install_panic_hook();
-    let recording = files.as_ref().map(|f| f.recording.clone());
-    let code = match session::run(run.cmd, &run.program, recording) {
-        Ok(code) => code,
+    if let Some(store) = &store {
+        let removed = store.clean(store::now());
+        tracing::debug!(removed, "old sessions cleaned");
+    }
+    let start = session::Start {
+        first,
+        record,
+        reserved: reserved.clone(),
+        store,
+        config,
+        agents: extra,
+    };
+    let result = session::run(start);
+    drop(log_guard);
+    let code = match result {
+        Ok(outcome) => {
+            for id in &outcome.sessions {
+                report(&format!(
+                    "session {id} · continue it with `mirah resume {id}`"
+                ));
+            }
+            outcome.code
+        }
         Err(err) => {
             host::disable_raw_mode();
             tracing::error!(error = format!("{err:#}"), "session failed");
-            report(&err);
+            report(&format!("{err:#}"));
             FAILURE
         }
     };
-    drop(log_guard);
-    if let Some(files) = &files {
-        report_saved(files);
+    if let (Some(store), Some(id)) = (Store::open(), reserved) {
+        store::forget_if_empty(&store, &id);
     }
-    std::process::exit(i32::try_from(code).unwrap_or(1));
+    exit(code);
 }

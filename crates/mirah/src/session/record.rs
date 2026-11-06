@@ -37,7 +37,8 @@ impl Recorder {
     }
 
     pub(crate) fn start(&mut self, path: PathBuf) -> bool {
-        match File::create(&path) {
+        let opened = OpenOptions::new().create(true).append(true).open(&path);
+        match opened {
             Ok(file) => {
                 tracing::info!(path = ?path, "recording child output");
                 self.file = Some(BufWriter::new(file));

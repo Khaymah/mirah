@@ -1,31 +1,64 @@
-use super::bar::{TEXT, shaped, style};
-use mirah_bidi::{Cell, Shaping};
+use super::style::{
+    ACCENT, BODY_TOP, BOX_BG, DIM, Frame, Line, TEXT, blank, boxed, content_start, right_to_left,
+    shaped, style,
+};
+use mirah_bidi::Shaping;
 use std::ops::Range;
 
+const GAP: usize = 3;
+
 pub(crate) struct Dialog {
-    pub(crate) cells: Vec<Cell>,
+    pub(crate) frame: Frame,
     pub(crate) yes: Range<usize>,
     pub(crate) no: Range<usize>,
 }
 
+impl Dialog {
+    pub(crate) fn hit(&self, row: usize, column: usize) -> Option<bool> {
+        if row != BODY_TOP {
+            return None;
+        }
+        if self.yes.contains(&column) {
+            Some(true)
+        } else if self.no.contains(&column) {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
+
+fn choice(text: &str, focused: bool, shaping: Shaping) -> Vec<mirah_bidi::Cell> {
+    let s = if focused {
+        style(BOX_BG, ACCENT, true)
+    } else {
+        style(TEXT, super::style::CHIP_BG, false)
+    };
+    shaped(&format!("  {text}  "), s, shaping)
+}
+
 pub(crate) fn draw(program: &str, yes_focused: bool, shaping: Shaping) -> Dialog {
-    let plain = style(TEXT, false, false);
-    let no = shaped(" لا ", style(TEXT, true, !yes_focused), shaping);
-    let yes = shaped(" نعم ", style(TEXT, true, yes_focused), shaping);
-    let question = shaped(&format!(" تقفل {program}؟ "), plain, shaping);
-    let gap = shaped("  ", plain, shaping);
-    let mut cells = Vec::new();
-    let no_range = cells.len()..cells.len() + no.len();
-    cells.extend(no);
-    cells.extend(gap.iter().cloned());
-    let yes_range = cells.len()..cells.len() + yes.len();
-    cells.extend(yes);
-    cells.extend(gap);
-    cells.extend(question);
+    let yes = choice("نعم، اقفل", yes_focused, shaping);
+    let no = choice("لا", !yes_focused, shaping);
+    let width = yes.len() + no.len() + GAP;
+    let mut cells = blank(width, style(TEXT, BOX_BG, false));
+    right_to_left(&mut cells, width, &[yes.clone(), no.clone()], GAP);
+    let title = shaped(
+        &format!("تقفل {program}؟"),
+        style(TEXT, BOX_BG, true),
+        shaping,
+    );
+    let hint = shaped(
+        "←→ اختار · Enter تأكيد · Esc رجوع",
+        style(DIM, BOX_BG, false),
+        shaping,
+    );
+    let frame = boxed(&title, vec![Line::new(cells, false)], &hint, shaping);
+    let at = content_start(frame.width, width);
     Dialog {
-        cells,
-        yes: yes_range,
-        no: no_range,
+        yes: at + width - yes.len()..at + width,
+        no: at..at + no.len(),
+        frame,
     }
 }
 
@@ -36,13 +69,15 @@ mod tests {
     #[test]
     fn the_question_reads_right_to_left_with_yes_before_no() {
         let dialog = draw("claude", false, Shaping::Plain);
-        let text: String = dialog.cells.iter().map(|c| c.text.as_str()).collect();
-        assert!(text.trim_end().ends_with("claude لفقت"), "{text}");
+        let title: String = dialog.frame.rows[1]
+            .iter()
+            .map(|c| c.text.as_str())
+            .collect();
+        assert!(title.contains("claude لفقت"), "{title}");
         assert!(dialog.yes.start > dialog.no.start);
-        assert!(
-            dialog.cells[dialog.no.clone()]
-                .iter()
-                .all(|c| c.style.inverse)
-        );
+        assert_eq!(dialog.hit(BODY_TOP, dialog.yes.start), Some(true));
+        assert_eq!(dialog.hit(BODY_TOP, dialog.no.start), Some(false));
+        let row = &dialog.frame.rows[BODY_TOP];
+        assert!(row[dialog.no.clone()].iter().all(|c| c.style.bg == ACCENT));
     }
 }

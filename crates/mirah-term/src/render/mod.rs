@@ -5,7 +5,8 @@ use crate::layout::{Caches, Cursor, RenderOptions, layout};
 use crate::overlay::Overlay;
 use crate::screen::logical_row;
 use crate::sequences::{
-    CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
+    CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, RESET_INPUT_MODES, SGR_RESET, SYNC_BEGIN, SYNC_END,
+    cursor_to,
 };
 use mirah_bidi::{Cell, Style, VisualRow};
 
@@ -15,6 +16,7 @@ const EDITOR_CURSOR_DEN: u32 = 3;
 pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
     prev_input_modes: String,
+    reset_modes: bool,
     options: RenderOptions,
     caches: Caches,
     to_child: Vec<Vec<u16>>,
@@ -61,6 +63,7 @@ impl Renderer {
         Self {
             prev: Vec::new(),
             prev_input_modes: String::new(),
+            reset_modes: false,
             options,
             caches: Caches::default(),
             to_child: Vec::new(),
@@ -77,6 +80,12 @@ impl Renderer {
 
     pub(crate) fn invalidate(&mut self) {
         self.prev.clear();
+    }
+
+    pub(crate) fn redraw(&mut self) {
+        self.invalidate();
+        self.prev_input_modes.clear();
+        self.reset_modes = true;
     }
 
     pub(crate) fn set_options(&mut self, options: RenderOptions) {
@@ -149,6 +158,9 @@ impl Renderer {
         });
         self.draw_rows(&mut out, &mut visual, overlay, cols);
         let modes = screen.input_mode_formatted();
+        if std::mem::take(&mut self.reset_modes) {
+            out.push_str(RESET_INPUT_MODES);
+        }
         if modes != self.prev_input_modes {
             out.push_str(&modes);
             self.prev_input_modes = modes;

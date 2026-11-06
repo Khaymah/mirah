@@ -1,63 +1,68 @@
-use mirah_bidi::{BidiOptions, Cell, Color, Shaping, Style, visual_row_with};
+use super::style::{
+    ACCENT, BAR_BG, CHIP_BG, DIM, RECORDING, TEXT, UPDATE, blank, put, shaped, style,
+};
+use mirah_bidi::{Cell, Color, Shaping};
 use std::ops::Range;
 use std::time::Duration;
 
-pub(crate) const BACKGROUND: Color = Color::Rgb(30, 30, 46);
-pub(crate) const TEXT: Color = Color::Rgb(205, 214, 244);
-pub(crate) const ACCENT: Color = Color::Rgb(137, 180, 250);
-const RECORDING: Color = Color::Rgb(243, 139, 168);
-const UPDATE: Color = Color::Rgb(166, 227, 161);
-const GAP: usize = 2;
 const SECONDS_PER_MINUTE: u64 = 60;
+const SHORT_NAME: usize = 6;
+const CLOSE_AT: usize = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Item {
-    Settings,
+    Tab(usize),
+    NewTab,
     Record,
     Update,
+    Settings,
     Close,
 }
 
-pub(crate) const ORDER: [Item; 4] = [Item::Settings, Item::Record, Item::Update, Item::Close];
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct TabLabel {
+    pub(crate) name: String,
+    pub(crate) unread: bool,
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct BarState {
-    pub(crate) program: String,
+    pub(crate) tabs: Vec<TabLabel>,
+    pub(crate) active: usize,
     pub(crate) recording: Option<Duration>,
     pub(crate) update: Option<String>,
     pub(crate) focus: Option<Item>,
     pub(crate) notice: Option<String>,
 }
 
-pub(crate) struct Drawn {
-    pub(crate) cells: Vec<Cell>,
-    pub(crate) hits: Vec<(Item, Range<usize>)>,
-}
+impl BarState {
+    pub(crate) fn program(&self) -> String {
+        self.tabs
+            .get(self.active)
+            .map(|t| t.name.clone())
+            .unwrap_or_default()
+    }
 
-pub(crate) fn style(fg: Color, bold: bool, focused: bool) -> Style {
-    Style {
-        fg,
-        bg: BACKGROUND,
-        bold,
-        inverse: focused,
-        ..Style::default()
+    pub(crate) fn items(&self) -> Vec<Item> {
+        let mut items: Vec<Item> = (0..self.tabs.len()).map(Item::Tab).collect();
+        items.push(Item::NewTab);
+        if !self.tabs.is_empty() {
+            items.push(Item::Record);
+        }
+        if self.update.is_some() {
+            items.push(Item::Update);
+        }
+        items.push(Item::Settings);
+        if !self.tabs.is_empty() {
+            items.push(Item::Close);
+        }
+        items
     }
 }
 
-pub(crate) fn shaped(text: &str, style: Style, shaping: Shaping) -> Vec<Cell> {
-    let logical: Vec<Cell> = text
-        .chars()
-        .map(|c| Cell {
-            text: c.to_string().into(),
-            style,
-            ..Cell::default()
-        })
-        .collect();
-    let options = BidiOptions {
-        shaping,
-        rtl_base: true,
-    };
-    visual_row_with(&logical, None, options).cells
+pub(crate) struct Drawn {
+    pub(crate) cells: Vec<Cell>,
+    pub(crate) hits: Vec<(Item, Range<usize>)>,
 }
 
 fn clock(elapsed: Duration) -> String {
@@ -69,99 +74,183 @@ fn clock(elapsed: Duration) -> String {
     )
 }
 
-fn label(item: Item, state: &BarState) -> Option<(&'static str, String, Color)> {
-    Some(match item {
-        Item::Settings => ("⚙", "الإعدادات".to_string(), TEXT),
-        Item::Record => match state.recording {
-            Some(elapsed) => ("■", clock(elapsed), RECORDING),
-            None => ("●", "تسجيل".to_string(), TEXT),
-        },
-        Item::Update => ("↻", state.update.clone()?, UPDATE),
-        Item::Close => ("✕", String::new(), TEXT),
-    })
+fn chip(text: &str, fg: Color, focused: bool, shaping: Shaping) -> Vec<Cell> {
+    let s = if focused {
+        style(BAR_BG, ACCENT, true)
+    } else {
+        style(fg, BAR_BG, false)
+    };
+    shaped(&format!(" {text} "), s, shaping)
 }
 
-fn button(icon: &str, word: &str, style: Style, shaping: Shaping) -> Vec<Cell> {
-    let mut cells = shaped(" ", style, shaping);
-    if !word.is_empty() {
-        cells.extend(shaped(word, style, shaping));
-        cells.extend(shaped(" ", style, shaping));
+fn tab(label: &TabLabel, active: bool, focused: bool, short: bool, shaping: Shaping) -> Vec<Cell> {
+    let mut name: String = label.name.clone();
+    if short && name.chars().count() > SHORT_NAME {
+        name = name.chars().take(SHORT_NAME - 1).collect::<String>() + "…";
     }
-    cells.extend(shaped(&format!("{icon} "), style, shaping));
+    let dot = |bg| shaped("•", style(ACCENT, bg, true), shaping);
+    if focused {
+        return shaped(&format!(" {name} "), style(BAR_BG, ACCENT, true), shaping);
+    }
+    if active {
+        let edge = style(CHIP_BG, BAR_BG, false);
+        let mut cells = shaped("▐", edge, shaping);
+        cells.extend(shaped(
+            &format!(" {name} "),
+            style(TEXT, CHIP_BG, true),
+            shaping,
+        ));
+        cells.extend(shaped("▌", edge, shaping));
+        return cells;
+    }
+    let mut cells = shaped(&format!(" {name}"), style(DIM, BAR_BG, false), shaping);
+    if label.unread {
+        cells.extend(shaped(" ", style(DIM, BAR_BG, false), shaping));
+        cells.extend(dot(BAR_BG));
+    }
+    cells.extend(shaped(" ", style(DIM, BAR_BG, false), shaping));
     cells
 }
 
-fn items(state: &BarState, short: bool, shaping: Shaping) -> Vec<(Item, Vec<Cell>)> {
-    ORDER
+fn separator(shaping: Shaping) -> Vec<Cell> {
+    shaped("┃", style(Color::Rgb(52, 54, 61), BAR_BG, false), shaping)
+}
+
+fn brand(shaping: Shaping) -> Vec<Cell> {
+    let mut cells = shaped(" مرآة ", style(TEXT, BAR_BG, true), shaping);
+    cells.extend(shaped("◆ ", style(ACCENT, BAR_BG, true), shaping));
+    cells
+}
+
+fn button(item: Item, state: &BarState, shaping: Shaping) -> Option<Vec<Cell>> {
+    let focused = state.focus == Some(item);
+    Some(match item {
+        Item::Record => match state.recording {
+            Some(elapsed) => chip(
+                &format!("■ {}", clock(elapsed)),
+                RECORDING,
+                focused,
+                shaping,
+            ),
+            None => chip("●", DIM, focused, shaping),
+        },
+        Item::Update => chip(
+            &format!("↻ {}", state.update.as_ref()?),
+            UPDATE,
+            focused,
+            shaping,
+        ),
+        Item::Settings => chip("⚙", TEXT, focused, shaping),
+        Item::Close => chip("✕", TEXT, focused, shaping),
+        Item::NewTab => chip("+", ACCENT, focused, shaping),
+        Item::Tab(_) => return None,
+    })
+}
+
+struct Layout {
+    tabs: Vec<(Item, Vec<Cell>)>,
+    hidden: usize,
+}
+
+fn tab_parts(state: &BarState, short: bool, shaping: Shaping) -> Vec<(Item, Vec<Cell>)> {
+    state
+        .tabs
         .iter()
-        .filter_map(|&item| {
-            let (icon, word, color) = label(item, state)?;
-            let style = style(color, false, state.focus == Some(item));
-            let word = if short { "" } else { word.as_str() };
-            Some((item, button(icon, word, style, shaping)))
+        .enumerate()
+        .map(|(i, label)| {
+            let item = Item::Tab(i);
+            let cells = tab(
+                label,
+                i == state.active,
+                state.focus == Some(item),
+                short,
+                shaping,
+            );
+            (item, cells)
         })
         .collect()
 }
 
-fn brand(state: &BarState, shaping: Shaping) -> Vec<Cell> {
-    let text = match &state.notice {
-        Some(notice) => notice.clone(),
-        None => format!("مرآة · {}", state.program),
-    };
-    button("◆", &text, style(ACCENT, true, false), shaping)
-}
-
-fn fits(width: usize, brand: &[Cell], items: &[(Item, Vec<Cell>)]) -> bool {
-    let used: usize = brand.len() + items.iter().map(|(_, c)| c.len() + GAP).sum::<usize>();
-    used <= width
-}
-
-fn place(cells: &mut [Cell], start: usize, part: Vec<Cell>) {
-    for (offset, cell) in part.into_iter().enumerate() {
-        if let Some(slot) = cells.get_mut(start + offset) {
-            *slot = cell;
-        }
+fn layout(state: &BarState, room: usize, shaping: Shaping) -> Layout {
+    let width = |parts: &[(Item, Vec<Cell>)]| parts.iter().map(|(_, c)| c.len() + 1).sum::<usize>();
+    let full = tab_parts(state, false, shaping);
+    if width(&full) <= room {
+        return Layout {
+            tabs: full,
+            hidden: 0,
+        };
     }
-}
-
-fn fitted(
-    state: &BarState,
-    width: usize,
-    brand: &[Cell],
-    shaping: Shaping,
-) -> Vec<(Item, Vec<Cell>)> {
-    let mut parts = items(state, false, shaping);
-    if !fits(width, brand, &parts) {
-        parts = items(state, true, shaping);
+    let short = tab_parts(state, true, shaping);
+    if width(&short) <= room {
+        return Layout {
+            tabs: short,
+            hidden: 0,
+        };
     }
-    while !fits(width, brand, &parts) && parts.len() > 1 {
-        parts.remove(parts.len() - 2);
+    let keep = state.active.min(short.len().saturating_sub(1));
+    let hidden = short.len().saturating_sub(1);
+    Layout {
+        tabs: short.into_iter().skip(keep).take(1).collect(),
+        hidden,
     }
-    parts
 }
 
 pub(crate) fn draw(state: &BarState, width: usize, shaping: Shaping) -> Drawn {
-    let blank = Cell {
-        text: " ".into(),
-        style: style(TEXT, false, false),
-        ..Cell::default()
-    };
-    let mut cells = vec![blank; width];
-    let brand = brand(state, shaping);
-    let parts = fitted(state, width, &brand, shaping);
-    let mut right = width.saturating_sub(brand.len());
-    place(&mut cells, right, brand);
+    let mut cells = blank(width, style(TEXT, BAR_BG, false));
     let mut hits = Vec::new();
-    for (item, label) in parts {
-        let begin = if item == Item::Close {
-            0
-        } else {
-            right.saturating_sub(label.len() + GAP)
-        };
-        hits.push((item, begin..(begin + label.len()).min(width)));
-        place(&mut cells, begin, label);
-        if item != Item::Close {
-            right = begin;
+    let mut place = |cells: &mut Vec<Cell>, start: usize, item: Option<Item>, part: &[Cell]| {
+        put(cells, start, part);
+        if let Some(item) = item {
+            hits.push((item, start..(start + part.len()).min(width)));
+        }
+    };
+    let mut left = CLOSE_AT;
+    for item in [Item::Close, Item::Settings, Item::Update, Item::Record] {
+        if !state.items().contains(&item) {
+            continue;
+        }
+        if let Some(part) = button(item, state, shaping) {
+            place(&mut cells, left, Some(item), &part);
+            left += part.len() + 1;
+        }
+    }
+    let brand = brand(shaping);
+    let mut right = width.saturating_sub(brand.len());
+    place(&mut cells, right, None, &brand);
+    let new_tab = button(Item::NewTab, state, shaping).unwrap_or_default();
+    let sep = separator(shaping);
+    let room = right.saturating_sub(left + new_tab.len() + 2 * sep.len() + 2);
+    let laid = layout(state, room, shaping);
+    right = right.saturating_sub(sep.len());
+    place(&mut cells, right, None, &sep);
+    for (item, part) in &laid.tabs {
+        right = right.saturating_sub(part.len());
+        place(&mut cells, right, Some(*item), part);
+        right = right.saturating_sub(sep.len());
+        place(&mut cells, right, None, &sep);
+    }
+    if laid.hidden > 0 {
+        let more = shaped(
+            &format!(" ‹ {} › ", laid.hidden),
+            style(DIM, BAR_BG, false),
+            shaping,
+        );
+        right = right.saturating_sub(more.len());
+        place(&mut cells, right, None, &more);
+    }
+    right = right.saturating_sub(new_tab.len());
+    if right > left {
+        place(&mut cells, right, Some(Item::NewTab), &new_tab);
+    }
+    if let Some(notice) = &state.notice {
+        let text = shaped(
+            &format!(" {notice} "),
+            style(ACCENT, BAR_BG, false),
+            shaping,
+        );
+        let end = right.saturating_sub(1);
+        if end > left + text.len() {
+            place(&mut cells, end - text.len(), None, &text);
         }
     }
     Drawn { cells, hits }
@@ -179,99 +268,120 @@ mod tests {
             .map(|(item, _)| *item)
     }
 
+    fn start(drawn: &Drawn, item: Item) -> usize {
+        drawn
+            .hits
+            .iter()
+            .find(|(i, _)| *i == item)
+            .map_or(usize::MAX, |(_, r)| r.start)
+    }
+
     fn text(cells: &[Cell]) -> String {
         cells.iter().map(|c| c.text.as_str()).collect()
     }
 
-    fn state() -> BarState {
+    fn state(names: &[&str]) -> BarState {
         BarState {
-            program: "claude".into(),
+            tabs: names
+                .iter()
+                .map(|n| TabLabel {
+                    name: (*n).to_string(),
+                    unread: false,
+                })
+                .collect(),
             ..BarState::default()
         }
     }
 
     #[test]
     fn the_brand_sits_at_the_right_and_close_at_the_left() {
-        let drawn = draw(&state(), 80, Shaping::Plain);
+        let drawn = draw(&state(&["claude"]), 80, Shaping::Plain);
         let line = text(&drawn.cells);
         assert_eq!(drawn.cells.len(), 80);
-        assert!(line.trim_end().ends_with("◆"), "{line}");
-        assert!(line.contains("claude"), "{line}");
-        assert_eq!(hit(&drawn, 1), Some(Item::Close));
+        assert!(line.trim_end().ends_with('◆'), "{line}");
         assert!(
             line.contains("ةآرم"),
             "Arabic is drawn in visual order: {line}"
         );
+        assert_eq!(hit(&drawn, 2), Some(Item::Close));
     }
 
     #[test]
-    fn items_do_not_overlap_and_follow_right_to_left_order() {
-        let drawn = draw(&state(), 80, Shaping::Plain);
-        let starts: Vec<(Item, usize)> = drawn.hits.iter().map(|(i, r)| (*i, r.start)).collect();
-        let settings = starts
-            .iter()
-            .find(|(i, _)| *i == Item::Settings)
-            .map(|(_, s)| *s);
-        let record = starts
-            .iter()
-            .find(|(i, _)| *i == Item::Record)
-            .map(|(_, s)| *s);
-        assert!(settings > record, "{starts:?}");
+    fn tabs_run_right_to_left_and_new_tab_comes_after_them() {
+        let drawn = draw(&state(&["claude", "opencode"]), 80, Shaping::Plain);
+        let line = text(&drawn.cells);
+        assert!(line.contains("▐ claude ▌"), "{line}");
+        assert!(start(&drawn, Item::Tab(0)) > start(&drawn, Item::Tab(1)));
+        assert!(start(&drawn, Item::Tab(1)) > start(&drawn, Item::NewTab));
+        assert!(start(&drawn, Item::NewTab) > start(&drawn, Item::Settings));
         for pair in drawn.hits.windows(2) {
             assert!(pair[0].1.end <= pair[1].1.start || pair[1].1.end <= pair[0].1.start);
         }
     }
 
     #[test]
+    fn an_unread_tab_has_a_dot() {
+        let mut s = state(&["claude", "opencode"]);
+        s.tabs[1].unread = true;
+        let line = text(&draw(&s, 80, Shaping::Plain).cells);
+        assert!(line.contains("opencode •"), "{line}");
+    }
+
+    #[test]
     fn the_update_item_appears_only_when_there_is_one() {
-        assert!(
-            !draw(&state(), 80, Shaping::Plain)
-                .hits
-                .iter()
-                .any(|(i, _)| *i == Item::Update)
+        let s = state(&["claude"]);
+        assert_eq!(
+            start(&draw(&s, 80, Shaping::Plain), Item::Update),
+            usize::MAX
         );
         let with = BarState {
-            update: Some("0.2.1".into()),
-            ..state()
+            update: Some("0.3.1".into()),
+            ..s
         };
-        assert!(
-            draw(&with, 80, Shaping::Plain)
-                .hits
-                .iter()
-                .any(|(i, _)| *i == Item::Update)
+        assert_ne!(
+            start(&draw(&with, 80, Shaping::Plain), Item::Update),
+            usize::MAX
         );
     }
 
     #[test]
-    fn a_narrow_bar_falls_back_to_icons_and_keeps_close() {
-        let drawn = draw(&state(), 30, Shaping::Plain);
+    fn many_tabs_shrink_and_then_collapse_to_the_active_one() {
+        let names = ["claude", "opencode", "codex", "gemini", "aider", "crush"];
+        let mut s = state(&names);
+        s.active = 2;
+        let drawn = draw(&s, 50, Shaping::Plain);
         let line = text(&drawn.cells);
-        assert!(!line.contains("تادادعإلا"), "{line}");
-        assert!(drawn.hits.iter().any(|(i, _)| *i == Item::Close));
+        assert!(line.contains("codex"), "{line}");
+        assert!(line.contains("‹ 5 ›"), "{line}");
+        assert_ne!(start(&drawn, Item::Close), usize::MAX);
+        assert_ne!(start(&drawn, Item::NewTab), usize::MAX);
     }
 
     #[test]
     fn recording_shows_a_clock() {
         let rec = BarState {
             recording: Some(Duration::from_secs(133)),
-            ..state()
+            ..state(&["claude"])
         };
         assert!(text(&draw(&rec, 80, Shaping::Plain).cells).contains("02:13"));
     }
 
     #[test]
-    fn the_focused_item_is_inverse() {
+    fn the_focused_item_uses_the_accent() {
         let focused = BarState {
             focus: Some(Item::Settings),
-            ..state()
+            ..state(&["claude"])
         };
         let drawn = draw(&focused, 80, Shaping::Plain);
-        let range = drawn
-            .hits
-            .iter()
-            .find(|(i, _)| *i == Item::Settings)
-            .map(|(_, r)| r.clone());
-        let range = range.unwrap_or(0..0);
-        assert!(drawn.cells[range].iter().all(|c| c.style.inverse));
+        let at = start(&drawn, Item::Settings);
+        assert_eq!(drawn.cells[at].style.bg, ACCENT);
+    }
+
+    #[test]
+    fn without_tabs_only_new_tab_and_settings_show() {
+        let drawn = draw(&BarState::default(), 80, Shaping::Plain);
+        let items: Vec<Item> = drawn.hits.iter().map(|(i, _)| *i).collect();
+        assert!(items.contains(&Item::NewTab) && items.contains(&Item::Settings));
+        assert!(!items.contains(&Item::Close) && !items.contains(&Item::Record));
     }
 }

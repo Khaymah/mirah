@@ -2,6 +2,22 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.3.0-alpha.1 - 2026-11-06
+
+**شاشة اختيار البرنامج، والتابات، والجلسات، وشكل جديد.**
+
+- **`mirah` لوحده** بيفتح شاشة اختيار: مرآة بتدوّر في الـ PATH على Claude Code، وOpenCode، وCodex، وGemini، وQwen، وAider، وCrush، وCursor Agent، وAmp، وCopilot، وGoose، وفي الآخر الـ shell بتاعك. وآخر برنامج استخدمته بيبقى هو المختار. وتقدر تضيف برامج بـ `[[agents]]` في `config.toml`. و`mirah claude` بيشتغل زي الأول.
+- **التابات جوه الشريط:** `+` أو `Ctrl+]` وبعدين `t` بيفتح تاب جديد، و`Ctrl+]` وبعدين رقم بيروح للتاب، والأسهم بتتنقل بينهم، والضغط على اسم التاب بيفتحه. والتابات التانية بتفضل شغالة، ولو فيها حاجة جديدة بيظهر عليها `•`. و✕ بيقفل التاب اللي انت عليه، ولما آخر تاب يتقفل، مرآة بتخرج.
+- **الجلسات:** كل تاب جلسة ليها ID (زي `1106-0457-k3f2`) وفولدر في `%LOCALAPPDATA%\mirah\sessions\` أو `~/.local/state/mirah/sessions/`، فيه `session.toml` والتسجيل والـ log. فالتسجيلات مابقتش بتتكتب جنب البرنامج.
+  - **`mirah sessions`** بيعرض آخر الجلسات.
+  - **`mirah resume <ID>`** بيكمّل نفس المحادثة بطريقة كل برنامج (`claude --continue`، و`opencode --continue`، و`codex resume --last`، و`gemini --resume`)، في نفس الفولدر، والتسجيل بيكمّل في نفس الملف. وشاشة الاختيار بتعرض آخر الجلسات اللي ينفع تتكمّل.
+  - مرآة بتحتفظ بآخر 50 جلسة أو آخر 14 يوم.
+  - **"سجّل كل جلسة"** بقى إعداد في القايمة. و`--record` لسه شغال، وبيكتب في فولدر الجلسة، وبيطبع الـ ID.
+- **شكل أهدى:** ألوان غامقة بلون مميز واحد، والتاب المفتوح بخلفية زي البرنامج، والأزرار أيقونات بس، وفواصل `┃` رفيعة. والقايمة، وسؤال القفل، وشاشة الاختيار بقوا صناديق بحواف مدوّرة. وقيم الإعدادات بتظهر جنب بعض، واللي شغالة عليها لون، والضغط على أي قيمة بيختارها.
+- **علامات التشكيل** (زي الشدّة) في الشريط والقوايم بقت على حرفها، بعد ما كانت بتاخد خانة لوحدها.
+
+**English:** A program picker, tabs, stored sessions and a calmer look. `mirah` on its own opens a picker of the agents found on PATH (Claude Code, OpenCode, Codex, Gemini, Qwen, Aider, Crush, Cursor Agent, Amp, Copilot, Goose, then your shell), with the last one preselected; `[[agents]]` in `config.toml` adds more, and `mirah claude` still starts directly. Tabs live in the bar: `+` or `Ctrl+]` then `t` opens one, `Ctrl+]` then a digit jumps to it, arrows move between them and a click opens one; background tabs keep running and show `•` when they have new output; ✕ closes the open tab and closing the last one exits. Every tab is a session with an ID and a folder under `%LOCALAPPDATA%\mirah\sessions\` or `~/.local/state/mirah/sessions/` holding `session.toml`, the recording and the log, so recordings no longer land next to the program. `mirah sessions` lists them, and `mirah resume <ID>` continues the same conversation with each program's own option, in the same folder, appending to the same recording; the picker lists recent sessions too. The newest 50 sessions or the last 14 days are kept. "Record every session" is a menu setting, and `--record` still works, writing to the session folder and printing the ID. The bar, the menu, the close question and the picker use a calmer palette with one accent, icon-only buttons and rounded boxes; menu values sit side by side with the current one highlighted and can be clicked. Arabic marks such as shadda stay on their letter in the bar and menus.
+
 ## 0.2.0-alpha.2 - 2026-11-06
 
 تصليحات من أول تجربة للشريط على ويندوز.

@@ -24,6 +24,7 @@ pub(crate) enum Key {
     Escape,
     Tab,
     Release,
+    Char(char),
     Other,
 }
 
@@ -37,6 +38,21 @@ fn numbers(body: &[u8]) -> Vec<u32> {
                 .unwrap_or(0)
         })
         .collect()
+}
+
+fn printable(code: u32) -> Key {
+    match char::from_u32(code) {
+        Some(c) if !c.is_control() && code != 0 => Key::Char(c),
+        _ => Key::Other,
+    }
+}
+
+fn single(run: &[u8]) -> Key {
+    let mut chars = std::str::from_utf8(run).ok().map(str::chars);
+    match chars.as_mut().map(|c| (c.next(), c.next())) {
+        Some((Some(c), None)) if !c.is_control() => Key::Char(c),
+        _ => Key::Other,
+    }
 }
 
 fn win32(params: &[u32]) -> Key {
@@ -59,7 +75,7 @@ fn win32(params: &[u32]) -> Key {
         VK_RETURN => Key::Enter,
         VK_ESCAPE => Key::Escape,
         VK_TAB => Key::Tab,
-        _ => Key::Other,
+        _ => printable(uc),
     }
 }
 
@@ -76,6 +92,7 @@ fn csi(body: &[u8], last: u8) -> Key {
             (Some(13), _) => Key::Enter,
             (Some(27), _) => Key::Escape,
             (Some(9), _) => Key::Tab,
+            (Some(code), None | Some(1)) => printable(code),
             _ => Key::Other,
         },
         WIN32_FINAL => win32(&params),
@@ -125,7 +142,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Vec<(Key, Range<usize>)> {
                     })
                     .count()
                     .max(1);
-                (Key::Other, len)
+                (single(&bytes[i..i + len]), len)
             }
         };
         out.push((key, i..i + len));
@@ -145,14 +162,14 @@ mod tests {
     #[test]
     fn reads_plain_keys() {
         assert_eq!(
-            keys(b"ab\x1d\x1b[D\x1bOC\r\x1b"),
+            keys(b"ab\x1d\x1b[D\x1bOC\r\x1bt"),
             [
                 Key::Other,
                 Key::Toggle,
                 Key::Left,
                 Key::Right,
                 Key::Enter,
-                Key::Escape
+                Key::Other
             ]
         );
     }
@@ -167,7 +184,8 @@ mod tests {
             keys(b"\x1b[37;75;0;1;0;1_\x1b[13;28;13;1;0;1_"),
             [Key::Left, Key::Enter]
         );
-        assert_eq!(keys(b"\x1b[65;30;97;1;0;1_"), [Key::Other]);
+        assert_eq!(keys(b"\x1b[65;30;97;1;0;1_"), [Key::Char('a')]);
+        assert_eq!(keys(b"\x1b[16;42;0;1;0;1_"), [Key::Other]);
     }
 
     #[test]

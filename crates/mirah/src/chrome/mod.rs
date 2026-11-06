@@ -1,21 +1,30 @@
 pub(crate) mod bar;
 mod confirm;
 pub(crate) mod keys;
+pub(crate) mod launcher;
 mod menu;
+pub(crate) mod style;
 
 use crate::config::{Scope, Settings};
 use crate::session::MouseEvent;
-use bar::{BarState, Item};
+use bar::{BarState, Item, TabLabel};
+use confirm::Dialog;
 use keys::Key;
+use launcher::{Entry, Launcher, Pick};
 use menu::{Change, Menu};
-use mirah_bidi::Shaping;
+use mirah_bidi::{Cell, Shaping};
 use mirah_term::{Overlay, OverlayRow};
 
 const BAR_ROWS: u16 = 1;
 const LEFT_BUTTON: u16 = 0;
+const NEW_TAB_KEY: char = 't';
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Action {
+    Switch(usize),
+    NewTab,
+    Open(Entry),
+    Quit,
     Record,
     Update,
     Close,
@@ -28,6 +37,7 @@ enum Mode {
     Bar,
     Menu(Menu),
     Confirm(bool),
+    Launcher(Launcher),
 }
 
 pub(crate) struct Chrome {
@@ -37,23 +47,22 @@ pub(crate) struct Chrome {
     mode: Mode,
     shaping: Shaping,
     hits: Vec<(Item, std::ops::Range<usize>)>,
-    menu_at: Option<(usize, usize)>,
-    dialog: Option<(std::ops::Range<usize>, std::ops::Range<usize>)>,
+    boxed_at: Option<(usize, usize)>,
+    menu: Option<menu::Drawn>,
+    dialog: Option<Dialog>,
 }
 
 impl Chrome {
-    pub(crate) fn new(program: &str, settings: Settings, shaping: Shaping) -> Self {
+    pub(crate) fn new(settings: Settings, shaping: Shaping) -> Self {
         Self {
-            state: BarState {
-                program: crate::config::program_name(program),
-                ..BarState::default()
-            },
+            state: BarState::default(),
             settings,
             dirty: true,
             mode: Mode::Normal,
             shaping,
             hits: Vec::new(),
-            menu_at: None,
+            boxed_at: None,
+            menu: None,
             dialog: None,
         }
     }
@@ -67,9 +76,26 @@ impl Chrome {
         self.dirty = true;
     }
 
+    pub(crate) fn set_tabs(&mut self, tabs: Vec<TabLabel>, active: usize) {
+        if self.state.tabs != tabs || self.state.active != active {
+            self.state.tabs = tabs;
+            self.state.active = active;
+            self.dirty = true;
+        }
+    }
+
+    pub(crate) fn is_idle(&self) -> bool {
+        self.mode == Mode::Normal
+    }
+
+    pub(crate) fn launch(&mut self, launcher: Launcher) {
+        self.set_mode(Mode::Launcher(launcher));
+    }
+
     fn set_mode(&mut self, mode: Mode) {
         self.state.focus = match mode {
-            Mode::Bar => Some(Item::Settings),
+            Mode::Bar if self.state.tabs.is_empty() => Some(Item::NewTab),
+            Mode::Bar => Some(Item::Tab(self.state.active)),
             _ => None,
         };
         self.mode = mode;
@@ -77,30 +103,27 @@ impl Chrome {
     }
 
     fn activate(&mut self, item: Item, actions: &mut Vec<Action>) {
-        match item {
-            Item::Settings => self.set_mode(Mode::Menu(Menu::new(&self.state.program))),
-            Item::Record => {
-                self.set_mode(Mode::Normal);
-                actions.push(Action::Record);
+        let immediate = match item {
+            Item::Settings => {
+                let menu = Menu::new(&self.state.program());
+                self.set_mode(Mode::Menu(menu));
+                return;
             }
-            Item::Update => {
-                self.set_mode(Mode::Normal);
-                actions.push(Action::Update);
+            Item::Close => {
+                self.set_mode(Mode::Confirm(false));
+                return;
             }
-            Item::Close => self.set_mode(Mode::Confirm(false)),
-        }
+            Item::Tab(i) => Action::Switch(i),
+            Item::NewTab => Action::NewTab,
+            Item::Record => Action::Record,
+            Item::Update => Action::Update,
+        };
+        self.set_mode(Mode::Normal);
+        actions.push(immediate);
     }
 
-    fn visible_items(&self) -> Vec<Item> {
-        bar::ORDER
-            .iter()
-            .copied()
-            .filter(|i| *i != Item::Update || self.state.update.is_some())
-            .collect()
-    }
-
-    fn move_focus(&mut self, leftwards: bool) {
-        let items = self.visible_items();
+    fn move_focus(&mut self, leftwards: bool, actions: &mut Vec<Action>) {
+        let items = self.state.items();
         let current = self
             .state
             .focus
@@ -112,16 +135,30 @@ impl Chrome {
             index.saturating_sub(1)
         };
         self.state.focus = items.get(next).copied();
+        if let Some(Item::Tab(i)) = self.state.focus
+            && i != self.state.active
+        {
+            actions.push(Action::Switch(i));
+        }
         self.dirty = true;
     }
 
     fn bar_key(&mut self, key: Key, actions: &mut Vec<Action>) {
         match key {
-            Key::Left | Key::Tab => self.move_focus(true),
-            Key::Right => self.move_focus(false),
+            Key::Left | Key::Tab => self.move_focus(true, actions),
+            Key::Right => self.move_focus(false, actions),
             Key::Enter => {
                 if let Some(item) = self.state.focus {
                     self.activate(item, actions);
+                }
+            }
+            Key::Char(NEW_TAB_KEY) => self.activate(Item::NewTab, actions),
+            Key::Char(c) => {
+                if let Some(n) = c.to_digit(10).and_then(|d| usize::try_from(d).ok())
+                    && n >= 1
+                    && n <= self.state.tabs.len()
+                {
+                    self.activate(Item::Tab(n - 1), actions);
                 }
             }
             Key::Escape | Key::Toggle => self.set_mode(Mode::Normal),
@@ -153,6 +190,18 @@ impl Chrome {
         }
     }
 
+    fn launcher_pick(&mut self, pick: Option<Pick>, can_cancel: bool, actions: &mut Vec<Action>) {
+        match pick {
+            Some(Pick::Open(entry)) => {
+                self.set_mode(Mode::Normal);
+                actions.push(Action::Open(entry));
+            }
+            Some(Pick::Cancel) if can_cancel => self.set_mode(Mode::Normal),
+            Some(Pick::Cancel) => actions.push(Action::Quit),
+            None => self.dirty = true,
+        }
+    }
+
     fn key(&mut self, key: Key, actions: &mut Vec<Action>) {
         match self.mode.clone() {
             Mode::Normal => {}
@@ -163,17 +212,23 @@ impl Chrome {
                 self.menu_change(change, actions);
             }
             Mode::Confirm(yes) => self.confirm_key(key, yes, actions),
+            Mode::Launcher(mut launcher) => {
+                let pick = launcher.key(key);
+                let can_cancel = launcher.can_cancel;
+                self.mode = Mode::Launcher(launcher);
+                self.launcher_pick(pick, can_cancel, actions);
+            }
         }
     }
 
     pub(crate) fn input(&mut self, bytes: &[u8], actions: &mut Vec<Action>) -> Vec<u8> {
-        if !self.settings.bar {
+        if !self.settings.bar && self.mode == Mode::Normal {
             return bytes.to_vec();
         }
         let mut to_child = Vec::new();
         for (key, range) in keys::decode(bytes) {
             match (&self.mode, key) {
-                (Mode::Normal, Key::Toggle) => self.set_mode(Mode::Bar),
+                (Mode::Normal, Key::Toggle) if self.settings.bar => self.set_mode(Mode::Bar),
                 (Mode::Normal, _) => to_child.extend_from_slice(&bytes[range]),
                 (_, Key::Release) => {}
                 (Mode::Bar, Key::Toggle) => {
@@ -187,33 +242,57 @@ impl Chrome {
     }
 
     fn click_overlay(&mut self, e: MouseEvent, actions: &mut Vec<Action>) -> bool {
+        let Some((top, left)) = self.boxed_at else {
+            return false;
+        };
         let (row, column) = (usize::from(e.row), usize::from(e.column));
-        if let (Mode::Menu(menu), Some((top, left))) = (&self.mode, self.menu_at)
-            && row >= top
-            && column >= left
-        {
-            let mut menu = menu.clone();
-            let change = menu.click(row - top, &self.settings);
-            self.mode = Mode::Menu(menu);
-            self.menu_change(change, actions);
-            return true;
+        let (Some(row), Some(column)) = (row.checked_sub(top), column.checked_sub(left)) else {
+            return false;
+        };
+        match self.mode.clone() {
+            Mode::Menu(mut menu) => {
+                let Some(drawn) = self.menu.as_ref() else {
+                    return false;
+                };
+                if column >= drawn.frame.width || row >= drawn.frame.rows.len() {
+                    return false;
+                }
+                let change = menu.click(drawn, row, column, &self.settings);
+                self.mode = Mode::Menu(menu);
+                self.menu_change(change, actions);
+                true
+            }
+            Mode::Confirm(_) => {
+                let chosen = self.dialog.as_ref().and_then(|d| d.hit(row, column));
+                match chosen {
+                    Some(yes) => {
+                        self.confirm_key(Key::Enter, yes, actions);
+                        true
+                    }
+                    None => false,
+                }
+            }
+            Mode::Launcher(mut launcher) => {
+                let pick = launcher.click(row);
+                let can_cancel = launcher.can_cancel;
+                self.mode = Mode::Launcher(launcher);
+                let hit = pick.is_some();
+                self.launcher_pick(pick, can_cancel, actions);
+                hit
+            }
+            Mode::Normal | Mode::Bar => false,
         }
-        if let (Mode::Confirm(_), Some((yes, no))) = (&self.mode, self.dialog.clone())
-            && row == usize::from(BAR_ROWS)
-            && (yes.contains(&column) || no.contains(&column))
-        {
-            let chosen = yes.contains(&column);
-            self.confirm_key(Key::Enter, chosen, actions);
-            return true;
+    }
+
+    fn dismiss(&mut self) {
+        match &self.mode {
+            Mode::Launcher(l) if !l.can_cancel => {}
+            _ => self.set_mode(Mode::Normal),
         }
-        false
     }
 
     pub(crate) fn mouse(&mut self, e: MouseEvent, actions: &mut Vec<Action>) -> Option<MouseEvent> {
         let top = self.top();
-        if top == 0 {
-            return Some(e);
-        }
         let click = e.press && e.button == LEFT_BUTTON;
         if e.row < top {
             if click {
@@ -223,14 +302,14 @@ impl Chrome {
                     .find(|(_, r)| r.contains(&usize::from(e.column)));
                 match item.map(|(i, _)| *i) {
                     Some(item) => self.activate(item, actions),
-                    None => self.set_mode(Mode::Normal),
+                    None => self.dismiss(),
                 }
             }
             return None;
         }
         if self.mode != Mode::Normal {
             if click && !self.click_overlay(e, actions) {
-                self.set_mode(Mode::Normal);
+                self.dismiss();
             }
             return None;
         }
@@ -240,55 +319,74 @@ impl Chrome {
         })
     }
 
-    fn layers(&mut self, width: usize) -> Vec<OverlayRow> {
+    fn place(
+        &mut self,
+        rows: &mut Vec<OverlayRow>,
+        cells: Vec<Vec<Cell>>,
+        top: usize,
+        left: usize,
+    ) {
+        self.boxed_at = Some((top, left));
+        for (i, row) in cells.into_iter().enumerate() {
+            rows.push(OverlayRow {
+                row: u16::try_from(top + i).unwrap_or(u16::MAX),
+                column: u16::try_from(left).unwrap_or(0),
+                cells: row,
+            });
+        }
+    }
+
+    fn layers(&mut self, width: usize, height: usize) -> Vec<OverlayRow> {
         let mut rows = Vec::new();
-        self.menu_at = None;
+        self.boxed_at = None;
+        self.menu = None;
         self.dialog = None;
-        match &self.mode {
+        let under_bar = usize::from(self.top());
+        match self.mode.clone() {
             Mode::Menu(menu) => {
-                let lines = menu.lines(&self.settings, self.shaping);
-                let left = width.saturating_sub(lines.first().map_or(0, Vec::len));
-                self.menu_at = Some((usize::from(BAR_ROWS), left));
-                for (i, cells) in lines.into_iter().enumerate() {
-                    rows.push(OverlayRow {
-                        row: BAR_ROWS + u16::try_from(i).unwrap_or(0),
-                        column: u16::try_from(left).unwrap_or(0),
-                        cells,
-                    });
-                }
+                let drawn = menu.draw(&self.settings, self.shaping);
+                let left = width.saturating_sub(drawn.frame.width);
+                self.place(&mut rows, drawn.frame.rows.clone(), under_bar, left);
+                self.menu = Some(drawn);
             }
             Mode::Confirm(yes) => {
-                let dialog = confirm::draw(&self.state.program, *yes, self.shaping);
-                self.dialog = Some((dialog.yes, dialog.no));
-                rows.push(OverlayRow {
-                    row: BAR_ROWS,
-                    column: 0,
-                    cells: dialog.cells,
-                });
+                let dialog = confirm::draw(&self.state.program(), yes, self.shaping);
+                let left = width.saturating_sub(dialog.frame.width);
+                self.place(&mut rows, dialog.frame.rows.clone(), under_bar, left);
+                self.dialog = Some(dialog);
+            }
+            Mode::Launcher(launcher) => {
+                let frame = launcher.draw(self.shaping);
+                let left = width.saturating_sub(frame.width) / 2;
+                let top = height
+                    .saturating_sub(frame.rows.len())
+                    .div_ceil(2)
+                    .max(under_bar);
+                self.place(&mut rows, frame.rows, top, left);
             }
             Mode::Normal | Mode::Bar => {}
         }
         rows
     }
 
-    pub(crate) fn overlay(&mut self, cols: u16) -> Overlay {
-        if !self.settings.bar {
-            return Overlay::default();
-        }
+    pub(crate) fn overlay(&mut self, cols: u16, rows: u16) -> Overlay {
         let width = usize::from(cols);
-        let drawn = bar::draw(&self.state, width, self.shaping);
-        self.hits = drawn.hits;
-        let mut rows = vec![OverlayRow {
-            row: 0,
-            column: 0,
-            cells: drawn.cells,
-        }];
-        rows.extend(self.layers(width));
+        let mut layers = Vec::new();
+        if self.settings.bar {
+            let drawn = bar::draw(&self.state, width, self.shaping);
+            self.hits = drawn.hits;
+            layers.push(OverlayRow {
+                row: 0,
+                column: 0,
+                cells: drawn.cells,
+            });
+        }
+        layers.extend(self.layers(width, usize::from(rows)));
         self.dirty = false;
         Overlay {
-            top: BAR_ROWS,
-            rows,
-            hide_cursor: self.mode != Mode::Normal,
+            top: self.top(),
+            rows: layers,
+            hide_cursor: self.mode != Mode::Normal || self.state.tabs.is_empty(),
         }
     }
 }
@@ -296,10 +394,22 @@ impl Chrome {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agents::Agent;
+
+    fn tabs(names: &[&str]) -> Vec<TabLabel> {
+        names
+            .iter()
+            .map(|n| TabLabel {
+                name: (*n).to_string(),
+                unread: false,
+            })
+            .collect()
+    }
 
     fn chrome() -> Chrome {
-        let mut c = Chrome::new("claude.exe", Settings::default(), Shaping::Plain);
-        c.overlay(80);
+        let mut c = Chrome::new(Settings::default(), Shaping::Plain);
+        c.set_tabs(tabs(&["claude"]), 0);
+        c.overlay(80, 24);
         c
     }
 
@@ -320,12 +430,28 @@ mod tests {
         )
     }
 
+    fn column_of(c: &Chrome, item: Item) -> u16 {
+        c.hits
+            .iter()
+            .find(|(i, _)| *i == item)
+            .map_or(u16::MAX, |(_, r)| u16::try_from(r.start).unwrap_or(0))
+    }
+
+    fn agent(name: &str) -> Agent {
+        Agent {
+            name: name.into(),
+            title: name.into(),
+            command: name.into(),
+            resume: vec![],
+        }
+    }
+
     #[test]
     fn ctrl_bracket_opens_the_bar_and_keys_stop_reaching_the_program() {
         let mut c = chrome();
         let mut actions = Vec::new();
         assert_eq!(c.input(b"hi\x1d\x1b[D", &mut actions), b"hi");
-        assert_eq!(c.state.focus, Some(Item::Record));
+        assert_eq!(c.state.focus, Some(Item::NewTab));
         assert_eq!(c.input(b"\x1b", &mut actions), b"");
         assert_eq!(c.mode, Mode::Normal);
         assert_eq!(c.input(b"x", &mut actions), b"x");
@@ -340,10 +466,26 @@ mod tests {
     }
 
     #[test]
+    fn arrows_on_tabs_switch_live_and_numbers_jump() {
+        let mut c = chrome();
+        c.set_tabs(tabs(&["claude", "opencode", "codex"]), 0);
+        let mut actions = Vec::new();
+        c.input(b"\x1d\x1b[D", &mut actions);
+        assert_eq!(actions, [Action::Switch(1)]);
+        actions.clear();
+        c.input(b"3", &mut actions);
+        assert_eq!(actions, [Action::Switch(2)]);
+        assert_eq!(c.mode, Mode::Normal);
+        actions.clear();
+        c.input(b"\x1dt", &mut actions);
+        assert_eq!(actions, [Action::NewTab]);
+    }
+
+    #[test]
     fn enter_on_record_asks_the_session_to_record() {
         let mut c = chrome();
         let mut actions = Vec::new();
-        c.input(b"\x1d\x1b[D\r", &mut actions);
+        c.input(b"\x1d\x1b[D\x1b[D\r", &mut actions);
         assert_eq!(actions, [Action::Record]);
     }
 
@@ -351,11 +493,28 @@ mod tests {
     fn closing_needs_a_yes() {
         let mut c = chrome();
         let mut actions = Vec::new();
-        c.input(b"\x1d\x1b[D\x1b[D\r", &mut actions);
+        let close = column_of(&c, Item::Close);
+        click(&mut c, 0, close, &mut actions);
         assert_eq!(c.mode, Mode::Confirm(false));
         c.input(b"\r", &mut actions);
         assert!(actions.is_empty());
-        c.input(b"\x1d\x1b[D\x1b[D\r\x1b[C\r", &mut actions);
+        click(&mut c, 0, close, &mut actions);
+        c.input(b"\x1b[C\r", &mut actions);
+        assert_eq!(actions, [Action::Close]);
+    }
+
+    #[test]
+    fn clicking_yes_in_the_box_closes() {
+        let mut c = chrome();
+        let mut actions = Vec::new();
+        let close = column_of(&c, Item::Close);
+        click(&mut c, 0, close, &mut actions);
+        c.overlay(80, 24);
+        let (top, left) = c.boxed_at.expect("the dialog is placed");
+        let yes = c.dialog.as_ref().map(|d| d.yes.start).unwrap_or(0);
+        let row = u16::try_from(top + style::BODY_TOP).unwrap_or(0);
+        let column = u16::try_from(left + yes).unwrap_or(0);
+        click(&mut c, row, column, &mut actions);
         assert_eq!(actions, [Action::Close]);
     }
 
@@ -363,8 +522,9 @@ mod tests {
     fn clicks_on_the_bar_stay_in_mirah_and_others_move_up_a_row() {
         let mut c = chrome();
         let mut actions = Vec::new();
-        assert_eq!(click(&mut c, 0, 1, &mut actions), None);
-        assert_eq!(c.mode, Mode::Confirm(false));
+        let settings = column_of(&c, Item::Settings);
+        assert_eq!(click(&mut c, 0, settings, &mut actions), None);
+        assert!(matches!(c.mode, Mode::Menu(_)));
         c.set_mode(Mode::Normal);
         let moved = click(&mut c, 5, 3, &mut actions).map(|e| (e.row, e.column));
         assert_eq!(moved, Some((4, 3)));
@@ -374,8 +534,9 @@ mod tests {
     fn the_menu_changes_a_setting() {
         let mut c = chrome();
         let mut actions = Vec::new();
-        c.input(b"\x1d\r\r", &mut actions);
-        assert!(matches!(c.mode, Mode::Menu(_)));
+        let settings = column_of(&c, Item::Settings);
+        click(&mut c, 0, settings, &mut actions);
+        c.input(b"\r", &mut actions);
         assert_eq!(
             actions,
             [Action::Set(
@@ -385,8 +546,29 @@ mod tests {
             )]
         );
         assert_eq!(c.settings.align, mirah_term::Align::Arabic);
-        let overlay = c.overlay(80);
-        assert!(overlay.rows.len() > 2);
+        let overlay = c.overlay(80, 24);
+        assert!(overlay.rows.len() > 8);
+        assert!(overlay.hide_cursor);
+    }
+
+    #[test]
+    fn the_launcher_opens_a_choice_or_quits_when_nothing_runs() {
+        let mut c = Chrome::new(Settings::default(), Shaping::Plain);
+        let entries = vec![
+            Entry::Start(agent("claude")),
+            Entry::Start(agent("opencode")),
+        ];
+        c.launch(Launcher::new(entries.clone(), Some("opencode"), false, 0));
+        let mut actions = Vec::new();
+        c.input(b"\r", &mut actions);
+        assert_eq!(actions, [Action::Open(entries[1].clone())]);
+        assert!(c.is_idle());
+        actions.clear();
+        c.launch(Launcher::new(entries, None, false, 0));
+        c.input(b"\x1b", &mut actions);
+        assert_eq!(actions, [Action::Quit]);
+        let overlay = c.overlay(80, 24);
+        assert!(overlay.rows.len() > 5);
         assert!(overlay.hide_cursor);
     }
 
@@ -396,9 +578,12 @@ mod tests {
             bar: false,
             ..Settings::default()
         };
-        let mut c = Chrome::new("claude", settings, Shaping::Plain);
+        let mut c = Chrome::new(settings, Shaping::Plain);
+        c.set_tabs(tabs(&["claude"]), 0);
         let mut actions = Vec::new();
         assert_eq!(c.input(b"\x1d", &mut actions), b"\x1d");
-        assert_eq!(c.overlay(80), Overlay::default());
+        let overlay = c.overlay(80, 24);
+        assert!(overlay.rows.is_empty());
+        assert_eq!(overlay.top, 0);
     }
 }

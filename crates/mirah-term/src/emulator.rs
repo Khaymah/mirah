@@ -87,6 +87,11 @@ impl Emulator {
         self.renderer.frame(self.parser.screen(), overlay)
     }
 
+    pub fn redraw(&mut self) {
+        self.renderer.redraw();
+        self.changed = true;
+    }
+
     pub fn set_options(&mut self, options: RenderOptions) {
         self.renderer.set_options(options);
         self.changed = true;
@@ -120,6 +125,21 @@ mod tests {
         e.frame();
         e.resize(10, 40).expect("valid size");
         assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn a_redraw_paints_everything_again_and_resets_input_modes() {
+        let mut e = Emulator::new(2, 10).expect("valid size");
+        e.feed(b"\x1b[?1000h\x1b[?1006hhi");
+        e.frame();
+        assert!(!e.needs_frame());
+        e.redraw();
+        assert!(e.needs_frame());
+        let frame = e.frame();
+        let reset = frame.find("\x1b[?1000l").expect("modes are reset");
+        let set = frame.rfind("\x1b[?1000h").expect("modes are set again");
+        assert!(reset < set, "{frame:?}");
+        assert!(frame.contains("hi"));
     }
 
     #[test]

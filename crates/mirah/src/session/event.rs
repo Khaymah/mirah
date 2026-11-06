@@ -1,8 +1,10 @@
+pub(crate) type TabId = u32;
+
 pub(crate) enum Event {
-    Output(Vec<u8>),
+    Output(TabId, Vec<u8>),
     Input(Vec<u8>),
-    OutputClosed,
-    ChildExited(u32),
+    OutputClosed(TabId),
+    ChildExited(TabId, u32),
     Resize,
     UpdateFound(String),
     UpdateDone(Result<String, String>),

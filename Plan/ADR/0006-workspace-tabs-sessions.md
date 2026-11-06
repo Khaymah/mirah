@@ -1,6 +1,6 @@
 # ADR-0006: مرآة بتشغّل أكتر من برنامج في تابات، ولكل جلسة ID ومكان منظم
 
-- **Status:** Proposed (2026-11-06)
+- **Status:** Accepted (2026-11-06)، واتنفّذ في `0.3.0-alpha.1`
 - **Date:** 2026-11-06
 - **Deciders:** Sabry Dawood (المالك)
 - **Project:** mirah

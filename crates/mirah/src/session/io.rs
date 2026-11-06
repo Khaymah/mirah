@@ -1,4 +1,4 @@
-use super::event::Event;
+use super::event::{Event, TabId};
 use super::pty::ChildProcess;
 use std::io::{Read, Write};
 use std::sync::mpsc::Sender;
@@ -20,17 +20,21 @@ pub(crate) fn write_to_child(writer: &SharedWriter, bytes: &[u8]) {
     }
 }
 
-pub(crate) fn spawn_pty_reader(mut reader: Box<dyn Read + Send>, events: Sender<Event>) {
+pub(crate) fn spawn_pty_reader(
+    mut reader: Box<dyn Read + Send>,
+    tab: TabId,
+    events: Sender<Event>,
+) {
     std::thread::spawn(move || {
         let mut buf = vec![0u8; PTY_READ_BUFFER];
         loop {
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => {
-                    let _ = events.send(Event::OutputClosed);
+                    let _ = events.send(Event::OutputClosed(tab));
                     break;
                 }
                 Ok(n) => {
-                    if events.send(Event::Output(buf[..n].to_vec())).is_err() {
+                    if events.send(Event::Output(tab, buf[..n].to_vec())).is_err() {
                         break;
                     }
                 }
@@ -51,7 +55,7 @@ pub(crate) fn spawn_stdin_reader(events: Sender<Event>) {
     });
 }
 
-pub(crate) fn spawn_child_waiter(mut child: ChildProcess, events: Sender<Event>) {
+pub(crate) fn spawn_child_waiter(mut child: ChildProcess, tab: TabId, events: Sender<Event>) {
     std::thread::spawn(move || {
         let code = match child.wait() {
             Ok(status) => {
@@ -65,6 +69,6 @@ pub(crate) fn spawn_child_waiter(mut child: ChildProcess, events: Sender<Event>)
                 WAIT_FAILED
             }
         };
-        let _ = events.send(Event::ChildExited(code));
+        let _ = events.send(Event::ChildExited(tab, code));
     });
 }

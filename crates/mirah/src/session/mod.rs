@@ -6,60 +6,61 @@ mod pacing;
 mod pty;
 mod record;
 mod resize;
+mod tab;
 
+use crate::agents::Agent;
 use crate::chrome::Chrome;
+use crate::chrome::bar::TabLabel;
 use crate::config::Config;
 use crate::host::{self, TerminalGuard, TerminalSize};
+use crate::store::Store;
 use anyhow::Result;
-use event::Event;
-use io::SharedWriter;
+use event::{Event, TabId};
 use mirah_term::Emulator;
 pub(crate) use mouse::MouseEvent;
 use mouse::MouseRemap;
 use pacing::Pacer;
-use portable_pty::{ChildKiller, CommandBuilder};
-use pty::Pty;
-use record::Recorder;
 use std::io::Write;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
+pub(crate) use tab::Spawn;
+use tab::Tab;
 
-const EXIT_GRACE: Duration = Duration::from_millis(100);
-const UNKNOWN_EXIT: u32 = 1;
+const BLANK_MODES: &[u8] = b"\x1b[?25l\x1b[?1000h\x1b[?1006h";
 
-#[derive(Default)]
-struct Lifecycle {
-    code: Option<u32>,
-    output_closed: bool,
-    last_event: Option<Instant>,
+pub(crate) struct Outcome {
+    pub(crate) code: u32,
+    pub(crate) sessions: Vec<String>,
 }
 
-impl Lifecycle {
-    fn done(&self, now: Instant) -> bool {
-        self.code.is_some()
-            && (self.output_closed || self.last_event.is_some_and(|t| now >= t + EXIT_GRACE))
-    }
+pub(crate) struct Start {
+    pub(crate) first: Option<Spawn>,
+    pub(crate) record: bool,
+    pub(crate) reserved: Option<String>,
+    pub(crate) store: Option<Store>,
+    pub(crate) config: Config,
+    pub(crate) agents: Vec<Agent>,
 }
 
-struct Session<'a> {
+struct Workspace {
     inbox: Receiver<Event>,
     events: Sender<Event>,
-    pty: &'a Pty,
-    writer: SharedWriter,
-    killer: Box<dyn ChildKiller + Send + Sync>,
-    emulator: Emulator,
-    recorder: Recorder,
-    life: Lifecycle,
+    tabs: Vec<Tab>,
+    active: usize,
+    next_id: TabId,
+    blank: Emulator,
     pacer: Pacer,
     mouse: MouseRemap,
     chrome: Chrome,
     config: Config,
-    program: String,
-    cols: u16,
-    recording_since: Option<Instant>,
-    recorded: Duration,
+    store: Option<Store>,
+    agents: Vec<Agent>,
+    size: TerminalSize,
+    record: bool,
+    reserved: Option<String>,
     notice_until: Option<Instant>,
+    exit: Option<u32>,
+    sessions: Vec<String>,
 }
 
 fn child_size(size: TerminalSize, top: u16) -> TerminalSize {
@@ -67,26 +68,6 @@ fn child_size(size: TerminalSize, top: u16) -> TerminalSize {
         rows: size.rows.saturating_sub(top).max(1),
         cols: size.cols,
     }
-}
-
-fn setup(program: &str) -> (Config, mirah_term::RenderOptions, Chrome) {
-    let config = Config::load();
-    let settings = config.settings(program);
-    if settings.update_check && !settings.bar {
-        crate::update::startup();
-    }
-    let options = settings.render_options(program);
-    let chrome = Chrome::new(program, settings, options.shaping);
-    host::prepare_pty();
-    (config, options, chrome)
-}
-
-fn spawn_io(pty: &Pty, child: pty::ChildProcess, events: &Sender<Event>) -> Result<SharedWriter> {
-    io::spawn_pty_reader(pty.reader()?, events.clone());
-    io::spawn_child_waiter(child, events.clone());
-    io::spawn_stdin_reader(events.clone());
-    resize::spawn_watcher(events.clone())?;
-    Ok(Arc::new(Mutex::new(pty.writer()?)))
 }
 
 fn check_updates(chrome: &Chrome, events: &Sender<Event>) {
@@ -101,88 +82,220 @@ fn check_updates(chrome: &Chrome, events: &Sender<Event>) {
     });
 }
 
-pub(crate) fn run(
-    cmd: CommandBuilder,
-    program: &str,
-    recording: Option<std::path::PathBuf>,
-) -> Result<u32> {
-    let (config, options, chrome) = setup(program);
+fn blank(size: TerminalSize) -> Result<Emulator> {
+    let mut blank = Emulator::new(size.rows, size.cols)?;
+    blank.feed(BLANK_MODES);
+    Ok(blank)
+}
+
+pub(crate) fn run(start: Start) -> Result<Outcome> {
+    let program = start
+        .first
+        .as_ref()
+        .and_then(|s| s.argv.first().cloned())
+        .unwrap_or_default();
+    let settings = start.config.settings(&program);
+    if settings.update_check && !settings.bar {
+        crate::update::startup();
+    }
+    let shaping = settings.render_options(&program).shaping;
+    let chrome = Chrome::new(settings, shaping);
+    host::prepare_pty();
     let size = host::size();
-    let inner = child_size(size, chrome.top());
-    let (pty, child) = Pty::spawn(cmd, inner)?;
-    let killer = child.clone_killer();
     let (events, inbox) = mpsc::channel();
-    let writer = spawn_io(&pty, child, &events)?;
-    check_updates(&chrome, &events);
-    let _guard = TerminalGuard::enter()?;
-    log_start(size, options);
-    let recorder = Recorder::new(recording);
-    let mut session = Session {
-        recording_since: recorder.active().then(Instant::now),
+    let mut workspace = Workspace {
+        blank: blank(child_size(size, chrome.top()))?,
         inbox,
         events,
-        pty: &pty,
-        writer,
-        killer,
-        emulator: Emulator::with_options(inner.rows, inner.cols, options)?,
-        recorder,
-        life: Lifecycle::default(),
+        tabs: Vec::new(),
+        active: 0,
+        next_id: 0,
         pacer: Pacer::default(),
         mouse: MouseRemap::default(),
         chrome,
-        config,
-        program: program.to_string(),
-        cols: size.cols,
-        recorded: Duration::ZERO,
+        config: start.config,
+        store: start.store,
+        agents: start.agents,
+        size,
+        record: start.record,
+        reserved: start.reserved,
         notice_until: None,
+        exit: None,
+        sessions: Vec::new(),
     };
-    session.pump()?;
-    let code = session.finish();
-    drop(session);
-    close_in_background(pty);
-    Ok(code)
+    match start.first {
+        Some(spawn) => workspace.open(spawn)?,
+        None => workspace.launcher(),
+    }
+    io::spawn_stdin_reader(workspace.events.clone());
+    resize::spawn_watcher(workspace.events.clone())?;
+    check_updates(&workspace.chrome, &workspace.events);
+    let _guard = TerminalGuard::enter()?;
+    tracing::info!(
+        rows = size.rows,
+        cols = size.cols,
+        term = std::env::var("TERM").unwrap_or_default(),
+        term_program = std::env::var("TERM_PROGRAM").unwrap_or_default(),
+        "workspace started"
+    );
+    workspace.pump()?;
+    let code = workspace.exit.unwrap_or(0);
+    workspace.shutdown();
+    drop(_guard);
+    Ok(Outcome {
+        code,
+        sessions: workspace.sessions,
+    })
 }
 
-impl Session<'_> {
-    fn finish(&mut self) -> u32 {
-        let code = self.life.code.unwrap_or(UNKNOWN_EXIT);
-        tracing::info!(
-            code,
-            output_closed = self.life.output_closed,
-            "session ended"
-        );
-        code
+impl Workspace {
+    fn inner(&self) -> TerminalSize {
+        child_size(self.size, self.chrome.top())
+    }
+
+    fn open(&mut self, spawn: Spawn) -> Result<()> {
+        let id = self.next_id;
+        self.next_id += 1;
+        let tab = Tab::open(tab::Open {
+            id,
+            spawn,
+            size: self.inner(),
+            config: &self.config,
+            store: self.store.as_ref(),
+            record: self.record,
+            reserved: self.reserved.take(),
+            events: &self.events,
+        })?;
+        if let Some(meta) = &tab.meta
+            && !self.sessions.contains(&meta.id)
+        {
+            self.sessions.push(meta.id.clone());
+        }
+        self.tabs.push(tab);
+        self.switch(self.tabs.len() - 1);
+        Ok(())
+    }
+
+    fn switch(&mut self, index: usize) {
+        if index >= self.tabs.len() {
+            return;
+        }
+        if let Some(old) = self.tabs.get_mut(self.active)
+            && self.active != index
+        {
+            old.left_at = Some(Instant::now());
+        }
+        self.active = index;
+        let tab = &mut self.tabs[index];
+        tab.unread = false;
+        tab.left_at = None;
+        tab.emulator.redraw();
+        self.chrome.settings = tab.settings;
+        self.chrome
+            .set_shaping(tab.settings.render_options(&tab.program).shaping);
+        self.chrome.state.recording = tab
+            .recording_since
+            .map(|s| std::time::Duration::from_secs(s.elapsed().as_secs()));
+        self.sync_tabs();
+    }
+
+    fn sync_tabs(&mut self) {
+        let mut labels: Vec<TabLabel> = Vec::new();
+        for tab in &self.tabs {
+            let same = labels
+                .iter()
+                .filter(|l| l.name.split(' ').next() == Some(tab.name.as_str()))
+                .count();
+            let name = if same == 0 {
+                tab.name.clone()
+            } else {
+                format!("{} {}", tab.name, same + 1)
+            };
+            labels.push(TabLabel {
+                name,
+                unread: tab.unread,
+            });
+        }
+        self.chrome.set_tabs(labels, self.active);
+    }
+
+    fn emulator(&mut self) -> &mut Emulator {
+        match self.tabs.get_mut(self.active) {
+            Some(tab) => &mut tab.emulator,
+            None => &mut self.blank,
+        }
+    }
+
+    fn index_of(&self, id: TabId) -> Option<usize> {
+        self.tabs.iter().position(|t| t.id == id)
     }
 
     fn pump(&mut self) -> Result<()> {
-        let mut deadline: Option<Instant> = None;
+        let mut deadline = Some(Instant::now());
         while let Some(events) = self.receive(deadline) {
-            if !events.is_empty() {
-                self.life.last_event = Some(Instant::now());
-            }
-            record(&mut self.recorder, &events);
             self.apply(events)?;
-            forward(&mut self.emulator, &self.writer)?;
+            for (i, tab) in self.tabs.iter_mut().enumerate() {
+                tab.forward(i == self.active)?;
+            }
             let now = Instant::now();
-            let done = self.life.done(now);
-            let tick = self.tick(now);
-            deadline = earliest(self.paint(now, done)?, tick);
-            if done {
+            if self.tabs.iter().any(|t| t.life.done(now)) {
+                self.paint(now, true)?;
+            }
+            let closed = self.reap(now);
+            if self.exit.is_some() {
                 break;
             }
+            if self.tabs.is_empty() && self.chrome.is_idle() {
+                self.launcher();
+            }
+            let tick = self.tick(now);
+            deadline = earliest(self.paint(now, closed)?, tick);
         }
         Ok(())
     }
 
+    fn reap(&mut self, now: Instant) -> bool {
+        let mut closed = false;
+        let mut index = 0;
+        while index < self.tabs.len() {
+            if !self.tabs[index].life.done(now) {
+                index += 1;
+                continue;
+            }
+            let tab = self.tabs.remove(index);
+            let code = tab.close(self.store.as_ref());
+            closed = true;
+            if self.tabs.is_empty() {
+                self.exit = Some(code);
+                return true;
+            }
+            if index < self.active || self.active >= self.tabs.len() {
+                self.active = self.active.saturating_sub(1);
+            }
+            let active = self.active;
+            self.switch(active);
+        }
+        closed
+    }
+
     fn paint(&mut self, now: Instant, force: bool) -> Result<Option<Instant>> {
-        if !self.emulator.needs_frame() && !self.chrome.dirty {
+        if !self.emulator().needs_frame() && !self.chrome.dirty {
             return Ok(None);
         }
-        let synchronizing = self.emulator.is_synchronizing();
+        let synchronizing = self.emulator().is_synchronizing();
         let ready = self.pacer.ready_at(now, synchronizing);
         if force || now >= ready {
-            let overlay = self.chrome.overlay(self.cols);
-            draw(&mut self.emulator, &overlay)?;
+            let overlay = self.chrome.overlay(self.size.cols, self.size.rows);
+            let started = Instant::now();
+            let frame = self.emulator().frame_with(&overlay);
+            let mut stdout = std::io::stdout();
+            stdout.write_all(frame.as_bytes())?;
+            stdout.flush()?;
+            tracing::debug!(
+                bytes = frame.len(),
+                micros = started.elapsed().as_micros(),
+                "frame"
+            );
             self.pacer.drew(now, synchronizing);
             Ok(None)
         } else {
@@ -191,29 +304,55 @@ impl Session<'_> {
     }
 
     fn apply(&mut self, events: Vec<Event>) -> Result<()> {
+        let mut unread = false;
         for event in events {
             match event {
-                Event::Output(bytes) => self.emulator.feed(&bytes),
+                Event::Output(id, bytes) => {
+                    let active = self.tabs.get(self.active).map(|t| t.id);
+                    if let Some(i) = self.index_of(id) {
+                        let tab = &mut self.tabs[i];
+                        let was = tab.unread;
+                        tab.life.last_event = Some(Instant::now());
+                        tab.feed(&bytes, active == Some(id));
+                        unread |= tab.unread != was;
+                    }
+                }
                 Event::Input(bytes) => self.input(&bytes)?,
                 event @ (Event::UpdateFound(_) | Event::UpdateDone(_)) => self.update_event(event),
-                Event::OutputClosed => self.life.output_closed = true,
-                Event::ChildExited(code) => self.life.code = Some(code),
-                Event::Resize => {
-                    let size = host::size();
-                    let inner = child_size(size, self.chrome.top());
-                    self.pty.resize(inner);
-                    self.emulator.resize(inner.rows, inner.cols)?;
-                    self.cols = size.cols;
-                    self.chrome.dirty = true;
-                    tracing::debug!(rows = size.rows, cols = size.cols, "resized");
+                Event::OutputClosed(id) => {
+                    if let Some(i) = self.index_of(id) {
+                        self.tabs[i].life.output_closed = true;
+                    }
                 }
+                Event::ChildExited(id, code) => {
+                    if let Some(i) = self.index_of(id) {
+                        self.tabs[i].life.code = Some(code);
+                        self.tabs[i].life.last_event = Some(Instant::now());
+                    }
+                }
+                Event::Resize => self.resize()?,
             }
+        }
+        if unread {
+            self.sync_tabs();
         }
         Ok(())
     }
 
+    fn resize(&mut self) -> Result<()> {
+        self.size = host::size();
+        let inner = self.inner();
+        for tab in &mut self.tabs {
+            tab.resize(inner)?;
+        }
+        self.blank.resize(inner.rows, inner.cols)?;
+        self.chrome.dirty = true;
+        tracing::debug!(rows = self.size.rows, cols = self.size.cols, "resized");
+        Ok(())
+    }
+
     fn receive(&self, deadline: Option<Instant>) -> Option<Vec<Event>> {
-        let exit = self.life.code.map(|_| Instant::now() + EXIT_GRACE);
+        let exit = self.tabs.iter().filter_map(|t| t.life.grace()).min();
         let until = earliest(deadline, exit);
         let first = match until {
             None => self.inbox.recv().ok()?,
@@ -228,7 +367,16 @@ impl Session<'_> {
                 }
             }
         };
-        Some(drain(first, &self.inbox))
+        let mut events = vec![first];
+        events.extend(self.inbox.try_iter());
+        Some(events)
+    }
+
+    fn shutdown(&mut self) {
+        for mut tab in std::mem::take(&mut self.tabs) {
+            tab.kill();
+            tab.close(self.store.as_ref());
+        }
     }
 }
 
@@ -237,63 +385,4 @@ fn earliest(a: Option<Instant>, b: Option<Instant>) -> Option<Instant> {
         (Some(a), Some(b)) => Some(a.min(b)),
         (a, b) => a.or(b),
     }
-}
-
-fn log_start(size: host::TerminalSize, options: mirah_term::RenderOptions) {
-    tracing::info!(
-        rows = size.rows,
-        cols = size.cols,
-        term = std::env::var("TERM").unwrap_or_default(),
-        term_program = std::env::var("TERM_PROGRAM").unwrap_or_default(),
-        "session started with explicit bidi mode"
-    );
-    tracing::info!(?options, "render options");
-}
-
-fn close_in_background(pty: Pty) {
-    std::thread::spawn(move || {
-        drop(pty);
-        tracing::debug!("pty closed");
-    });
-}
-
-fn record(recorder: &mut Recorder, events: &[Event]) {
-    for event in events {
-        if let Event::Output(bytes) = event {
-            recorder.write(bytes);
-        }
-    }
-}
-
-fn drain(first: Event, inbox: &Receiver<Event>) -> Vec<Event> {
-    let mut events = vec![first];
-    events.extend(inbox.try_iter());
-    events
-}
-
-fn forward(emulator: &mut Emulator, writer: &SharedWriter) -> Result<()> {
-    let output = emulator.take_output();
-    if !output.to_child.is_empty() {
-        io::write_to_child(writer, &output.to_child);
-    }
-    if !output.to_host.is_empty() {
-        let mut stdout = std::io::stdout();
-        stdout.write_all(&output.to_host)?;
-        stdout.flush()?;
-    }
-    Ok(())
-}
-
-fn draw(emulator: &mut Emulator, overlay: &mirah_term::Overlay) -> Result<()> {
-    let started = Instant::now();
-    let frame = emulator.frame_with(overlay);
-    let mut stdout = std::io::stdout();
-    stdout.write_all(frame.as_bytes())?;
-    stdout.flush()?;
-    tracing::debug!(
-        bytes = frame.len(),
-        micros = started.elapsed().as_micros(),
-        "frame"
-    );
-    Ok(())
 }

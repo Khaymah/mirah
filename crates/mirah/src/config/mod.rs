@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use toml_edit::{DocumentMut, Item, Table, value};
 
 const PROGRAMS: &str = "programs";
+const AGENTS: &str = "agents";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Choice<T> {
@@ -22,6 +23,7 @@ pub(crate) struct Settings {
     pub(crate) mouse: bool,
     pub(crate) update_check: bool,
     pub(crate) bar: bool,
+    pub(crate) record: bool,
 }
 
 impl Default for Settings {
@@ -34,6 +36,7 @@ impl Default for Settings {
             mouse: true,
             update_check: true,
             bar: true,
+            record: false,
         }
     }
 }
@@ -79,6 +82,7 @@ impl Settings {
             Key::Tables => return flag().map(|f| self.tables = f).is_some(),
             Key::Mouse => return flag().map(|f| self.mouse = f).is_some(),
             Key::UpdateCheck => return flag().map(|f| self.update_check = f).is_some(),
+            Key::Record => return flag().map(|f| self.record = f).is_some(),
         }
         true
     }
@@ -104,6 +108,7 @@ impl Settings {
             Key::Tables => flag(self.tables),
             Key::Mouse => flag(self.mouse),
             Key::UpdateCheck => flag(self.update_check),
+            Key::Record => flag(self.record),
         }
     }
 
@@ -212,6 +217,34 @@ impl Config {
         settings
     }
 
+    pub(crate) fn agents(&self) -> Vec<crate::agents::Agent> {
+        let Some(list) = self.doc.get(AGENTS).and_then(Item::as_array_of_tables) else {
+            return Vec::new();
+        };
+        list.iter()
+            .filter_map(|table| {
+                let text = |key: &str| table.get(key).and_then(Item::as_str).map(str::to_string);
+                let command = text("command")?;
+                let name = text("name").unwrap_or_else(|| program_name(&command));
+                let resume = table
+                    .get("resume")
+                    .and_then(Item::as_array)
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Some(crate::agents::Agent {
+                    title: text("title").unwrap_or_else(|| name.clone()),
+                    name,
+                    command,
+                    resume,
+                })
+            })
+            .collect()
+    }
+
     pub(crate) fn set(&mut self, scope: &Scope, key: Key, text: &str) {
         let name = spec(key).name;
         let item = match text {
@@ -274,6 +307,19 @@ mod tests {
         assert_eq!(c.settings("claude").align, Align::Arabic);
         assert!(!c.settings("claude").tables);
         assert_eq!(c.settings("C:\\npm\\OpenCode.cmd").align, Align::Off);
+    }
+
+    #[test]
+    fn agents_come_from_the_config() {
+        let c = config(
+            "[[agents]]\nname = \"work\"\ncommand = \"claude-work\"\nresume = [\"--continue\"]\n\n[[agents]]\ncommand = \"C:\\\\tools\\\\kimi.exe\"\n\n[[agents]]\nname = \"broken\"\n",
+        );
+        let agents = c.agents();
+        assert_eq!(agents.len(), 2);
+        assert_eq!(agents[0].name, "work");
+        assert_eq!(agents[0].resume, ["--continue"]);
+        assert_eq!(agents[1].name, "kimi");
+        assert_eq!(agents[1].title, "kimi");
     }
 
     #[test]
