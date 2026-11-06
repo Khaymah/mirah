@@ -54,7 +54,7 @@ fn main() {
     };
     let files = run
         .record
-        .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default()));
+        .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default(), &run.program));
     let log_guard = logging::init(files.as_ref().map(|f| f.log.as_path()));
     update::remove_leftover();
     host::install_panic_hook();

@@ -105,7 +105,7 @@ mirah keeps the first row of the screen for an Arabic bar, and the program runs 
 - **`Ctrl+]`** opens the bar. Arrows move, Enter chooses, Esc returns to the program. Pressing `Ctrl+]` twice sends it to the program.
 - **Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
 - **⚙ Settings:** alignment, letter joining, the program's text order, table mirroring, mouse mapping and the update check. Changes show at once and apply to every program or to this one only.
-- **● Record:** starts saving `mirah-session-N.vt` in the current folder; press again to stop.
+- **● Record:** starts saving `claude-session-N.vt` (named after the program) in the current folder; press again to stop, and again to continue the same file.
 - **↻:** appears when a new version exists; clicking it installs it for the next start.
 - **✕:** asks first, then closes the program and mirah.
 
@@ -140,7 +140,7 @@ At startup mirah checks for a newer version and keeps the result for an hour. If
 mirah --record claude
 ```
 
-This saves `mirah-session-N.vt` (the program's raw output) and `mirah-session-N.log` (a full log) **in the current folder**, numbered after the last session already there. mirah prints where they are when you exit.
+This saves `claude-session-N.vt` (the program's raw output) and `claude-session-N.log` (a full log), named after the program, **in the current folder**, numbered after the last session already there. mirah prints where they are when you exit.
 
 > A recording can contain paths from your machine or anything shown on screen. Review it before sending it.
 

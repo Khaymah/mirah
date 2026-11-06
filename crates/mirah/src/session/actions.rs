@@ -63,17 +63,25 @@ impl Session<'_> {
     fn toggle_recording(&mut self) {
         if self.recorder.active() {
             let saved = self.recorder.stop();
-            self.recording_since = None;
+            if let Some(since) = self.recording_since.take() {
+                self.recorded = since.elapsed();
+            }
             self.chrome.state.recording = None;
             if let Some(name) = saved.as_ref().and_then(|p| p.file_name()) {
                 self.notice(format!("اتحفظ {}", name.to_string_lossy()));
             }
         } else {
-            let dir = std::env::current_dir().unwrap_or_default();
-            let path = crate::debug_files::next_in(&dir).recording;
-            if self.recorder.start(path) {
-                self.recording_since = Some(Instant::now());
-                self.chrome.state.recording = Some(Duration::ZERO);
+            let started = match self.recorder.resume() {
+                Some(resumed) => resumed,
+                None => {
+                    let dir = std::env::current_dir().unwrap_or_default();
+                    let path = crate::debug_files::next_in(&dir, &self.program).recording;
+                    self.recorder.start(path)
+                }
+            };
+            if started {
+                self.recording_since = Some(Instant::now() - self.recorded);
+                self.chrome.state.recording = Some(self.recorded);
             } else {
                 self.notice("التسجيل مااشتغلش".to_string());
             }

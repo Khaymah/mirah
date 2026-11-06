@@ -58,6 +58,7 @@ struct Session<'a> {
     program: String,
     cols: u16,
     recording_since: Option<Instant>,
+    recorded: Duration,
     notice_until: Option<Instant>,
 }
 
@@ -132,6 +133,7 @@ pub(crate) fn run(
         config,
         program: program.to_string(),
         cols: size.cols,
+        recorded: Duration::ZERO,
         notice_until: None,
     };
     session.pump()?;

@@ -1,4 +1,4 @@
-use super::classify::{base, blank_like, is_rtl};
+use super::classify::{base, blank_like, is_blank, is_rtl};
 use mirah_bidi::Cell;
 
 const CELL_PADDING: usize = 1;
@@ -73,7 +73,10 @@ fn matches_columns(row: &[Cell], columns: &[usize]) -> bool {
     columns
         .iter()
         .all(|&c| row.get(c).is_some_and(|cell| is_border_joint(base(cell))))
-        && !row.iter().any(|c| c.wide || c.continuation)
+        && columns.iter().all(|&c| {
+            row.get(c)
+                .is_some_and(|cell| !cell.wide && !cell.continuation)
+        })
 }
 
 fn edge_is(row: &[Cell], columns: &[usize], edges: [char; 2]) -> bool {
@@ -140,8 +143,8 @@ fn has_rtl(rows: &[Vec<Cell>], table: &Table) -> bool {
 
 fn right_aligned(cells: &[Cell]) -> Vec<Cell> {
     let width = cells.len();
-    let first = cells.iter().position(|c| base(c) != ' ');
-    let last = cells.iter().rposition(|c| base(c) != ' ');
+    let first = cells.iter().position(|c| !is_blank(c));
+    let last = cells.iter().rposition(|c| !is_blank(c));
     let (Some(first), Some(last)) = (first, last) else {
         return cells.to_vec();
     };
@@ -241,6 +244,25 @@ mod tests {
             texts(&mirror_rtl_tables(input, &[])),
             ["│  7 │   سيد │", "├────┼───────┤", "│  9 │   علي │"]
         );
+    }
+
+    #[test]
+    fn mirrors_rows_with_wide_emoji_and_keeps_each_emoji_whole() {
+        let mut input = rows(&[
+            "┌──────┬─────────┐",
+            "│ سيد  │ Rust X  │",
+            "└──────┴─────────┘",
+        ]);
+        input[1][14].wide = true;
+        input[1][15] = Cell {
+            continuation: true,
+            ..Cell::plain("")
+        };
+        let out = mirror_rtl_tables(input, &[]);
+        assert_eq!(texts(&out)[0], "┌─────────┬──────┐");
+        let row = &out[1];
+        let wide = row.iter().position(|c| c.wide).expect("emoji kept");
+        assert!(row[wide + 1].continuation, "{:?}", texts(&out)[1]);
     }
 
     #[test]

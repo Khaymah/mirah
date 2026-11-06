@@ -2,6 +2,16 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.2.0-alpha.2 - 2026-11-06
+
+تصليحات من أول تجربة للشريط على ويندوز.
+
+- **التسجيل بقى باسم البرنامج:** `claude-session-1.vt`، و`opencode-session-1.vt`، والرقم لكل برنامج لوحده. والـ `.log` بتاع `--record` بقى بنفس الاسم.
+- **إيقاف التسجيل وتشغيله تاني بيكمّل في نفس الملف**، والساعة اللي في الشريط بتكمّل من المدة اللي وقفت عندها. قبل كده كان بيعمل ملف جديد، وممكن يكتب فوق ملف موجود.
+- **الجداول اللي فيها emoji** (زي `Rust 🦀`) بقت بتتعكس كلها، بعد ما كان صف العناوين بس هو اللي بيتعكس. والـ emoji بيفضل كامل.
+
+**English:** Fixes from the first test of the bar on Windows. Recordings are named after the program (`claude-session-1.vt`, `opencode-session-1.vt`, numbered per program), and `--record` names its log the same way. Stopping and starting the recording again continues the same file, and the bar's clock continues from where it stopped; before, it started a new file and could write over an existing one. Tables with emoji such as `Rust 🦀` now mirror as a whole instead of only the header row, and each emoji stays whole.
+
 ## 0.2.0-alpha.1 - 2026-11-06
 
 **شريط مرآة، وملف إعدادات.**

@@ -5,8 +5,8 @@ const HELP: &str = "mirah - run any terminal program with correct right-to-left 
 
 Usage:
   mirah [PROGRAM [ARGS...]]   run PROGRAM inside mirah (default: your shell)
-  mirah --record PROGRAM ...  same, and save mirah-session-N.vt and
-                              mirah-session-N.log in the current folder
+  mirah --record PROGRAM ...  same, and save PROGRAM-session-N.vt and
+                              PROGRAM-session-N.log in the current folder
   mirah update                install the newest release
   mirah -- PROGRAM ...        run a program named like a mirah command
   mirah --version             print the version
