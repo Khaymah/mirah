@@ -1,5 +1,6 @@
 mod event;
 mod io;
+mod mouse;
 mod pacing;
 mod pty;
 mod record;
@@ -10,6 +11,7 @@ use anyhow::Result;
 use event::Event;
 use io::SharedWriter;
 use mirah_term::Emulator;
+use mouse::MouseRemap;
 use pacing::Pacer;
 use portable_pty::CommandBuilder;
 use pty::Pty;
@@ -44,6 +46,7 @@ struct Session<'a> {
     recorder: Recorder,
     life: Lifecycle,
     pacer: Pacer,
+    mouse: MouseRemap,
 }
 
 pub(crate) fn run(
@@ -58,7 +61,7 @@ pub(crate) fn run(
     io::spawn_pty_reader(pty.reader()?, events.clone());
     io::spawn_child_waiter(child, events.clone());
     let writer: SharedWriter = Arc::new(Mutex::new(pty.writer()?));
-    io::spawn_stdin_forwarder(Arc::clone(&writer));
+    io::spawn_stdin_reader(events.clone());
     resize::spawn_watcher(events)?;
 
     let _guard = TerminalGuard::enter()?;
@@ -72,6 +75,7 @@ pub(crate) fn run(
         recorder: Recorder::new(recording),
         life: Lifecycle::default(),
         pacer: Pacer::default(),
+        mouse: MouseRemap::default(),
     };
     session.pump()?;
     let code = session.life.code.unwrap_or(UNKNOWN_EXIT);
@@ -93,7 +97,7 @@ impl Session<'_> {
                 self.life.last_event = Some(Instant::now());
             }
             record(&mut self.recorder, &events);
-            apply(events, self.pty, &mut self.emulator, &mut self.life)?;
+            self.apply(events)?;
             forward(&mut self.emulator, &self.writer)?;
             let now = Instant::now();
             let done = self.life.done(now);
@@ -118,6 +122,30 @@ impl Session<'_> {
         } else {
             Ok(Some(ready))
         }
+    }
+
+    fn apply(&mut self, events: Vec<Event>) -> Result<()> {
+        for event in events {
+            match event {
+                Event::Output(bytes) => self.emulator.feed(&bytes),
+                Event::Input(bytes) => {
+                    let emulator = &self.emulator;
+                    let bytes = self
+                        .mouse
+                        .apply(&bytes, |row, col| emulator.child_column(row, col));
+                    io::write_to_child(&self.writer, &bytes);
+                }
+                Event::OutputClosed => self.life.output_closed = true,
+                Event::ChildExited(code) => self.life.code = Some(code),
+                Event::Resize => {
+                    let size = host::size();
+                    self.pty.resize(size);
+                    self.emulator.resize(size.rows, size.cols)?;
+                    tracing::debug!(rows = size.rows, cols = size.cols, "resized");
+                }
+            }
+        }
+        Ok(())
     }
 
     fn receive(&self, deadline: Option<Instant>) -> Option<Vec<Event>> {
@@ -173,28 +201,6 @@ fn drain(first: Event, inbox: &Receiver<Event>) -> Vec<Event> {
     let mut events = vec![first];
     events.extend(inbox.try_iter());
     events
-}
-
-fn apply(
-    events: Vec<Event>,
-    pty: &Pty,
-    emulator: &mut Emulator,
-    life: &mut Lifecycle,
-) -> Result<()> {
-    for event in events {
-        match event {
-            Event::Output(bytes) => emulator.feed(&bytes),
-            Event::OutputClosed => life.output_closed = true,
-            Event::ChildExited(code) => life.code = Some(code),
-            Event::Resize => {
-                let size = host::size();
-                pty.resize(size);
-                emulator.resize(size.rows, size.cols)?;
-                tracing::debug!(rows = size.rows, cols = size.cols, "resized");
-            }
-        }
-    }
-    Ok(())
 }
 
 fn forward(emulator: &mut Emulator, writer: &SharedWriter) -> Result<()> {

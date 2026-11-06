@@ -1,4 +1,4 @@
-use super::classify::{base, is_blank, is_frame, is_rtl};
+use super::classify::{base, blank_like, is_blank, is_frame, is_rtl};
 use mirah_bidi::{Cell, VisualRow};
 
 const MARKERS: [char; 12] = ['●', '•', '◦', '▪', '■', '○', '·', '-', '*', '⏺', '❯', '>'];
@@ -30,10 +30,17 @@ fn has_rtl(cells: &[Cell]) -> bool {
 
 fn place(visual: &mut VisualRow, order: &[usize], start: usize) {
     let moved: Vec<Cell> = order.iter().map(|&old| visual.cells[old].clone()).collect();
+    let blank = blank_like(visual.cells.last());
     for &old in order {
-        visual.cells[old] = Cell::plain(" ");
+        visual.cells[old] = blank.clone();
     }
     let mut old_to_new: Vec<usize> = (0..visual.cells.len()).collect();
+    let destination = start..start + order.len();
+    let vacated = order.iter().filter(|old| !destination.contains(old));
+    let displaced = destination.clone().filter(|d| !order.contains(d));
+    for (from, to) in displaced.zip(vacated) {
+        old_to_new[from] = *to;
+    }
     for (offset, (cell, &old)) in moved.into_iter().zip(order).enumerate() {
         visual.cells[start + offset] = cell;
         old_to_new[old] = start + offset;
@@ -49,6 +56,11 @@ pub(super) fn align_prose(logical: &[Cell], visual: &mut VisualRow) {
     let Some(last) = logical.iter().rposition(|c| !is_blank(c)) else {
         return;
     };
+    let last = visual
+        .cells
+        .iter()
+        .rposition(|c| !is_blank(c))
+        .map_or(last, |v| v.max(last));
     let marker = marker_len(logical, indent);
     let body_start = indent + marker;
     if body_start > last || indent >= width {

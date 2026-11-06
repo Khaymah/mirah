@@ -11,11 +11,43 @@ const MIN_LETTERS: usize = 2;
 const WHITE: u8 = 7;
 const BRIGHT_WHITE: u8 = 15;
 
-fn is_syntax_color(color: Color) -> bool {
-    !matches!(
-        color,
-        Color::Default | Color::Indexed(WHITE) | Color::Indexed(BRIGHT_WHITE)
-    )
+fn is_syntax_color(color: Color, text: Color) -> bool {
+    color != text
+        && !matches!(
+            color,
+            Color::Default | Color::Indexed(WHITE) | Color::Indexed(BRIGHT_WHITE)
+        )
+}
+
+fn text_color(logical: &[Vec<Cell>]) -> Color {
+    let mut counts: Vec<(Color, usize)> = Vec::new();
+    for cell in logical.iter().flatten() {
+        if !base(cell).is_alphabetic() {
+            continue;
+        }
+        match counts.iter_mut().find(|(c, _)| *c == cell.style.fg) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((cell.style.fg, 1)),
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, n)| *n)
+        .map_or(Color::Default, |(c, _)| c)
+}
+
+fn is_diff_line(content: &[&Cell]) -> bool {
+    let digits = content
+        .iter()
+        .take_while(|c| base(c).is_ascii_digit())
+        .count();
+    digits > 0
+        && content.get(digits).is_some_and(|c| is_blank(c))
+        && content
+            .iter()
+            .skip(digits)
+            .find(|c| !is_blank(c))
+            .is_some_and(|c| matches!(base(c), '+' | '-'))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +63,15 @@ pub(super) fn base(cell: &Cell) -> char {
 
 pub(super) fn is_blank(cell: &Cell) -> bool {
     base(cell) == ' '
+}
+
+pub(super) fn blank_like(cell: Option<&Cell>) -> Cell {
+    let mut blank = Cell::plain(" ");
+    if let Some(cell) = cell {
+        blank.style.bg = cell.style.bg;
+        blank.style.fg = cell.style.fg;
+    }
+    blank
 }
 
 pub(super) fn is_rtl(c: char) -> bool {
@@ -58,7 +99,7 @@ fn input_row(logical: &[Vec<Cell>], cursor: &Cursor) -> Option<usize> {
     fake.max(real)
 }
 
-fn looks_like_code(row: &[Cell]) -> bool {
+fn looks_like_code(row: &[Cell], text: Color) -> bool {
     let content: Vec<&Cell> = row.iter().filter(|c| !is_blank(c)).collect();
     if content.is_empty() {
         return false;
@@ -66,16 +107,15 @@ fn looks_like_code(row: &[Cell]) -> bool {
     let total = content.len() as f32;
     let colored = content
         .iter()
-        .filter(|c| is_syntax_color(c.style.fg))
+        .filter(|c| is_syntax_color(c.style.fg, text))
         .count() as f32;
-    let highlighted = content.iter().any(|c| c.style.bg != Color::Default);
     let code_chars = content
         .iter()
         .filter(|c| CODE_CHARS.contains(base(c)))
         .count() as f32;
     let indent = row.iter().take_while(|c| is_blank(c)).count();
     let first = content.first().map(|c| base(c)).unwrap_or(' ');
-    highlighted
+    is_diff_line(&content)
         || colored / total > COLORED_RATIO
         || code_chars / total > CODE_CHAR_RATIO
         || first == TOOL_OUTPUT
@@ -93,16 +133,16 @@ fn has_gap(row: &[Cell]) -> bool {
         .any(|w| is_blank(&w[0]) && is_blank(&w[1]))
 }
 
-fn is_prose(row: &[Cell]) -> bool {
+fn is_prose(row: &[Cell], text: Color) -> bool {
     let letters = row.iter().filter(|c| base(c).is_alphabetic()).count();
-    letters >= MIN_LETTERS && !looks_like_code(row) && !has_gap(row)
+    letters >= MIN_LETTERS && !looks_like_code(row, text) && !has_gap(row)
 }
 
 fn is_empty_row(row: &[Cell]) -> bool {
     row.iter().all(is_blank)
 }
 
-fn rows_in_code_blocks(logical: &[Vec<Cell>]) -> Vec<bool> {
+fn rows_in_code_blocks(logical: &[Vec<Cell>], text: Color) -> Vec<bool> {
     let mut in_code = vec![false; logical.len()];
     let mut start = 0;
     while start < logical.len() {
@@ -113,7 +153,10 @@ fn rows_in_code_blocks(logical: &[Vec<Cell>]) -> Vec<bool> {
         let end = (start..logical.len())
             .find(|&i| is_empty_row(&logical[i]))
             .unwrap_or(logical.len());
-        if logical[start..end].iter().any(|row| looks_like_code(row)) {
+        if logical[start..end]
+            .iter()
+            .any(|row| looks_like_code(row, text))
+        {
             for (i, row) in logical.iter().enumerate().take(end).skip(start) {
                 in_code[i] = !has_rtl(row);
             }
@@ -125,15 +168,17 @@ fn rows_in_code_blocks(logical: &[Vec<Cell>]) -> Vec<bool> {
 
 pub(super) fn classify(logical: &[Vec<Cell>], cursor: &Cursor, align: Align) -> Vec<Kind> {
     let input = input_row(logical, cursor);
-    let in_code = rows_in_code_blocks(logical);
+    let text = text_color(logical);
+    let in_code = rows_in_code_blocks(logical, text);
     let prose: Vec<bool> = logical
         .iter()
         .enumerate()
         .map(|(i, row)| {
-            !input.is_some_and(|r| i >= r)
+            let fixed_input = input.is_some_and(|r| i > r || (i == r && !has_rtl(row)));
+            !fixed_input
                 && !in_code[i]
                 && !row.iter().any(|c| is_frame(base(c)))
-                && is_prose(row)
+                && is_prose(row, text)
         })
         .collect();
     let arabic_on_screen = logical

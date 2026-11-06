@@ -73,6 +73,10 @@ impl Emulator {
         }
     }
 
+    pub fn child_column(&self, row: u16, column: u16) -> u16 {
+        self.renderer.child_column(row, column)
+    }
+
     pub fn frame(&mut self) -> String {
         self.changed = false;
         self.renderer.frame(self.parser.screen())
@@ -106,6 +110,27 @@ mod tests {
         e.frame();
         e.resize(10, 40).expect("valid size");
         assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn maps_screen_columns_to_program_columns() {
+        let mut e = Emulator::new(1, 10).expect("valid size");
+        e.feed("بتك".as_bytes());
+        let frame = e.frame();
+        assert!(
+            frame.contains("       \u{FEDA}\u{FE98}\u{FE91}"),
+            "{frame:?}"
+        );
+        let map: Vec<u16> = (0..10).map(|c| e.child_column(0, c)).collect();
+        assert_eq!(&map[7..], [2, 1, 0]);
+        let mut seen = map.clone();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(
+            seen.len(),
+            10,
+            "every screen column maps to its own program column: {map:?}"
+        );
     }
 
     #[test]

@@ -155,7 +155,7 @@ You need a font with **Arabic Presentation Forms-B**, such as DejaVu Sans Mono.
 
 - **Selections inside an Arabic word:** the fake cursor that Claude Code and other Ink-based programs draw works correctly. Selecting more than one letter inside an Arabic word (such as vim visual mode) still splits the word. See [Plan/FakeCursor.md](Plan/FakeCursor.md).
 - **Copying:** selecting text with the mouse copies shaped letters in visual order. A mirah copy mode will fix this.
-- **Mouse:** clicks on Arabic text land on the logical position.
+- **Mouse:** when the program asks for SGR mouse reports (as Claude Code does), mirah maps each click from the screen back to the program's column, so a selection covers the text you see. Other mouse formats pass through unchanged.
 - **Scrollback:** mirah runs on the alternate screen, so text that scrolled off the top does not come back.
 - **Windows** is still experimental. mirah bundles a newer ConPTY (from Microsoft, MIT licensed) and extracts it to `%LOCALAPPDATA%\mirah\conpty\` on first run. See [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md) (Arabic).
 

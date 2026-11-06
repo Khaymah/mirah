@@ -16,6 +16,26 @@ pub(crate) struct Renderer {
     prev_input_modes: String,
     options: RenderOptions,
     caches: Caches,
+    to_child: Vec<Vec<u16>>,
+}
+
+fn invert(logical_to_visual: &[usize]) -> Vec<u16> {
+    let width = logical_to_visual.len();
+    let mut map: Vec<Option<u16>> = vec![None; width];
+    for (logical, &visual) in logical_to_visual.iter().enumerate() {
+        if let (Some(slot), Ok(column)) = (map.get_mut(visual), u16::try_from(logical)) {
+            *slot = Some(column);
+        }
+    }
+    (0..width)
+        .map(|v| {
+            (0..width)
+                .flat_map(|d| [v.checked_sub(d), v.checked_add(d)])
+                .flatten()
+                .find_map(|i| map.get(i).copied().flatten())
+                .unwrap_or_else(|| u16::try_from(v).unwrap_or(u16::MAX))
+        })
+        .collect()
 }
 
 fn draw_row(out: &mut String, row: u16, cells: &[Cell]) {
@@ -42,7 +62,16 @@ impl Renderer {
             prev_input_modes: String::new(),
             options,
             caches: Caches::default(),
+            to_child: Vec::new(),
         }
+    }
+
+    pub(crate) fn child_column(&self, row: u16, column: u16) -> u16 {
+        self.to_child
+            .get(usize::from(row))
+            .and_then(|map| map.get(usize::from(column)))
+            .copied()
+            .unwrap_or(column)
     }
 
     pub(crate) fn invalidate(&mut self) {
@@ -74,6 +103,10 @@ impl Renderer {
             .collect();
         let visual = layout(logical, &cursor, self.options, &mut self.caches);
         let mut cursor_visual = cursor_col;
+        self.to_child = visual
+            .iter()
+            .map(|line| invert(&line.logical_to_visual))
+            .collect();
         for (row, line) in (0..rows).zip(visual) {
             if row == cursor_row {
                 cursor_visual = cursor::visual_column(&line.logical_to_visual, cursor_col);
@@ -96,5 +129,16 @@ impl Renderer {
         }
         out.push_str(SYNC_END);
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::invert;
+
+    #[test]
+    fn maps_every_screen_column_back_to_a_program_column() {
+        assert_eq!(invert(&[3, 2, 1, 0]), [3, 2, 1, 0]);
+        assert_eq!(invert(&[0, 3, 3, 3]), [0, 0, 3, 3]);
     }
 }

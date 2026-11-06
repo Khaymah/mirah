@@ -2,6 +2,21 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.11 - 2026-11-06
+
+تصليحات من تجربة المالك (4 screenshots وتسجيل `mirah-session-5.vt`).
+
+- **التحديد بالماوس:**
+  - السطر اللي عليه تحديد كان بيرجع شمال، لأن أي خلفية ملوّنة كانت بتخلّي السطر يتحسب كود. **الخلفية لوحدها مابقتش بتعمل كده**، وسطور الـ diff بتتعرف من شكلها: رقم سطر وبعده `+` أو `-`.
+  - **مكان الماوس بيتحوّل** من الشاشة لمكانه عند البرنامج (صيغة SGR)، فالتحديد بيمسك الكلام اللي انت شايفه.
+- **الـ scroll:** الجدول اللي جزء منه برا الشاشة كان بيبطّل يتعكس، وبعدين يرجع يتعكس وهو بيتحرك. دلوقتي **أي جدول بيتعرف من أي سطر حدود فيه** (`┌┬┐` أو `├┼┤` أو `└┴┘`)، حتى لو أوله أو آخره برا الشاشة.
+- **سطر الكتابة:** لو كتبت عربي، السطر بيتحاذى يمين، والعلامة `❯` بتروح معاه، والمؤشر بيبقى في آخر الكلام.
+- **opencode:**
+  - **الكود بيتعرف بالألوان اللي مختلفة عن لون الكلام العادي في الشاشة.** opencode بيلوّن كل الكلام بلون واحد، فكل سطر كان بيتحسب كود.
+  - **المربعات السودا في الجدول اختفت:** الفراغ اللي مرآة بتحطه بقى بنفس خلفية السطر.
+
+**English:** Fixes from the owner's test (four screenshots and `mirah-session-5.vt`). A selected row no longer jumps back to the left: a coloured background alone no longer marks a row as code, and diff rows are recognised by their shape (a line number then `+` or `-`). SGR mouse reports are mapped from the screen back to the program's columns, so a selection covers the text you see. A table partly scrolled off screen is now recognised from any of its border rows and stays mirrored while scrolling. The input row aligns right when you type Arabic, with `❯` moving along and the cursor at the end of the text. Code is now recognised by colours that differ from the screen's usual text colour, which fixes opencode where every row counted as code, and padding keeps the row's background so opencode tables no longer show black boxes.
+
 ## 0.1.0-alpha.10 - 2026-11-06
 
 **الريبو بقى public.**

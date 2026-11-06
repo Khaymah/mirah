@@ -39,15 +39,14 @@ pub(crate) fn spawn_pty_reader(mut reader: Box<dyn Read + Send>, events: Sender<
     });
 }
 
-pub(crate) fn spawn_stdin_forwarder(writer: SharedWriter) {
+pub(crate) fn spawn_stdin_reader(events: Sender<Event>) {
     std::thread::spawn(move || {
         let mut stdin = std::io::stdin();
         let mut buf = vec![0u8; STDIN_READ_BUFFER];
         while let Ok(n) = stdin.read(&mut buf) {
-            if n == 0 {
+            if n == 0 || events.send(Event::Input(buf[..n].to_vec())).is_err() {
                 break;
             }
-            write_to_child(&writer, &buf[..n]);
         }
     });
 }

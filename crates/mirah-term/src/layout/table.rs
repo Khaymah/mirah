@@ -1,4 +1,4 @@
-use super::classify::{base, is_rtl};
+use super::classify::{base, blank_like, is_rtl};
 use mirah_bidi::Cell;
 
 const CELL_PADDING: usize = 1;
@@ -19,8 +19,12 @@ fn mirrored(c: char) -> char {
     }
 }
 
-fn is_top(c: char) -> bool {
-    matches!(c, '┌' | '╭')
+fn is_left_edge(c: char) -> bool {
+    matches!(c, '┌' | '├' | '└' | '╭' | '╰')
+}
+
+fn is_right_edge(c: char) -> bool {
+    matches!(c, '┐' | '┤' | '┘' | '╮' | '╯')
 }
 
 fn is_border_joint(c: char) -> bool {
@@ -48,14 +52,14 @@ struct Table {
     columns: Vec<usize>,
 }
 
-fn top_border(row: &[Cell]) -> Option<Vec<usize>> {
-    let left = row.iter().position(|c| is_top(base(c)))?;
+fn border_columns(row: &[Cell]) -> Option<Vec<usize>> {
+    let left = row.iter().position(|c| is_left_edge(base(c)))?;
     let mut columns = vec![left];
     for (i, cell) in row.iter().enumerate().skip(left + 1) {
         match base(cell) {
             '─' => {}
-            '┬' => columns.push(i),
-            '┐' | '╮' => {
+            '┬' | '┼' | '┴' => columns.push(i),
+            c if is_right_edge(c) => {
                 columns.push(i);
                 return (columns.len() >= 3).then_some(columns);
             }
@@ -72,50 +76,57 @@ fn matches_columns(row: &[Cell], columns: &[usize]) -> bool {
         && !row.iter().any(|c| c.wide || c.continuation)
 }
 
-fn is_bottom(row: &[Cell], columns: &[usize]) -> bool {
+fn edge_is(row: &[Cell], columns: &[usize], edges: [char; 2]) -> bool {
     columns
         .first()
-        .is_some_and(|&c| matches!(base(&row[c]), '└' | '╰'))
+        .and_then(|&c| row.get(c))
+        .is_some_and(|cell| edges.contains(&base(cell)))
 }
 
-fn find_table(rows: &[Vec<Cell>], top: usize) -> Option<Table> {
-    let columns = top_border(&rows[top])?;
-    for (bottom, row) in rows.iter().enumerate().skip(top + 1) {
-        if !matches_columns(row, &columns) {
-            return None;
-        }
-        if is_bottom(row, &columns) {
-            return Some(Table {
-                top,
-                bottom,
-                columns,
-            });
+fn table_at(rows: &[Vec<Cell>], seed: usize) -> Option<Table> {
+    let columns = border_columns(&rows[seed])?;
+    let mut top = seed;
+    while !edge_is(&rows[top], &columns, ['┌', '╭'])
+        && top > 0
+        && matches_columns(&rows[top - 1], &columns)
+    {
+        top -= 1;
+    }
+    let mut bottom = seed;
+    while !edge_is(&rows[bottom], &columns, ['└', '╰'])
+        && bottom + 1 < rows.len()
+        && matches_columns(&rows[bottom + 1], &columns)
+    {
+        bottom += 1;
+    }
+    (bottom > top).then_some(Table {
+        top,
+        bottom,
+        columns,
+    })
+}
+
+fn find_tables(rows: &[Vec<Cell>]) -> Vec<Table> {
+    let mut tables = Vec::new();
+    let mut i = 0;
+    while i < rows.len() {
+        match table_at(rows, i) {
+            Some(table) => {
+                i = table.bottom + 1;
+                tables.push(table);
+            }
+            None => i += 1,
         }
     }
-    None
+    tables
 }
 
 pub(super) fn frame_hints(rows: &[Vec<Cell>]) -> Vec<Option<Vec<usize>>> {
     let mut hints = vec![None; rows.len()];
-    let mut i = 0;
-    while i < rows.len() {
-        let Some(columns) = top_border(&rows[i]) else {
-            i += 1;
-            continue;
-        };
-        let mut j = i + 1;
-        while let Some(row) = rows.get(j) {
-            let edge = columns[0];
-            if !row.get(edge).is_some_and(|c| is_border_joint(base(c))) {
-                break;
-            }
-            hints[j] = Some(columns.clone());
-            j += 1;
-            if is_bottom(row, &columns) {
-                break;
-            }
+    for table in find_tables(rows) {
+        for hint in &mut hints[table.top..=table.bottom] {
+            *hint = Some(table.columns.clone());
         }
-        i = j;
     }
     hints
 }
@@ -139,7 +150,7 @@ fn right_aligned(cells: &[Cell]) -> Vec<Cell> {
         return cells.to_vec();
     }
     let pad = width - CELL_PADDING - content.len();
-    let blank = Cell::plain(" ");
+    let blank = blank_like(cells.first());
     std::iter::repeat_n(blank.clone(), pad)
         .chain(content.iter().cloned())
         .chain(std::iter::repeat_n(blank, CELL_PADDING))
@@ -168,20 +179,12 @@ fn mirror_row(row: &mut [Cell], columns: &[usize]) {
 
 pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
     let mut rows = rows;
-    let mut i = 0;
-    while i < rows.len() {
-        match find_table(&rows, i) {
-            Some(table)
-                if has_rtl(&rows, &table)
-                    && !(table.top..=table.bottom).any(|r| settled.get(r) == Some(&true)) =>
-            {
-                for row in &mut rows[table.top..=table.bottom] {
-                    mirror_row(row, &table.columns);
-                }
-                i = table.bottom + 1;
+    for table in find_tables(&rows) {
+        let unsettled = !(table.top..=table.bottom).any(|r| settled.get(r) == Some(&true));
+        if unsettled && has_rtl(&rows, &table) {
+            for row in &mut rows[table.top..=table.bottom] {
+                mirror_row(row, &table.columns);
             }
-            Some(table) => i = table.bottom + 1,
-            None => i += 1,
         }
     }
     rows
@@ -229,6 +232,15 @@ mod tests {
     fn leaves_english_tables_alone() {
         let input = rows(&["┌───┬───┐", "│ a │ b │", "└───┴───┘"]);
         assert_eq!(texts(&mirror_rtl_tables(input.clone(), &[])), texts(&input));
+    }
+
+    #[test]
+    fn mirrors_a_table_cut_off_by_scrolling() {
+        let input = rows(&["│ سيد   │ 7  │", "├───────┼────┤", "│ علي   │ 9  │"]);
+        assert_eq!(
+            texts(&mirror_rtl_tables(input, &[])),
+            ["│  7 │   سيد │", "├────┼───────┤", "│  9 │   علي │"]
+        );
     }
 
     #[test]
