@@ -14,6 +14,8 @@
 | [ADR/0003-windows-first-releases-and-updates.md](ADR/0003-windows-first-releases-and-updates.md) | ويندوز أولوية، وreleases، وتحديث بإذن المستخدم (مقبول) |
 | [ADR/0004-bundle-conpty-on-windows.md](ADR/0004-bundle-conpty-on-windows.md) | مرآة بتشيل نسخة ConPTY الجديدة جواها على ويندوز (مقبول) |
 | [ADR/0005-top-bar.md](ADR/0005-top-bar.md) | شريط مرآة فوق البرنامج، وملف إعدادات (مقبول ومنفّذ) |
+| [ADR/0006-workspace-tabs-sessions.md](ADR/0006-workspace-tabs-sessions.md) | تابات، وشاشة اختيار البرنامج، وجلسات بـ ID (مقترح) |
+| [Workspace.md](Workspace.md) | خطة التابات والجلسات والشكل الجديد (مقترحة) |
 | [TopBar.md](TopBar.md) | خطة الشريط بالمراحل (منفّذة في 0.2.0-alpha.1) |
 | [WindowsAndReleases.md](WindowsAndReleases.md) | خطة ويندوز والـ releases والتحديث بالمهام |
 | [Roadmap.md](Roadmap.md) | المراحل والبوابات والمهام بالتفصيل |
