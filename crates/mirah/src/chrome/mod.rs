@@ -152,9 +152,11 @@ impl Chrome {
                     self.activate(item, actions);
                 }
             }
-            Key::Char(NEW_TAB_KEY) => self.activate(Item::NewTab, actions),
+            Key::Char(c) if keys::latin(c) == NEW_TAB_KEY => self.activate(Item::NewTab, actions),
             Key::Char(c) => {
-                if let Some(n) = c.to_digit(10).and_then(|d| usize::try_from(d).ok())
+                if let Some(n) = keys::latin(c)
+                    .to_digit(10)
+                    .and_then(|d| usize::try_from(d).ok())
                     && n >= 1
                     && n <= self.state.tabs.len()
                 {
@@ -479,6 +481,12 @@ mod tests {
         actions.clear();
         c.input(b"\x1dt", &mut actions);
         assert_eq!(actions, [Action::NewTab]);
+        actions.clear();
+        c.input("\x1dف".as_bytes(), &mut actions);
+        assert_eq!(actions, [Action::NewTab]);
+        actions.clear();
+        c.input("\x1d٢".as_bytes(), &mut actions);
+        assert_eq!(actions, [Action::Switch(1)]);
     }
 
     #[test]

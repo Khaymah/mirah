@@ -115,7 +115,12 @@ fn main() {
             }
             return;
         }
-        cli::Invocation::Pager(path) => exit(viewer::run(&path)),
+        cli::Invocation::Pager(path) => {
+            let log_guard = logging::init(None);
+            let code = viewer::run(&path);
+            drop(log_guard);
+            exit(code);
+        }
         cli::Invocation::View(path) => (Ok(Err(path)), false),
         cli::Invocation::Resume(id) => (Err(id), false),
         cli::Invocation::Run(run) => (Ok(Ok(run.argv)), run.record),

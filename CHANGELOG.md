@@ -2,6 +2,16 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.2 - 2026-11-06
+
+**الزراير والكيبورد على العربي.**
+
+- **`S` و`Q` في عارض Markdown مكانوش بيشتغلوا** لو الكيبورد على العربي، لأن الزرار بيبعت `س` و`ض`. دلوقتي العارض بيفهم الحرف من مكانه في الكيبورد العربي كمان. و`Esc` بيقفل في أي حالة، وشريط الحالة بقى بيقول `Esc للإغلاق`.
+- **نفس التصليح في الشريط وشاشة الاختيار:** `Ctrl+]` وبعدين `ف` بيفتح تاب جديد زي `t`، والأرقام العربي (`١`–`٩`) بتشتغل زي `1`–`9`.
+- **`MIRAH_LOG=debug`** بقى بيسجّل الزراير اللي العارض بيستقبلها.
+
+**English:** Keys with an Arabic keyboard layout. `S` and `Q` in the Markdown viewer did nothing with an Arabic layout, because those keys send `س` and `ض`; the viewer now maps Arabic-layout letters to their keys, `Esc` always closes, and the status line says so. The bar and the picker do the same: `Ctrl+]` then `ف` opens a tab like `t`, and Arabic digits `١`–`٩` work like `1`–`9`. `MIRAH_LOG=debug` now logs the keys the viewer receives.
+
 ## 0.4.0-alpha.1 - 2026-11-06
 
 **عارض ملفات Markdown، والكود اللي فيه عربي.**

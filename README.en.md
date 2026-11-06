@@ -48,13 +48,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -67,8 +67,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -146,7 +146,9 @@ Or pick the file in the picker, under "Markdown files". It opens in a tab:
 | `PgUp` `PgDn` or space | A whole page |
 | `Home` `End` | Start and end of the file |
 | `S` | Saves a copy to `Downloads`; if a file with that name exists, the copy is named `plan (2).md` |
-| `Q` or `Esc` | Closes the tab |
+| `Esc` or `Q` | Closes the tab |
+
+> Letters also work with an Arabic keyboard layout: `S` is `س` and `Q` is `ض`. The same goes for the bar: `Ctrl+]` then `t` or `ف`, and Arabic digits `١`–`٩`.
 
 ## The bar and tabs
 

@@ -28,6 +28,52 @@ pub(crate) enum Key {
     Other,
 }
 
+const ARABIC_LAYOUT: [(char, char); 30] = [
+    ('ض', 'q'),
+    ('ص', 'w'),
+    ('ث', 'e'),
+    ('ق', 'r'),
+    ('ف', 't'),
+    ('غ', 'y'),
+    ('ع', 'u'),
+    ('ه', 'i'),
+    ('خ', 'o'),
+    ('ح', 'p'),
+    ('ش', 'a'),
+    ('س', 's'),
+    ('ي', 'd'),
+    ('ب', 'f'),
+    ('ل', 'g'),
+    ('ا', 'h'),
+    ('ت', 'j'),
+    ('ن', 'k'),
+    ('م', 'l'),
+    ('ئ', 'z'),
+    ('ء', 'x'),
+    ('ؤ', 'c'),
+    ('ر', 'v'),
+    ('ى', 'n'),
+    ('ة', 'm'),
+    ('و', ','),
+    ('ز', '.'),
+    ('ظ', '/'),
+    ('ج', '['),
+    ('د', ']'),
+];
+
+pub(crate) fn latin(c: char) -> char {
+    if let Some(digit) = ('٠'..='٩')
+        .position(|d| d == c)
+        .or_else(|| ('۰'..='۹').position(|d| d == c))
+    {
+        return char::from_digit(u32::try_from(digit).unwrap_or(0), 10).unwrap_or(c);
+    }
+    ARABIC_LAYOUT
+        .iter()
+        .find(|(arabic, _)| *arabic == c)
+        .map_or(c, |(_, key)| *key)
+}
+
 fn numbers(body: &[u8]) -> Vec<u32> {
     body.split(|b| *b == b';')
         .map(|part| {
@@ -194,6 +240,16 @@ mod tests {
             keys(b"\x1b[93;5u\x1b[27u\x1b[13u"),
             [Key::Toggle, Key::Escape, Key::Enter]
         );
+    }
+
+    #[test]
+    fn arabic_layout_letters_and_digits_map_to_their_keys() {
+        assert_eq!(latin('س'), 's');
+        assert_eq!(latin('ض'), 'q');
+        assert_eq!(latin('ف'), 't');
+        assert_eq!(latin('٣'), '3');
+        assert_eq!(latin('۷'), '7');
+        assert_eq!(latin('x'), 'x');
     }
 
     #[test]

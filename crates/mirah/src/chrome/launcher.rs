@@ -113,7 +113,9 @@ impl Launcher {
             Key::Enter => return self.chosen(),
             Key::Escape | Key::Toggle => return Some(Pick::Cancel),
             Key::Char(c) => {
-                let n = c.to_digit(10).and_then(|d| usize::try_from(d).ok())?;
+                let n = super::keys::latin(c)
+                    .to_digit(10)
+                    .and_then(|d| usize::try_from(d).ok())?;
                 if n >= 1 && n <= self.entries.len() {
                     self.row = n - 1;
                     return self.chosen();

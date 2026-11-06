@@ -50,13 +50,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -69,8 +69,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -148,7 +148,9 @@ mirah view خطة.md
 | `PgUp` `PgDn` أو المسافة | صفحة كاملة |
 | `Home` `End` | أول الملف وآخره |
 | `S` | يحفظ نسخة في التنزيلات (`Downloads`)، ولو فيه ملف بنفس الاسم بيسمّيها `خطة (2).md` |
-| `Q` أو `Esc` | يقفل التاب |
+| `Esc` أو `Q` | يقفل التاب |
+
+> الحروف بتشتغل والكيبورد على العربي كمان: `S` هي `س`، و`Q` هي `ض`. ونفس الكلام في الشريط: `Ctrl+]` وبعدين `t` أو `ف`، والأرقام العربي `١`–`٩`.
 
 ## الشريط والتابات
 

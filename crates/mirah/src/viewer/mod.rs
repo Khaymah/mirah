@@ -185,7 +185,7 @@ impl Pager {
         } else {
             self.top * 100 / self.last_top()
         };
-        format!("{STATUS} {name} · {percent}% · ↑↓ للتمرير · S للحفظ في التنزيلات · Q للإغلاق")
+        format!("{STATUS} {name} · {percent}% · ↑↓ للتمرير · S للحفظ في التنزيلات · Esc للإغلاق")
     }
 
     fn draw(&self, out: &mut impl Write) -> std::io::Result<()> {
@@ -219,17 +219,27 @@ impl Pager {
     }
 
     fn handle(&mut self, event: Event) -> bool {
+        tracing::debug!(?event, "viewer input");
         self.notice = None;
         match event {
             Event::Key(key) if key.kind != KeyEventKind::Release => match key.code {
-                KeyCode::Char('q' | 'Q') | KeyCode::Esc => return false,
-                KeyCode::Char('s' | 'S') => self.save(),
-                KeyCode::Down | KeyCode::Char('j') | KeyCode::Enter => self.scroll(true, 1),
-                KeyCode::Up | KeyCode::Char('k') => self.scroll(false, 1),
-                KeyCode::PageDown | KeyCode::Char(' ') => self.scroll(true, self.page()),
+                KeyCode::Esc => return false,
+                KeyCode::Down | KeyCode::Enter => self.scroll(true, 1),
+                KeyCode::Up => self.scroll(false, 1),
+                KeyCode::PageDown => self.scroll(true, self.page()),
                 KeyCode::PageUp => self.scroll(false, self.page()),
-                KeyCode::Home | KeyCode::Char('g') => self.top = 0,
-                KeyCode::End | KeyCode::Char('G') => self.top = self.last_top(),
+                KeyCode::Home => self.top = 0,
+                KeyCode::End => self.top = self.last_top(),
+                KeyCode::Char(c) => match crate::chrome::keys::latin(c).to_ascii_lowercase() {
+                    'q' => return false,
+                    's' => self.save(),
+                    'j' => self.scroll(true, 1),
+                    'k' => self.scroll(false, 1),
+                    ' ' => self.scroll(true, self.page()),
+                    'g' if c.is_ascii_uppercase() => self.top = self.last_top(),
+                    'g' => self.top = 0,
+                    _ => {}
+                },
                 _ => {}
             },
             Event::Mouse(mouse) => match mouse.kind {
