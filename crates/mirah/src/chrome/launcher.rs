@@ -32,14 +32,24 @@ pub(crate) struct Launcher {
     now: u64,
 }
 
+fn count(n: u64, one: &str, two: &str, few: &str) -> String {
+    match n {
+        1 => one.to_string(),
+        2 => two.to_string(),
+        3..=10 => format!("{n} {few}"),
+        _ => format!("{n} {one}"),
+    }
+}
+
 fn ago(now: u64, then: u64) -> String {
     let secs = now.saturating_sub(then);
-    match secs {
-        s if s < MINUTE => "دلوقتي".to_string(),
-        s if s < HOUR => format!("من {} دقيقة", s / MINUTE),
-        s if s < DAY => format!("من {} ساعة", s / HOUR),
-        s => format!("من {} يوم", s / DAY),
-    }
+    let span = match secs {
+        s if s < MINUTE => return "الآن".to_string(),
+        s if s < HOUR => count(s / MINUTE, "دقيقة", "دقيقتين", "دقائق"),
+        s if s < DAY => count(s / HOUR, "ساعة", "ساعتين", "ساعات"),
+        s => count(s / DAY, "يوم", "يومين", "أيام"),
+    };
+    format!("منذ {span}")
 }
 
 fn short_path(path: &std::path::Path) -> String {
@@ -162,7 +172,7 @@ impl Launcher {
         for (i, entry) in self.entries.iter().enumerate() {
             if i == self.agents() && i > 0 {
                 lines.push(Line::new(
-                    shaped("كمّل جلسة قبل كده", style(DIM, BOX_BG, true), shaping),
+                    shaped("استئناف جلسة سابقة", style(DIM, BOX_BG, true), shaping),
                     false,
                 ));
             }
@@ -170,12 +180,12 @@ impl Launcher {
         }
         let mut brand = shaped("مرآة ", style(DIM, BOX_BG, false), shaping);
         brand.extend(shaped("◆", style(ACCENT, BOX_BG, true), shaping));
-        let question = shaped("تفتح أنهي برنامج؟", style(TEXT, BOX_BG, true), shaping);
+        let question = shaped("اختر برنامجًا", style(TEXT, BOX_BG, true), shaping);
         let title = line(&[brand, question]);
         let hint = if self.can_cancel {
-            "↑↓ اختار · Enter افتح · Esc رجوع"
+            "↑↓ للتنقل · Enter للفتح · Esc للرجوع"
         } else {
-            "↑↓ اختار · Enter افتح · Esc خروج"
+            "↑↓ للتنقل · Enter للفتح · Esc للخروج"
         };
         let footer = shaped(hint, style(DIM, BOX_BG, false), shaping);
         boxed(&title, lines, &footer, shaping)
@@ -226,6 +236,16 @@ mod tests {
     }
 
     #[test]
+    fn ages_agree_with_their_number() {
+        assert_eq!(ago(100, 90), "الآن");
+        assert_eq!(ago(60, 0), "منذ دقيقة");
+        assert_eq!(ago(120, 0), "منذ دقيقتين");
+        assert_eq!(ago(300, 0), "منذ 5 دقائق");
+        assert_eq!(ago(11 * 60, 0), "منذ 11 دقيقة");
+        assert_eq!(ago(3 * DAY, 0), "منذ 3 أيام");
+    }
+
+    #[test]
     fn the_last_agent_is_chosen_first() {
         let mut l = launcher();
         assert_eq!(
@@ -263,9 +283,9 @@ mod tests {
             rows[1].trim_end_matches([' ', '│']).ends_with("ةآرم ◆"),
             "{rows:?}"
         );
-        assert!(rows[BODY_TOP + 2].contains("لبق"), "{rows:?}");
+        assert!(rows[BODY_TOP + 2].contains("ةقباس ةسلج"), "{rows:?}");
         assert!(rows[BODY_TOP + 3].contains("/work/app"), "{rows:?}");
-        assert!(rows[BODY_TOP + 3].contains("ةعاس 2 نم"), "{rows:?}");
+        assert!(rows[BODY_TOP + 3].contains("نيتعاس ذنم"), "{rows:?}");
         assert_eq!(l.click(BODY_TOP + 2), None);
         assert!(matches!(
             l.click(BODY_TOP + 3),

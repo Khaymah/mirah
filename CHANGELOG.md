@@ -2,6 +2,18 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.3.0-alpha.2 - 2026-11-06
+
+**نصوص أوضح، وقايمة أبسط.** على حسب المقال اللي بعته المالك عن تصميم الواجهات العربي.
+
+- **النصوص جوه مرآة بقت فصحى مبسّطة:** "اختر برنامجًا"، و"استئناف جلسة سابقة"، و"إغلاق claude؟"، و"تعذّر تشغيل opencode". والأزرار بقت أفعال بتقول هتعمل إيه ("إغلاق" و"إلغاء")، بدل "نعم" و"لا". والوقت بيتكتب بالعدد الصح: "منذ دقيقتين"، و"منذ 5 دقائق".
+- **القايمة:** الإعدادات اللي اليوزر العادي بيغيّرها بس هي اللي ظاهرة (المحاذاة، وعكس الجداول، والتسجيل، والتحديث). والتقنية (وصل الحروف، وترتيب نص البرنامج، وتحويل نقرات الماوس) تحت "خيارات متقدّمة".
+- **زرار الإعدادات بقى `≡` بدل `⚙`**، لأن `⚙` ممكن يتعرض في Windows Terminal كـ emoji بعرض خانتين ويلخبط الشريط.
+- **الشاشات الضيقة:** في 40 عمود، الشريط بيصغّر الأزرار واسم مرآة الأول، فـ ✕ و`+` والتاب المفتوح بيفضلوا ظاهرين ومابيركبوش على بعض.
+- **قواعد الواجهة** بقت Skill جوه الريبو (`.claude/skills/mirah-ui/`)، ومعاها اختبارات بتتأكد إن كل رمز بياخد خانة واحدة، وإن الصناديق بتكفي في 60 عمود.
+
+**English:** Clearer wording and a simpler menu, following Arabic interface guidance the owner shared. mirah's own text is now simplified Modern Standard Arabic; buttons name their action ("إغلاق", "إلغاء") and ages agree with their number. The menu shows the everyday settings and keeps letter joining, input order and mouse mapping under "advanced options". The settings button is `≡` instead of `⚙`, which Windows Terminal may draw as a two-cell emoji. At 40 columns the bar shrinks its buttons and the brand first, so ✕, `+` and the open tab stay visible without overlapping. The interface rules live in a repository skill (`.claude/skills/mirah-ui/`) with tests for single-cell glyphs and boxes that fit in 60 columns.
+
 ## 0.3.0-alpha.1 - 2026-11-06
 
 **شاشة اختيار البرنامج، والتابات، والجلسات، وشكل جديد.**

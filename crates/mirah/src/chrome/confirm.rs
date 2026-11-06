@@ -38,18 +38,18 @@ fn choice(text: &str, focused: bool, shaping: Shaping) -> Vec<mirah_bidi::Cell> 
 }
 
 pub(crate) fn draw(program: &str, yes_focused: bool, shaping: Shaping) -> Dialog {
-    let yes = choice("نعم، اقفل", yes_focused, shaping);
-    let no = choice("لا", !yes_focused, shaping);
+    let yes = choice("إغلاق", yes_focused, shaping);
+    let no = choice("إلغاء", !yes_focused, shaping);
     let width = yes.len() + no.len() + GAP;
     let mut cells = blank(width, style(TEXT, BOX_BG, false));
     right_to_left(&mut cells, width, &[yes.clone(), no.clone()], GAP);
     let title = shaped(
-        &format!("تقفل {program}؟"),
+        &format!("إغلاق {program}؟"),
         style(TEXT, BOX_BG, true),
         shaping,
     );
     let hint = shaped(
-        "←→ اختار · Enter تأكيد · Esc رجوع",
+        "Enter للتأكيد · Esc للإلغاء",
         style(DIM, BOX_BG, false),
         shaping,
     );
@@ -73,7 +73,7 @@ mod tests {
             .iter()
             .map(|c| c.text.as_str())
             .collect();
-        assert!(title.contains("claude لفقت"), "{title}");
+        assert!(title.contains("claude قالغإ"), "{title}");
         assert!(dialog.yes.start > dialog.no.start);
         assert_eq!(dialog.hit(BODY_TOP, dialog.yes.start), Some(true));
         assert_eq!(dialog.hit(BODY_TOP, dialog.no.start), Some(false));

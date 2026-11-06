@@ -116,16 +116,18 @@ fn separator(shaping: Shaping) -> Vec<Cell> {
     shaped("┃", style(Color::Rgb(52, 54, 61), BAR_BG, false), shaping)
 }
 
-fn brand(shaping: Shaping) -> Vec<Cell> {
-    let mut cells = shaped(" مرآة ", style(TEXT, BAR_BG, true), shaping);
+fn brand(compact: bool, shaping: Shaping) -> Vec<Cell> {
+    let word = if compact { " " } else { " مرآة " };
+    let mut cells = shaped(word, style(TEXT, BAR_BG, true), shaping);
     cells.extend(shaped("◆ ", style(ACCENT, BAR_BG, true), shaping));
     cells
 }
 
-fn button(item: Item, state: &BarState, shaping: Shaping) -> Option<Vec<Cell>> {
+fn button(item: Item, state: &BarState, compact: bool, shaping: Shaping) -> Option<Vec<Cell>> {
     let focused = state.focus == Some(item);
     Some(match item {
         Item::Record => match state.recording {
+            Some(_) if compact => chip("■", RECORDING, focused, shaping),
             Some(elapsed) => chip(
                 &format!("■ {}", clock(elapsed)),
                 RECORDING,
@@ -134,13 +136,16 @@ fn button(item: Item, state: &BarState, shaping: Shaping) -> Option<Vec<Cell>> {
             ),
             None => chip("●", DIM, focused, shaping),
         },
-        Item::Update => chip(
-            &format!("↻ {}", state.update.as_ref()?),
-            UPDATE,
-            focused,
-            shaping,
-        ),
-        Item::Settings => chip("⚙", TEXT, focused, shaping),
+        Item::Update => {
+            let version = state.update.as_ref()?;
+            let text = if compact {
+                "↻".to_string()
+            } else {
+                format!("↻ {version}")
+            };
+            chip(&text, UPDATE, focused, shaping)
+        }
+        Item::Settings => chip("≡", TEXT, focused, shaping),
         Item::Close => chip("✕", TEXT, focused, shaping),
         Item::NewTab => chip("+", ACCENT, focused, shaping),
         Item::Tab(_) => return None,
@@ -195,6 +200,24 @@ fn layout(state: &BarState, room: usize, shaping: Shaping) -> Layout {
     }
 }
 
+fn buttons(state: &BarState, compact: bool, shaping: Shaping) -> Vec<(Item, Vec<Cell>)> {
+    let shown = state.items();
+    [Item::Close, Item::Settings, Item::Update, Item::Record]
+        .into_iter()
+        .filter(|item| shown.contains(item))
+        .filter_map(|item| Some((item, button(item, state, compact, shaping)?)))
+        .collect()
+}
+
+fn smallest_tabs(state: &BarState, shaping: Shaping) -> usize {
+    let active = state
+        .tabs
+        .get(state.active)
+        .map_or(0, |label| tab(label, true, false, true, shaping).len() + 1);
+    let more = if state.tabs.len() > 1 { 8 } else { 0 };
+    active + more
+}
+
 pub(crate) fn draw(state: &BarState, width: usize, shaping: Shaping) -> Drawn {
     let mut cells = blank(width, style(TEXT, BAR_BG, false));
     let mut hits = Vec::new();
@@ -204,21 +227,27 @@ pub(crate) fn draw(state: &BarState, width: usize, shaping: Shaping) -> Drawn {
             hits.push((item, start..(start + part.len()).min(width)));
         }
     };
-    let mut left = CLOSE_AT;
-    for item in [Item::Close, Item::Settings, Item::Update, Item::Record] {
-        if !state.items().contains(&item) {
-            continue;
-        }
-        if let Some(part) = button(item, state, shaping) {
-            place(&mut cells, left, Some(item), &part);
-            left += part.len() + 1;
-        }
-    }
-    let brand = brand(shaping);
-    let mut right = width.saturating_sub(brand.len());
-    place(&mut cells, right, None, &brand);
-    let new_tab = button(Item::NewTab, state, shaping).unwrap_or_default();
+    let new_tab = button(Item::NewTab, state, false, shaping).unwrap_or_default();
     let sep = separator(shaping);
+    let fixed = new_tab.len() + 2 * sep.len() + 2 + smallest_tabs(state, shaping);
+    let used = |parts: &[(Item, Vec<Cell>)], brand: &[Cell]| {
+        CLOSE_AT + parts.iter().map(|(_, c)| c.len() + 1).sum::<usize>() + brand.len() + fixed
+    };
+    let mut parts = buttons(state, false, shaping);
+    let mut mark = brand(false, shaping);
+    if used(&parts, &mark) > width {
+        parts = buttons(state, true, shaping);
+    }
+    if used(&parts, &mark) > width {
+        mark = brand(true, shaping);
+    }
+    let mut left = CLOSE_AT;
+    for (item, part) in &parts {
+        place(&mut cells, left, Some(*item), part);
+        left += part.len() + 1;
+    }
+    let mut right = width.saturating_sub(mark.len());
+    place(&mut cells, right, None, &mark);
     let room = right.saturating_sub(left + new_tab.len() + 2 * sep.len() + 2);
     let laid = layout(state, room, shaping);
     right = right.saturating_sub(sep.len());
@@ -231,7 +260,7 @@ pub(crate) fn draw(state: &BarState, width: usize, shaping: Shaping) -> Drawn {
     }
     if laid.hidden > 0 {
         let more = shaped(
-            &format!(" ‹ {} › ", laid.hidden),
+            &format!("‹{}›", laid.hidden),
             style(DIM, BAR_BG, false),
             shaping,
         );
@@ -352,7 +381,7 @@ mod tests {
         let drawn = draw(&s, 50, Shaping::Plain);
         let line = text(&drawn.cells);
         assert!(line.contains("codex"), "{line}");
-        assert!(line.contains("‹ 5 ›"), "{line}");
+        assert!(line.contains("‹5›"), "{line}");
         assert_ne!(start(&drawn, Item::Close), usize::MAX);
         assert_ne!(start(&drawn, Item::NewTab), usize::MAX);
     }

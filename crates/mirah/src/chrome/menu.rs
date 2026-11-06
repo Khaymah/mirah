@@ -7,7 +7,9 @@ use crate::config::{SPECS, Scope, Settings, Spec};
 use mirah_bidi::{Cell, Shaping};
 use std::ops::Range;
 
-const HINT: &str = "↑↓ تنقّل · ←→ تغيير · Esc قفل";
+const HINT: &str = "↑↓ للتنقل · ←→ للتغيير · Esc للإغلاق";
+const SCOPE_LABEL: &str = "التطبيق على";
+const ADVANCED_LABEL: &str = "خيارات متقدّمة";
 const GAP: usize = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,13 +22,22 @@ pub(crate) enum Change {
 pub(crate) struct Menu {
     pub(crate) row: usize,
     pub(crate) scope: Scope,
+    pub(crate) advanced: bool,
     program: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Row {
+    Setting(usize),
+    Advanced,
+    Scope,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Pick {
     Value(usize, &'static str),
     Scope(bool),
+    Advanced(bool),
 }
 
 pub(crate) struct Drawn {
@@ -90,12 +101,26 @@ impl Menu {
         Self {
             row: 0,
             scope: Scope::Global,
+            advanced: false,
             program: program.to_string(),
         }
     }
 
-    fn rows() -> usize {
-        SPECS.len() + 1
+    fn rows(&self) -> Vec<Row> {
+        let pick = |advanced: bool| {
+            SPECS
+                .iter()
+                .enumerate()
+                .filter(move |(_, s)| s.advanced == advanced)
+                .map(|(i, _)| Row::Setting(i))
+        };
+        let mut rows: Vec<Row> = pick(false).collect();
+        rows.push(Row::Advanced);
+        if self.advanced {
+            rows.extend(pick(true));
+        }
+        rows.push(Row::Scope);
+        rows
     }
 
     fn program_scope(&self) -> Scope {
@@ -103,13 +128,20 @@ impl Menu {
     }
 
     fn change(&mut self, settings: &Settings, forward: bool) -> Option<Change> {
-        match SPECS.get(self.row) {
-            Some(spec) => Some(Change::Set(
-                self.scope.clone(),
-                spec.key,
-                step(spec, settings, forward),
-            )),
-            None => {
+        match self.rows().get(self.row).copied()? {
+            Row::Setting(i) => {
+                let spec = &SPECS[i];
+                Some(Change::Set(
+                    self.scope.clone(),
+                    spec.key,
+                    step(spec, settings, forward),
+                ))
+            }
+            Row::Advanced => {
+                self.advanced = !self.advanced;
+                None
+            }
+            Row::Scope => {
                 self.scope = match self.scope {
                     Scope::Global => self.program_scope(),
                     Scope::Program(_) => Scope::Global,
@@ -120,9 +152,10 @@ impl Menu {
     }
 
     pub(crate) fn key(&mut self, key: Key, settings: &Settings) -> Option<Change> {
+        let count = self.rows().len();
         match key {
-            Key::Up => self.row = (self.row + Self::rows() - 1) % Self::rows(),
-            Key::Down | Key::Tab => self.row = (self.row + 1) % Self::rows(),
+            Key::Up => self.row = (self.row + count - 1) % count,
+            Key::Down | Key::Tab => self.row = (self.row + 1) % count,
             Key::Left | Key::Enter => return self.change(settings, true),
             Key::Right => return self.change(settings, false),
             Key::Escape | Key::Toggle => return Some(Change::Close),
@@ -139,7 +172,7 @@ impl Menu {
         settings: &Settings,
     ) -> Option<Change> {
         let body = row.checked_sub(super::style::BODY_TOP)?;
-        if body >= Self::rows() {
+        if body >= self.rows().len() {
             return None;
         }
         self.row = body;
@@ -160,40 +193,70 @@ impl Menu {
                 };
                 None
             }
+            Some(Pick::Advanced(show)) => {
+                self.advanced = show;
+                None
+            }
             None => self.change(settings, true),
         }
     }
 
+    fn line(
+        &self,
+        row: Row,
+        settings: &Settings,
+        shaping: Shaping,
+    ) -> (&str, Vec<Vec<Cell>>, Vec<Pick>) {
+        match row {
+            Row::Setting(i) => {
+                let spec = &SPECS[i];
+                let current = settings.value(spec.key);
+                let options = spec
+                    .values
+                    .iter()
+                    .map(|(v, label)| option(label, *v == current, shaping))
+                    .collect();
+                let picks = spec.values.iter().map(|(v, _)| Pick::Value(i, v)).collect();
+                (spec.label, options, picks)
+            }
+            Row::Advanced => (
+                ADVANCED_LABEL,
+                vec![
+                    option("إخفاء", !self.advanced, shaping),
+                    option("إظهار", self.advanced, shaping),
+                ],
+                vec![Pick::Advanced(false), Pick::Advanced(true)],
+            ),
+            Row::Scope => {
+                let global = self.scope == Scope::Global;
+                (
+                    SCOPE_LABEL,
+                    vec![
+                        option("كل البرامج", global, shaping),
+                        option(&format!("{} فقط", self.program), !global, shaping),
+                    ],
+                    vec![Pick::Scope(true), Pick::Scope(false)],
+                )
+            }
+        }
+    }
+
     pub(crate) fn draw(&self, settings: &Settings, shaping: Shaping) -> Drawn {
-        let scope_label = "يتطبّق على";
         let label_width = SPECS
             .iter()
-            .map(|s| s.label.chars().count())
-            .chain([scope_label.chars().count()])
+            .map(|s| s.label)
+            .chain([SCOPE_LABEL, ADVANCED_LABEL])
+            .map(|l| shaped(l, style(TEXT, BOX_BG, false), shaping).len())
             .max()
             .unwrap_or(0);
         let mut lines = Vec::new();
         let mut ranges = Vec::new();
-        for (i, spec) in SPECS.iter().enumerate() {
-            let current = settings.value(spec.key);
-            let options = spec
-                .values
-                .iter()
-                .map(|(v, label)| option(label, *v == current, shaping))
-                .collect();
-            let (cells, r) = row(spec.label, label_width, options, shaping);
-            let picks: Vec<Pick> = spec.values.iter().map(|(v, _)| Pick::Value(i, v)).collect();
+        for (index, row_kind) in self.rows().into_iter().enumerate() {
+            let (label, options, picks) = self.line(row_kind, settings, shaping);
+            let (cells, r) = row(label, label_width, options, shaping);
             ranges.push((r, picks));
-            lines.push(Line::new(cells, i == self.row));
+            lines.push(Line::new(cells, index == self.row));
         }
-        let global = self.scope == Scope::Global;
-        let options = vec![
-            option("كل البرامج", global, shaping),
-            option(&format!("{} بس", self.program), !global, shaping),
-        ];
-        let (cells, r) = row(scope_label, label_width, options, shaping);
-        ranges.push((r, vec![Pick::Scope(true), Pick::Scope(false)]));
-        lines.push(Line::new(cells, self.row == SPECS.len()));
         let lens: Vec<usize> = lines.iter().map(|l| l.cells.len()).collect();
         let title = shaped(
             &format!("الإعدادات · {}", self.program),
@@ -222,14 +285,35 @@ mod tests {
         cells.iter().map(|c| c.text.as_str()).collect()
     }
 
+    fn basic() -> usize {
+        SPECS.iter().filter(|s| !s.advanced).count()
+    }
+
     #[test]
-    fn arrows_move_and_wrap() {
+    fn arrows_move_and_wrap_over_basic_rows() {
         let mut menu = Menu::new("claude");
         let settings = Settings::default();
         assert_eq!(menu.key(Key::Up, &settings), None);
-        assert_eq!(menu.row, SPECS.len());
+        assert_eq!(menu.row, basic() + 1);
         assert_eq!(menu.key(Key::Down, &settings), None);
         assert_eq!(menu.row, 0);
+    }
+
+    #[test]
+    fn advanced_settings_stay_hidden_until_shown() {
+        let mut menu = Menu::new("claude");
+        let settings = Settings::default();
+        let rows = |m: &Menu| m.draw(&settings, Shaping::Plain).frame.rows.len();
+        let hidden = rows(&menu);
+        menu.row = basic();
+        assert_eq!(menu.key(Key::Enter, &settings), None);
+        assert!(menu.advanced);
+        assert_eq!(rows(&menu), hidden + SPECS.len() - basic());
+        menu.row = basic() + 1;
+        assert!(matches!(
+            menu.key(Key::Enter, &settings),
+            Some(Change::Set(Scope::Global, Setting::Shaping, _))
+        ));
     }
 
     #[test]
@@ -240,7 +324,7 @@ mod tests {
             menu.key(Key::Enter, &settings),
             Some(Change::Set(Scope::Global, Setting::Align, "arabic"))
         );
-        menu.row = SPECS.len();
+        menu.row = basic() + 1;
         assert_eq!(menu.key(Key::Enter, &settings), None);
         menu.row = 0;
         assert_eq!(
@@ -267,12 +351,12 @@ mod tests {
         let menu = Menu::new("claude");
         let drawn = menu.draw(&Settings::default(), Shaping::Plain);
         let rows = &drawn.frame.rows;
-        assert_eq!(rows.len(), SPECS.len() + 1 + 6);
+        assert_eq!(rows.len(), basic() + 2 + 6);
         assert!(rows.iter().all(|r| r.len() == drawn.frame.width));
         let first = text(&rows[super::super::style::BODY_TOP]);
         assert!(first.starts_with("│▌"), "{first}");
-        assert!(first.contains("[هلك مالكلا]"), "{first}");
-        assert!(first.contains("سب يبرعلا"), "{first}");
+        assert!(first.contains("[صنلا لك]"), "{first}");
+        assert!(first.contains("طقف يبرعلا"), "{first}");
     }
 
     #[test]

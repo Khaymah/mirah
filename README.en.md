@@ -105,7 +105,7 @@ mirah claude
 mirah keeps the first row of the screen for an Arabic bar, and the program runs below it:
 
 ```
- ✕  ⚙  ●                                 + ┃ opencode • ┃▐ claude ▌┃ مرآة ◆
+ ✕  ≡  ●                                 + ┃ opencode • ┃▐ claude ▌┃ مرآة ◆
 ```
 
 - **Tabs:** each tab runs one program; the open tab is highlighted. Other tabs keep running in the background, and one with new output shows `•`.
@@ -117,7 +117,7 @@ mirah keeps the first row of the screen for an Arabic bar, and the program runs 
   | `Ctrl+]` then `t`, or `+` | a new tab, from the picker |
 
 - **Mouse:** clicking the bar (a tab, `+` or a button) works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
-- **⚙ Settings:** alignment, letter joining, the program's text order, table mirroring, mouse mapping, the update check and "record every session". The values sit side by side with the current one highlighted; changes show at once and apply to every program or to this one only.
+- **≡ Settings:** alignment, table mirroring, "record every session" and the update check; letter joining, the program's text order and mouse mapping sit under "advanced options". The values sit side by side with the current one highlighted; changes show at once and apply to every program or to this one only.
 - **● Record:** records the open tab into its session folder; press again to stop, and again to continue the same file.
 - **↻:** appears when a new version exists; clicking it installs it for the next start.
 - **✕:** asks first, then closes the open tab. Closing the last tab exits mirah.

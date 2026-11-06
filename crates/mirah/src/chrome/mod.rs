@@ -586,4 +586,82 @@ mod tests {
         assert!(overlay.rows.is_empty());
         assert_eq!(overlay.top, 0);
     }
+
+    const SAFE_GLYPHS: &str = "≡●■✕+↻↺◆◉○•‹›▌▐┃│─╭╮╰╯├┤↑↓←→·…[]؟،:";
+
+    fn is_safe(c: char) -> bool {
+        c.is_ascii_graphic()
+            || c == ' '
+            || ('\u{0600}'..='\u{06FF}').contains(&c)
+            || ('\u{FB50}'..='\u{FDFF}').contains(&c)
+            || ('\u{FE70}'..='\u{FEFF}').contains(&c)
+            || SAFE_GLYPHS.contains(c)
+    }
+
+    fn every_drawn_text(width: u16) -> Vec<String> {
+        let mut c = chrome();
+        c.set_tabs(tabs(&["claude", "opencode"]), 0);
+        c.state.update = Some("0.3.1".into());
+        c.state.recording = Some(std::time::Duration::from_secs(75));
+        c.state.notice = Some("جارٍ تثبيت 0.3.1…".into());
+        let mut texts = Vec::new();
+        let mut grab = |c: &mut Chrome| {
+            for row in c.overlay(width, 30).rows {
+                texts.push(row.cells.iter().map(|cell| cell.text.as_str()).collect());
+            }
+        };
+        grab(&mut c);
+        let mut menu = Menu::new("claude");
+        menu.advanced = true;
+        c.set_mode(Mode::Menu(menu));
+        grab(&mut c);
+        c.set_mode(Mode::Confirm(true));
+        grab(&mut c);
+        c.launch(Launcher::new(
+            vec![Entry::Start(agent("claude"))],
+            None,
+            true,
+            0,
+        ));
+        grab(&mut c);
+        texts
+    }
+
+    #[test]
+    fn every_glyph_is_terminal_safe() {
+        for text in every_drawn_text(100) {
+            let bad: Vec<char> = text.chars().filter(|c| !is_safe(*c)).collect();
+            assert!(bad.is_empty(), "unsafe glyphs {bad:?} in {text}");
+        }
+    }
+
+    #[test]
+    fn a_narrow_bar_keeps_close_new_tab_and_the_open_tab() {
+        let mut c = chrome();
+        c.set_tabs(tabs(&["claude", "opencode", "codex", "gemini"]), 2);
+        c.state.update = Some("0.3.1".into());
+        c.overlay(40, 20);
+        let items: Vec<Item> = c.hits.iter().map(|(i, _)| *i).collect();
+        for item in [Item::Close, Item::NewTab, Item::Tab(2)] {
+            assert!(items.contains(&item), "{item:?} missing from {items:?}");
+        }
+        for pair in c.hits.windows(2) {
+            assert!(pair[0].1.end <= pair[1].1.start || pair[1].1.end <= pair[0].1.start);
+        }
+    }
+
+    #[test]
+    fn boxes_fit_inside_sixty_columns() {
+        let mut c = chrome();
+        let mut menu = Menu::new("opencode");
+        menu.advanced = true;
+        c.set_mode(Mode::Menu(menu));
+        let mut layers = c.overlay(60, 30).rows;
+        c.set_mode(Mode::Confirm(false));
+        layers.extend(c.overlay(60, 30).rows);
+        for row in layers {
+            let end = usize::from(row.column) + row.cells.len();
+            assert!(end <= 60, "row {} ends at {end}", row.row);
+        }
+    }
 }

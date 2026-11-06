@@ -115,7 +115,7 @@ impl Workspace {
                 agents::remember(&name);
                 if let Err(err) = self.open(spawn) {
                     tracing::warn!(error = format!("{err:#}"), "could not start the program");
-                    self.notice(format!("مقدرتش أشغّل {name}"));
+                    self.notice(format!("تعذّر تشغيل {name}"));
                 }
             }
             Action::Quit => self.exit = Some(0),
@@ -154,8 +154,8 @@ impl Workspace {
             self.chrome.state.recording = None;
             let id = tab.meta.as_ref().map(|m| m.id.clone());
             match id {
-                Some(id) => self.notice(format!("اتحفظ في الجلسة {id}")),
-                None => self.notice("اتحفظ التسجيل".to_string()),
+                Some(id) => self.notice(format!("حُفظ التسجيل في الجلسة {id}")),
+                None => self.notice("حُفظ التسجيل".to_string()),
             }
         } else {
             let started = match tab.recorder.resume() {
@@ -166,7 +166,7 @@ impl Workspace {
                 tab.recording_since = Some(Instant::now() - tab.recorded);
                 self.chrome.state.recording = Some(tab.recorded);
             } else {
-                self.notice("التسجيل مااشتغلش".to_string());
+                self.notice("تعذّر بدء التسجيل".to_string());
             }
         }
         self.chrome.dirty = true;
@@ -176,7 +176,7 @@ impl Workspace {
         let Some(version) = self.chrome.state.update.take() else {
             return;
         };
-        self.notice(format!("بيتسطّب {version}…"));
+        self.notice(format!("جارٍ تثبيت {version}…"));
         let events = self.events.clone();
         std::thread::spawn(move || {
             let result = crate::update::install_version(&version).map(|()| version);
@@ -197,9 +197,9 @@ impl Workspace {
                 self.chrome.dirty = true;
             }
             Event::UpdateDone(Ok(version)) => {
-                self.notice(format!("اتسطّبت {version} وهتشتغل المرة الجاية"));
+                self.notice(format!("ثُبّت {version}، ويعمل في المرة القادمة"));
             }
-            Event::UpdateDone(Err(_)) => self.notice("التحديث فشل، شوف الـ log".to_string()),
+            Event::UpdateDone(Err(_)) => self.notice("تعذّر التحديث، راجع ملف السجل".to_string()),
             _ => {}
         }
     }

@@ -14,9 +14,10 @@ pub(crate) struct Spec {
     pub(crate) name: &'static str,
     pub(crate) label: &'static str,
     pub(crate) values: &'static [(&'static str, &'static str)],
+    pub(crate) advanced: bool,
 }
 
-const ON_OFF: &[(&str, &str)] = &[("true", "شغال"), ("false", "مقفول")];
+const ON_OFF: &[(&str, &str)] = &[("true", "تشغيل"), ("false", "إيقاف")];
 
 pub(crate) const SPECS: [Spec; 7] = [
     Spec {
@@ -24,46 +25,53 @@ pub(crate) const SPECS: [Spec; 7] = [
         name: "align",
         label: "المحاذاة",
         values: &[
-            ("prose", "الكلام كله"),
-            ("arabic", "العربي بس"),
-            ("off", "مقفولة"),
+            ("prose", "كل النص"),
+            ("arabic", "العربي فقط"),
+            ("off", "إيقاف"),
         ],
-    },
-    Spec {
-        key: Key::Shaping,
-        name: "shaping",
-        label: "تشكيل الحروف",
-        values: &[("auto", "تلقائي"), ("full", "مرآة"), ("plain", "الترمنال")],
-    },
-    Spec {
-        key: Key::Input,
-        name: "input",
-        label: "ترتيب البرنامج",
-        values: &[("auto", "تلقائي"), ("logical", "منطقي"), ("visual", "مرئي")],
+        advanced: false,
     },
     Spec {
         key: Key::Tables,
         name: "tables",
         label: "عكس الجداول",
         values: ON_OFF,
-    },
-    Spec {
-        key: Key::Mouse,
-        name: "mouse",
-        label: "تحويل الماوس",
-        values: ON_OFF,
-    },
-    Spec {
-        key: Key::UpdateCheck,
-        name: "update_check",
-        label: "فحص التحديث",
-        values: ON_OFF,
+        advanced: false,
     },
     Spec {
         key: Key::Record,
         name: "record",
-        label: "سجّل كل جلسة",
+        label: "تسجيل كل جلسة",
         values: ON_OFF,
+        advanced: false,
+    },
+    Spec {
+        key: Key::UpdateCheck,
+        name: "update_check",
+        label: "البحث عن تحديثات",
+        values: ON_OFF,
+        advanced: false,
+    },
+    Spec {
+        key: Key::Shaping,
+        name: "shaping",
+        label: "وصل الحروف",
+        values: &[("auto", "تلقائي"), ("full", "مرآة"), ("plain", "الطرفية")],
+        advanced: true,
+    },
+    Spec {
+        key: Key::Input,
+        name: "input",
+        label: "ترتيب نص البرنامج",
+        values: &[("auto", "تلقائي"), ("logical", "منطقي"), ("visual", "مرئي")],
+        advanced: true,
+    },
+    Spec {
+        key: Key::Mouse,
+        name: "mouse",
+        label: "تحويل نقرات الماوس",
+        values: ON_OFF,
+        advanced: true,
     },
 ];
 
