@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const NEW_BINARY: &[u8] = b"the new mirah";
+const BUSY_RETRIES: u32 = 20;
+const BUSY_WAIT: std::time::Duration = std::time::Duration::from_millis(50);
 
 #[cfg(windows)]
 const ARTIFACT_SUFFIX: &str = ".zip";
@@ -107,6 +109,21 @@ fn installed_copy(root: &Path) -> PathBuf {
 }
 
 fn update(root: &Path, mirah: &Path) -> std::process::Output {
+    let mut tries = 0;
+    loop {
+        match run_update(root, mirah) {
+            Err(err)
+                if err.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < BUSY_RETRIES =>
+            {
+                tries += 1;
+                std::thread::sleep(BUSY_WAIT);
+            }
+            result => return result.expect("run mirah update"),
+        }
+    }
+}
+
+fn run_update(root: &Path, mirah: &Path) -> std::io::Result<std::process::Output> {
     Command::new(mirah)
         .arg("update")
         .env(
@@ -119,7 +136,6 @@ fn update(root: &Path, mirah: &Path) -> std::process::Output {
         )
         .env(STATE_ENV, root.join("state"))
         .output()
-        .expect("run mirah update")
 }
 
 #[test]
