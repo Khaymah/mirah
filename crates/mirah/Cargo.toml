@@ -11,10 +11,12 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 crossterm.workspace = true
+mirah-bidi.workspace = true
 mirah-term.workspace = true
 portable-pty.workspace = true
 semver.workspace = true
 sha2.workspace = true
+toml_edit.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true

@@ -24,11 +24,23 @@ pub enum InputOrder {
     Visual,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderOptions {
     pub shaping: Shaping,
     pub align: Align,
     pub input: InputOrder,
+    pub tables: bool,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        Self {
+            shaping: Shaping::default(),
+            align: Align::default(),
+            input: InputOrder::default(),
+            tables: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -74,7 +86,7 @@ fn pane(
 ) -> Vec<VisualRow> {
     match options.input {
         InputOrder::Logical => {
-            let logical = if options.align == Align::Off {
+            let logical = if options.align == Align::Off || !options.tables {
                 rows
             } else {
                 table::mirror_rtl_tables(rows, &[])

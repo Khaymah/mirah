@@ -94,6 +94,36 @@ mirah claude
 
 With no command, mirah opens your shell.
 
+### The mirah bar
+
+mirah keeps the first row of the screen for an Arabic bar, and the program runs below it:
+
+```
+ ✕   ↻ 0.2.1   ● تسجيل   ⚙ الإعدادات                         ◆ مرآة · claude
+```
+
+- **`Ctrl+]`** opens the bar. Arrows move, Enter chooses, Esc returns to the program. Pressing `Ctrl+]` twice sends it to the program.
+- **Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
+- **⚙ Settings:** alignment, letter joining, the program's text order, table mirroring, mouse mapping and the update check. Changes show at once and apply to every program or to this one only.
+- **● Record:** starts saving `mirah-session-N.vt` in the current folder; press again to stop.
+- **↻:** appears when a new version exists; clicking it installs it for the next start.
+- **✕:** asks first, then closes the program and mirah.
+
+### The settings file
+
+The bar saves to `config.toml`, in `%APPDATA%\mirah\` on Windows and `~/.config/mirah/` elsewhere. You can edit it by hand, and your comments are kept:
+
+```toml
+align = "prose"
+shaping = "auto"
+update_check = true
+
+[programs.opencode]
+align = "arabic"
+```
+
+`MIRAH_*` variables win over a program's section, which wins over the global settings. If the file is broken, mirah uses the defaults and never writes over it.
+
 ### Updating
 
 ```bash
@@ -124,6 +154,7 @@ This saves `mirah-session-N.vt` (the program's raw output) and `mirah-session-N.
 | `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
 | `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it. mirah puts each row back in logical order and checks that this reproduces exactly what the program drew; when it cannot confirm that, it keeps the row as drawn and only fixes brackets. Picked automatically for Claude Code on Windows |
 | `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
+| `MIRAH_BAR` | `0` | Hides the mirah bar so the program gets the whole screen |
 | `MIRAH_NO_UPDATE_CHECK` | `1` | Turns off the new-version check at startup |
 | `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
 | `MIRAH_LOG` | `debug` | Writes a log file |

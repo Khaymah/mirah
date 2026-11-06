@@ -2,6 +2,22 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.2.0-alpha.1 - 2026-11-06
+
+**شريط مرآة، وملف إعدادات.**
+
+- **شريط بالعربي في أول سطر:** فيه اسم البرنامج، وأزرار للإعدادات والتسجيل والتحديث والقفل. والبرنامج بيشتغل في باقي الشاشة، يعني بيخسر سطر واحد.
+- **`Ctrl+]`** بيفتح الشريط: الأسهم بتتنقل، وEnter بيختار، وEsc بيرجع. والضغطتين ورا بعض بيوصّلوه للبرنامج. وبيشتغل في Windows Terminal (win32-input-mode)، وفي kitty (CSI-u)، وفي أي ترمنال تاني.
+- **الماوس على الشريط** بيشتغل لما البرنامج طالب الماوس. والضغطات اللي تحت الشريط بتتطرح منها سطر وبتوصل للبرنامج.
+- **قايمة الإعدادات** فيها المحاذاة، وتشكيل الحروف، وترتيب البرنامج، وعكس الجداول، وتحويل الماوس، وفحص التحديث. والتغيير بيبان على طول، ومن غير ما تقفل البرنامج. وكل إعداد بيتطبّق على كل البرامج أو على البرنامج ده بس.
+- **`config.toml`** في `%APPDATA%\mirah\` أو `~/.config/mirah/`، وفيه إعدادات عامة وقسم لكل برنامج. ومتغيرات `MIRAH_*` بتكسب الاتنين. والتعليقات اللي بتكتبها بتفضل زي ما هي. ولو الملف بايظ، مرآة مابتكتبش فوقه.
+- **التسجيل من الشريط:** بيبدأ ويقف وانت شغال، وبيوري المدة.
+- **التحديث:** مابقاش بيسألك قبل ما البرنامج يبدأ. الفحص بقى في الخلفية، والنتيجة بتظهر علامة ↻ على الشريط، والتثبيت من الشريط بيتأكد من الـ SHA-256 زي `mirah update`. ولو الشريط مقفول، السؤال القديم بيرجع.
+- **✕** بيسأل الأول، وبعدين بيقفل البرنامج ومرآة.
+- **`MIRAH_BAR=0`** بيخفي الشريط.
+
+**English:** The mirah bar and a settings file. An Arabic bar on the first row shows the program and buttons for settings, recording, updating and closing; the program runs below it. `Ctrl+]` opens the bar (arrows move, Enter chooses, Esc returns, pressing it twice sends it to the program) and is recognised in plain, win32-input-mode and kitty CSI-u input. Clicks on the bar work when the program asks for the mouse; clicks below it reach the program one row up. The settings menu changes alignment, letter joining, input order, table mirroring, mouse mapping and the update check live, for every program or just this one, and saves to `config.toml` (`%APPDATA%\mirah\` or `~/.config/mirah/`), keeping your comments and never writing over a broken file; `MIRAH_*` variables still win. Recording starts and stops from the bar with a clock. The update check now runs in the background and shows a ↻ badge instead of asking before the program starts; installing from the bar uses the same SHA-256 check as `mirah update`, and the old question returns when the bar is off. ✕ asks first, then closes the program and mirah. `MIRAH_BAR=0` hides the bar.
+
 ## 0.1.0-alpha.12 - 2026-11-06
 
 تصليحات opencode، من تسجيلين حقيقيين (`mirah-session-6` لـ Claude و`mirah-session-7` لـ opencode).

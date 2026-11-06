@@ -18,6 +18,7 @@ fn options_for(vt: &Path) -> RenderOptions {
             shaping: Shaping::Plain,
             align: Align::Prose,
             input: InputOrder::Visual,
+            tables: true,
         }
     } else {
         RenderOptions::default()

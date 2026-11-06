@@ -100,16 +100,9 @@ fn checking_allowed() -> bool {
         && std::io::stdout().is_terminal()
 }
 
-pub(crate) fn startup() {
-    install::remove_leftover();
-    if !checking_allowed() {
-        return;
-    }
-    let Some(path) = cache_path() else {
-        return;
-    };
+fn fresh_cache(now: u64) -> Option<(PathBuf, Cache)> {
+    let path = cache_path()?;
     let mut cache = Cache::load(&path);
-    let now = now();
     if !cache.fresh(now) {
         match latest(STARTUP_TIMEOUT) {
             Ok(latest) => cache.latest = latest,
@@ -118,6 +111,42 @@ pub(crate) fn startup() {
         cache.checked_at = now;
         cache.save(&path);
     }
+    Some((path, cache))
+}
+
+pub(crate) fn remove_leftover() {
+    install::remove_leftover();
+}
+
+pub(crate) fn available() -> Option<String> {
+    if std::env::var_os(NO_CHECK_ENV).is_some() {
+        return None;
+    }
+    let (_, cache) = fresh_cache(now())?;
+    let current = current();
+    cache
+        .latest
+        .filter(|latest| *latest > current)
+        .map(|latest| latest.to_string())
+}
+
+pub(crate) fn install_version(version: &str) -> Result<(), String> {
+    let result = install::install(&format!("v{version}")).map_err(|err| format!("{err:#}"));
+    match &result {
+        Ok(()) => tracing::info!(version, "update installed from the bar"),
+        Err(err) => tracing::warn!(error = err.as_str(), "update from the bar failed"),
+    }
+    result
+}
+
+pub(crate) fn startup() {
+    if !checking_allowed() {
+        return;
+    }
+    let now = now();
+    let Some((path, mut cache)) = fresh_cache(now) else {
+        return;
+    };
     let current = current();
     let Some(offer) = cache.offer(&current, now) else {
         return;

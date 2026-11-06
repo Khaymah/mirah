@@ -1,23 +1,27 @@
+mod actions;
 mod event;
 mod io;
-mod mouse;
+pub(crate) mod mouse;
 mod pacing;
 mod pty;
 mod record;
 mod resize;
 
-use crate::host::{self, TerminalGuard};
+use crate::chrome::Chrome;
+use crate::config::Config;
+use crate::host::{self, TerminalGuard, TerminalSize};
 use anyhow::Result;
 use event::Event;
 use io::SharedWriter;
 use mirah_term::Emulator;
+pub(crate) use mouse::MouseEvent;
 use mouse::MouseRemap;
 use pacing::Pacer;
-use portable_pty::CommandBuilder;
+use portable_pty::{ChildKiller, CommandBuilder};
 use pty::Pty;
 use record::Recorder;
 use std::io::Write;
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -40,13 +44,60 @@ impl Lifecycle {
 
 struct Session<'a> {
     inbox: Receiver<Event>,
+    events: Sender<Event>,
     pty: &'a Pty,
     writer: SharedWriter,
+    killer: Box<dyn ChildKiller + Send + Sync>,
     emulator: Emulator,
     recorder: Recorder,
     life: Lifecycle,
     pacer: Pacer,
     mouse: MouseRemap,
+    chrome: Chrome,
+    config: Config,
+    program: String,
+    cols: u16,
+    recording_since: Option<Instant>,
+    notice_until: Option<Instant>,
+}
+
+fn child_size(size: TerminalSize, top: u16) -> TerminalSize {
+    TerminalSize {
+        rows: size.rows.saturating_sub(top).max(1),
+        cols: size.cols,
+    }
+}
+
+fn setup(program: &str) -> (Config, mirah_term::RenderOptions, Chrome) {
+    let config = Config::load();
+    let settings = config.settings(program);
+    if settings.update_check && !settings.bar {
+        crate::update::startup();
+    }
+    let options = settings.render_options(program);
+    let chrome = Chrome::new(program, settings, options.shaping);
+    host::prepare_pty();
+    (config, options, chrome)
+}
+
+fn spawn_io(pty: &Pty, child: pty::ChildProcess, events: &Sender<Event>) -> Result<SharedWriter> {
+    io::spawn_pty_reader(pty.reader()?, events.clone());
+    io::spawn_child_waiter(child, events.clone());
+    io::spawn_stdin_reader(events.clone());
+    resize::spawn_watcher(events.clone())?;
+    Ok(Arc::new(Mutex::new(pty.writer()?)))
+}
+
+fn check_updates(chrome: &Chrome, events: &Sender<Event>) {
+    if !chrome.settings.update_check || !chrome.settings.bar {
+        return;
+    }
+    let events = events.clone();
+    std::thread::spawn(move || {
+        if let Some(version) = crate::update::available() {
+            let _ = events.send(Event::UpdateFound(version));
+        }
+    });
 }
 
 pub(crate) fn run(
@@ -54,42 +105,53 @@ pub(crate) fn run(
     program: &str,
     recording: Option<std::path::PathBuf>,
 ) -> Result<u32> {
-    host::prepare_pty();
+    let (config, options, chrome) = setup(program);
     let size = host::size();
-    let (pty, child) = Pty::spawn(cmd, size)?;
+    let inner = child_size(size, chrome.top());
+    let (pty, child) = Pty::spawn(cmd, inner)?;
+    let killer = child.clone_killer();
     let (events, inbox) = mpsc::channel();
-    io::spawn_pty_reader(pty.reader()?, events.clone());
-    io::spawn_child_waiter(child, events.clone());
-    let writer: SharedWriter = Arc::new(Mutex::new(pty.writer()?));
-    io::spawn_stdin_reader(events.clone());
-    resize::spawn_watcher(events)?;
-
+    let writer = spawn_io(&pty, child, &events)?;
+    check_updates(&chrome, &events);
     let _guard = TerminalGuard::enter()?;
-    let options = host::render_options(std::ffi::OsStr::new(program));
     log_start(size, options);
+    let recorder = Recorder::new(recording);
     let mut session = Session {
+        recording_since: recorder.active().then(Instant::now),
         inbox,
+        events,
         pty: &pty,
         writer,
-        emulator: Emulator::with_options(size.rows, size.cols, options)?,
-        recorder: Recorder::new(recording),
+        killer,
+        emulator: Emulator::with_options(inner.rows, inner.cols, options)?,
+        recorder,
         life: Lifecycle::default(),
         pacer: Pacer::default(),
         mouse: MouseRemap::default(),
+        chrome,
+        config,
+        program: program.to_string(),
+        cols: size.cols,
+        notice_until: None,
     };
     session.pump()?;
-    let code = session.life.code.unwrap_or(UNKNOWN_EXIT);
-    tracing::info!(
-        code,
-        output_closed = session.life.output_closed,
-        "session ended"
-    );
+    let code = session.finish();
     drop(session);
     close_in_background(pty);
     Ok(code)
 }
 
 impl Session<'_> {
+    fn finish(&mut self) -> u32 {
+        let code = self.life.code.unwrap_or(UNKNOWN_EXIT);
+        tracing::info!(
+            code,
+            output_closed = self.life.output_closed,
+            "session ended"
+        );
+        code
+    }
+
     fn pump(&mut self) -> Result<()> {
         let mut deadline: Option<Instant> = None;
         while let Some(events) = self.receive(deadline) {
@@ -101,7 +163,8 @@ impl Session<'_> {
             forward(&mut self.emulator, &self.writer)?;
             let now = Instant::now();
             let done = self.life.done(now);
-            deadline = self.paint(now, done)?;
+            let tick = self.tick(now);
+            deadline = earliest(self.paint(now, done)?, tick);
             if done {
                 break;
             }
@@ -110,13 +173,14 @@ impl Session<'_> {
     }
 
     fn paint(&mut self, now: Instant, force: bool) -> Result<Option<Instant>> {
-        if !self.emulator.needs_frame() {
+        if !self.emulator.needs_frame() && !self.chrome.dirty {
             return Ok(None);
         }
         let synchronizing = self.emulator.is_synchronizing();
         let ready = self.pacer.ready_at(now, synchronizing);
         if force || now >= ready {
-            draw(&mut self.emulator)?;
+            let overlay = self.chrome.overlay(self.cols);
+            draw(&mut self.emulator, &overlay)?;
             self.pacer.drew(now, synchronizing);
             Ok(None)
         } else {
@@ -128,19 +192,17 @@ impl Session<'_> {
         for event in events {
             match event {
                 Event::Output(bytes) => self.emulator.feed(&bytes),
-                Event::Input(bytes) => {
-                    let emulator = &self.emulator;
-                    let bytes = self
-                        .mouse
-                        .apply(&bytes, |row, col| emulator.child_column(row, col));
-                    io::write_to_child(&self.writer, &bytes);
-                }
+                Event::Input(bytes) => self.input(&bytes)?,
+                event @ (Event::UpdateFound(_) | Event::UpdateDone(_)) => self.update_event(event),
                 Event::OutputClosed => self.life.output_closed = true,
                 Event::ChildExited(code) => self.life.code = Some(code),
                 Event::Resize => {
                     let size = host::size();
-                    self.pty.resize(size);
-                    self.emulator.resize(size.rows, size.cols)?;
+                    let inner = child_size(size, self.chrome.top());
+                    self.pty.resize(inner);
+                    self.emulator.resize(inner.rows, inner.cols)?;
+                    self.cols = size.cols;
+                    self.chrome.dirty = true;
                     tracing::debug!(rows = size.rows, cols = size.cols, "resized");
                 }
             }
@@ -150,10 +212,7 @@ impl Session<'_> {
 
     fn receive(&self, deadline: Option<Instant>) -> Option<Vec<Event>> {
         let exit = self.life.code.map(|_| Instant::now() + EXIT_GRACE);
-        let until = match (deadline, exit) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        };
+        let until = earliest(deadline, exit);
         let first = match until {
             None => self.inbox.recv().ok()?,
             Some(until) => {
@@ -168,6 +227,13 @@ impl Session<'_> {
             }
         };
         Some(drain(first, &self.inbox))
+    }
+}
+
+fn earliest(a: Option<Instant>, b: Option<Instant>) -> Option<Instant> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
     }
 }
 
@@ -216,9 +282,9 @@ fn forward(emulator: &mut Emulator, writer: &SharedWriter) -> Result<()> {
     Ok(())
 }
 
-fn draw(emulator: &mut Emulator) -> Result<()> {
+fn draw(emulator: &mut Emulator, overlay: &mirah_term::Overlay) -> Result<()> {
     let started = Instant::now();
-    let frame = emulator.frame();
+    let frame = emulator.frame_with(overlay);
     let mut stdout = std::io::stdout();
     stdout.write_all(frame.as_bytes())?;
     stdout.flush()?;

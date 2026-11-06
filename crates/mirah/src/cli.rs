@@ -24,6 +24,10 @@ Environment:
                               instead of the one bundled with mirah
   MIRAH_RECORD=<file>         save the program's raw output for bug reports
   MIRAH_NO_UPDATE_CHECK=1     do not check for a new version at startup
+  MIRAH_BAR=0                 hide the mirah bar (Ctrl+] opens the bar when shown)
+
+Settings are saved in config.toml (%APPDATA%\\mirah on Windows,
+~/.config/mirah elsewhere).
 
 https://github.com/Khaymah/mirah";
 

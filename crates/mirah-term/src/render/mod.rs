@@ -7,7 +7,7 @@ use crate::screen::logical_row;
 use crate::sequences::{
     CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
 };
-use mirah_bidi::{Cell, Style};
+use mirah_bidi::{Cell, Style, VisualRow};
 
 const EDITOR_CURSOR_NUM: u32 = 2;
 const EDITOR_CURSOR_DEN: u32 = 3;
@@ -85,6 +85,30 @@ impl Renderer {
         self.invalidate();
     }
 
+    fn draw_rows(
+        &mut self,
+        out: &mut String,
+        visual: &mut [VisualRow],
+        overlay: &Overlay,
+        cols: u16,
+    ) {
+        let host_rows = u16::try_from(self.prev.len()).unwrap_or(u16::MAX);
+        for host in 0..host_rows {
+            let mut cells = match host.checked_sub(overlay.top) {
+                Some(child) => visual
+                    .get_mut(usize::from(child))
+                    .map(|row| std::mem::take(&mut row.cells))
+                    .unwrap_or_default(),
+                None => vec![Cell::plain(" "); usize::from(cols)],
+            };
+            overlay.compose(host, &mut cells);
+            if self.prev[usize::from(host)] != cells {
+                draw_row(out, host, &cells);
+                self.prev[usize::from(host)] = cells;
+            }
+        }
+    }
+
     fn cursor(screen: &vt100::Screen, rows: u16) -> Cursor {
         let (row, col) = screen.cursor_position();
         let visible = !screen.hide_cursor();
@@ -123,17 +147,7 @@ impl Renderer {
                 u16::try_from(cursor.col).unwrap_or(u16::MAX),
             ))
         });
-        for host in 0..host_rows {
-            let mut cells = match host.checked_sub(overlay.top) {
-                Some(child) => std::mem::take(&mut visual[usize::from(child)].cells),
-                None => vec![Cell::plain(" "); usize::from(cols)],
-            };
-            overlay.compose(host, &mut cells);
-            if self.prev[usize::from(host)] != cells {
-                draw_row(&mut out, host, &cells);
-                self.prev[usize::from(host)] = cells;
-            }
-        }
+        self.draw_rows(&mut out, &mut visual, overlay, cols);
         let modes = screen.input_mode_formatted();
         if modes != self.prev_input_modes {
             out.push_str(&modes);

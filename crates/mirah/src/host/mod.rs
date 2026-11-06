@@ -2,14 +2,10 @@
 mod windows;
 
 use anyhow::{Context, Result};
-use mirah_term::{Align, InputOrder, RenderOptions, Shaping, sequences};
-use std::ffi::OsStr;
+use mirah_term::{InputOrder, Shaping, sequences};
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-const SHAPING_ENV: &str = "MIRAH_SHAPING";
-const ALIGN_ENV: &str = "MIRAH_ALIGN";
-const INPUT_ENV: &str = "MIRAH_INPUT";
 const WINDOWS_TERMINAL_ENV: &str = "WT_SESSION";
 const SELF_REORDERING_ON_WINDOWS: &[&str] = &["claude"];
 const FALLBACK_COLS: u16 = 80;
@@ -31,19 +27,7 @@ pub(crate) fn size() -> TerminalSize {
     }
 }
 
-fn shaping() -> Shaping {
-    match std::env::var(SHAPING_ENV).as_deref() {
-        Ok("full") => Shaping::Full,
-        Ok("plain") => Shaping::Plain,
-        Ok(other) => {
-            tracing::warn!(value = other, "unknown MIRAH_SHAPING, detecting instead");
-            detected_shaping()
-        }
-        Err(_) => detected_shaping(),
-    }
-}
-
-fn detected_shaping() -> Shaping {
+pub(crate) fn detected_shaping() -> Shaping {
     if std::env::var_os(WINDOWS_TERMINAL_ENV).is_some() {
         Shaping::Plain
     } else {
@@ -51,35 +35,9 @@ fn detected_shaping() -> Shaping {
     }
 }
 
-fn align() -> Align {
-    match std::env::var(ALIGN_ENV).as_deref() {
-        Ok("arabic") => Align::Arabic,
-        Ok("off") => Align::Off,
-        Ok("prose") | Err(_) => Align::Prose,
-        Ok(other) => {
-            tracing::warn!(value = other, "unknown MIRAH_ALIGN, using prose");
-            Align::Prose
-        }
-    }
-}
-
-fn input_order(program: &OsStr) -> InputOrder {
-    match std::env::var(INPUT_ENV).as_deref() {
-        Ok("logical") => InputOrder::Logical,
-        Ok("visual") => InputOrder::Visual,
-        Ok(other) => {
-            tracing::warn!(value = other, "unknown MIRAH_INPUT, detecting instead");
-            detected_input_order(program, cfg!(windows))
-        }
-        Err(_) => detected_input_order(program, cfg!(windows)),
-    }
-}
-
-fn detected_input_order(program: &OsStr, windows: bool) -> InputOrder {
-    let program = program.to_string_lossy().to_lowercase();
-    let name = program.rsplit(['/', '\\']).next().unwrap_or_default();
-    let stem = name.split('.').next().unwrap_or_default();
-    if windows && SELF_REORDERING_ON_WINDOWS.contains(&stem) {
+pub(crate) fn detected_input_order(program: &str, windows: bool) -> InputOrder {
+    let stem = crate::config::program_name(program);
+    if windows && SELF_REORDERING_ON_WINDOWS.contains(&stem.as_str()) {
         InputOrder::Visual
     } else {
         InputOrder::Logical
@@ -89,14 +47,6 @@ fn detected_input_order(program: &OsStr, windows: bool) -> InputOrder {
 pub(crate) fn prepare_pty() {
     #[cfg(windows)]
     windows::install_conpty();
-}
-
-pub(crate) fn render_options(program: &OsStr) -> RenderOptions {
-    RenderOptions {
-        shaping: shaping(),
-        align: align(),
-        input: input_order(program),
-    }
 }
 
 pub(crate) struct TerminalGuard;
@@ -157,7 +107,7 @@ mod tests {
             "/usr/bin/claude",
         ] {
             assert_eq!(
-                detected_input_order(OsStr::new(program), true),
+                detected_input_order(program, true),
                 InputOrder::Visual,
                 "{program}"
             );
@@ -166,13 +116,7 @@ mod tests {
 
     #[test]
     fn other_programs_and_other_systems_send_logical_text() {
-        assert_eq!(
-            detected_input_order(OsStr::new("codex"), true),
-            InputOrder::Logical
-        );
-        assert_eq!(
-            detected_input_order(OsStr::new("claude"), false),
-            InputOrder::Logical
-        );
+        assert_eq!(detected_input_order("codex", true), InputOrder::Logical);
+        assert_eq!(detected_input_order("claude", false), InputOrder::Logical);
     }
 }

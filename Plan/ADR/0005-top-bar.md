@@ -1,6 +1,6 @@
 # ADR-0005: شريط مرآة فوق البرنامج، وملف إعدادات
 
-- **Status:** Proposed (2026-11-06)
+- **Status:** Accepted (2026-11-06)، واتنفّذ في `0.2.0-alpha.1`
 - **Date:** 2026-11-06
 - **Deciders:** Sabry Dawood (المالك)
 - **Project:** mirah

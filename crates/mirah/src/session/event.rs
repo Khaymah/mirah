@@ -4,4 +4,6 @@ pub(crate) enum Event {
     OutputClosed,
     ChildExited(u32),
     Resize,
+    UpdateFound(String),
+    UpdateDone(Result<String, String>),
 }

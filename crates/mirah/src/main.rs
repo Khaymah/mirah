@@ -1,5 +1,7 @@
+mod chrome;
 mod cli;
 mod command;
+mod config;
 mod debug_files;
 mod host;
 mod logging;
@@ -54,7 +56,7 @@ fn main() {
         .record
         .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default()));
     let log_guard = logging::init(files.as_ref().map(|f| f.log.as_path()));
-    update::startup();
+    update::remove_leftover();
     host::install_panic_hook();
     let recording = files.as_ref().map(|f| f.recording.clone());
     let code = match session::run(run.cmd, &run.program, recording) {

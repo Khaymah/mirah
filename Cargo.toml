@@ -4,7 +4,7 @@ resolver = "3"
 exclude = ["research"]
 
 [workspace.package]
-version = "0.1.0-alpha.12"
+version = "0.2.0-alpha.1"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -16,6 +16,7 @@ mirah-term = { path = "crates/mirah-term" }
 compact_str = "0.10"
 semver = "1"
 sha2 = "0.11"
+toml_edit = "0.25"
 anyhow = "1"
 criterion = { version = "0.5", default-features = false }
 crossterm = "0.29"
