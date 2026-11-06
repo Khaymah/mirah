@@ -2,6 +2,17 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.8 - 2026-11-06
+
+**frames أقل، ومفيش شاشة نص مرسومة.**
+
+- **Synchronized output:** لما البرنامج يقول إنه بيحدّث الشاشة (`?2026h`)، مرآة بتستنى لحد ما يخلّص (`?2026l`) قبل ما ترسم. Claude بيعمل ده مع كل تحديث. قبل كده، لو التحديث وصل على أكتر من قراية من الـ pty، مرآة كانت بترسم كل حتة لوحدها، فممكن تظهر شاشة نص مرسومة. ولو البرنامج مقفلهوش، مرآة بترسم بعد 150ms على الأكتر.
+- **frame كل 8ms على الأكتر:** لو الـ output جاي ورا بعضه بسرعة، مرآة بتجمعه في frame واحد. في الاختبار، 3000 سطر ورا بعض اترسموا في 3 frames بس. ومفيش تأخير زيادة لو الشاشة كانت هادية.
+- **الردود على أسئلة البرنامج** (زي `ESC[6n`) بتتبعت على طول، من غير ما تستنى الـ frame. **والـ frame الأخير بيترسم دايماً** قبل ما مرآة تخرج.
+- **لو مفيش حاجة اتغيرت، مفيش frame.**
+
+**English:** Fewer frames and no half-drawn screens. When the program announces a synchronized update (`?2026h`), which Claude does for every update, mirah waits for its end (`?2026l`) before drawing, so an update split across several pty reads no longer shows a half-drawn screen; an update that never ends is drawn after at most 150ms. Frames are at most one every 8ms, so a burst of output is coalesced (3000 lines in a row drew 3 frames in testing) with no added delay when the screen was idle. Replies to the program's queries are still sent immediately, the last frame is always drawn before exit, and nothing is drawn when nothing changed.
+
 ## 0.1.0-alpha.7 - 2026-11-06
 
 **أسرع.** نفس الشكل بالظبط، بس كل frame بقى بياخد وقت أقل.

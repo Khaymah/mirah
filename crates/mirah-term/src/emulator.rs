@@ -15,6 +15,7 @@ pub struct Output {
 pub struct Emulator {
     parser: vt100::Parser<Bridge>,
     renderer: Renderer,
+    changed: bool,
 }
 
 fn non_zero(rows: u16, cols: u16) -> Result<(NonZeroU16, NonZeroU16), TermError> {
@@ -39,17 +40,28 @@ impl Emulator {
                 Bridge::default(),
             ),
             renderer: Renderer::new(options),
+            changed: true,
         })
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
         self.parser.process(bytes);
+        self.changed |= !bytes.is_empty();
+    }
+
+    pub fn needs_frame(&self) -> bool {
+        self.changed
+    }
+
+    pub fn is_synchronizing(&self) -> bool {
+        self.parser.callbacks().synchronized
     }
 
     pub fn resize(&mut self, rows: u16, cols: u16) -> Result<(), TermError> {
         let (rows, cols) = non_zero(rows, cols)?;
         self.parser.set_size(rows, cols);
         self.renderer.invalidate();
+        self.changed = true;
         Ok(())
     }
 
@@ -62,6 +74,7 @@ impl Emulator {
     }
 
     pub fn frame(&mut self) -> String {
+        self.changed = false;
         self.renderer.frame(self.parser.screen())
     }
 }
@@ -78,6 +91,30 @@ mod tests {
         ));
         let mut e = Emulator::new(24, 80).expect("valid size");
         assert!(e.resize(24, 0).is_err());
+    }
+
+    #[test]
+    fn a_frame_is_needed_only_after_new_output_or_a_resize() {
+        let mut e = Emulator::new(24, 80).expect("valid size");
+        assert!(e.needs_frame());
+        e.frame();
+        assert!(!e.needs_frame());
+        e.feed(b"");
+        assert!(!e.needs_frame());
+        e.feed(b"x");
+        assert!(e.needs_frame());
+        e.frame();
+        e.resize(10, 40).expect("valid size");
+        assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn reports_synchronized_output() {
+        let mut e = Emulator::new(24, 80).expect("valid size");
+        e.feed(b"\x1b[?2026hhalf");
+        assert!(e.is_synchronizing());
+        e.feed(b"\x1b[?2026l");
+        assert!(!e.is_synchronizing());
     }
 
     #[test]

@@ -417,7 +417,7 @@ dependencies = [
 
 [[package]]
 name = "mirah"
-version = "0.1.0-alpha.7"
+version = "0.1.0-alpha.8"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "mirah-bidi"
-version = "0.1.0-alpha.7"
+version = "0.1.0-alpha.8"
 dependencies = [
  "compact_str",
  "criterion",
@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "mirah-term"
-version = "0.1.0-alpha.7"
+version = "0.1.0-alpha.8"
 dependencies = [
  "mirah-bidi",
  "thiserror 2.0.21",

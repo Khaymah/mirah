@@ -1,5 +1,6 @@
 mod event;
 mod io;
+mod pacing;
 mod pty;
 mod record;
 mod resize;
@@ -9,11 +10,12 @@ use anyhow::Result;
 use event::Event;
 use io::SharedWriter;
 use mirah_term::Emulator;
+use pacing::Pacer;
 use portable_pty::CommandBuilder;
 use pty::Pty;
 use record::Recorder;
 use std::io::Write;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -24,6 +26,24 @@ const UNKNOWN_EXIT: u32 = 1;
 struct Lifecycle {
     code: Option<u32>,
     output_closed: bool,
+    last_event: Option<Instant>,
+}
+
+impl Lifecycle {
+    fn done(&self, now: Instant) -> bool {
+        self.code.is_some()
+            && (self.output_closed || self.last_event.is_some_and(|t| now >= t + EXIT_GRACE))
+    }
+}
+
+struct Session<'a> {
+    inbox: Receiver<Event>,
+    pty: &'a Pty,
+    writer: SharedWriter,
+    emulator: Emulator,
+    recorder: Recorder,
+    life: Lifecycle,
+    pacer: Pacer,
 }
 
 pub(crate) fn run(
@@ -42,6 +62,88 @@ pub(crate) fn run(
     resize::spawn_watcher(events)?;
 
     let _guard = TerminalGuard::enter()?;
+    let options = host::render_options(std::ffi::OsStr::new(program));
+    log_start(size, options);
+    let mut session = Session {
+        inbox,
+        pty: &pty,
+        writer,
+        emulator: Emulator::with_options(size.rows, size.cols, options)?,
+        recorder: Recorder::new(recording),
+        life: Lifecycle::default(),
+        pacer: Pacer::default(),
+    };
+    session.pump()?;
+    let code = session.life.code.unwrap_or(UNKNOWN_EXIT);
+    tracing::info!(
+        code,
+        output_closed = session.life.output_closed,
+        "session ended"
+    );
+    drop(session);
+    close_in_background(pty);
+    Ok(code)
+}
+
+impl Session<'_> {
+    fn pump(&mut self) -> Result<()> {
+        let mut deadline: Option<Instant> = None;
+        while let Some(events) = self.receive(deadline) {
+            if !events.is_empty() {
+                self.life.last_event = Some(Instant::now());
+            }
+            record(&mut self.recorder, &events);
+            apply(events, self.pty, &mut self.emulator, &mut self.life)?;
+            forward(&mut self.emulator, &self.writer)?;
+            let now = Instant::now();
+            let done = self.life.done(now);
+            deadline = self.paint(now, done)?;
+            if done {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn paint(&mut self, now: Instant, force: bool) -> Result<Option<Instant>> {
+        if !self.emulator.needs_frame() {
+            return Ok(None);
+        }
+        let synchronizing = self.emulator.is_synchronizing();
+        let ready = self.pacer.ready_at(now, synchronizing);
+        if force || now >= ready {
+            draw(&mut self.emulator)?;
+            self.pacer.drew(now, synchronizing);
+            Ok(None)
+        } else {
+            Ok(Some(ready))
+        }
+    }
+
+    fn receive(&self, deadline: Option<Instant>) -> Option<Vec<Event>> {
+        let exit = self.life.code.map(|_| Instant::now() + EXIT_GRACE);
+        let until = match (deadline, exit) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        let first = match until {
+            None => self.inbox.recv().ok()?,
+            Some(until) => {
+                match self
+                    .inbox
+                    .recv_timeout(until.saturating_duration_since(Instant::now()))
+                {
+                    Ok(event) => event,
+                    Err(RecvTimeoutError::Timeout) => return Some(Vec::new()),
+                    Err(RecvTimeoutError::Disconnected) => return None,
+                }
+            }
+        };
+        Some(drain(first, &self.inbox))
+    }
+}
+
+fn log_start(size: host::TerminalSize, options: mirah_term::RenderOptions) {
     tracing::info!(
         rows = size.rows,
         cols = size.cols,
@@ -49,24 +151,7 @@ pub(crate) fn run(
         term_program = std::env::var("TERM_PROGRAM").unwrap_or_default(),
         "session started with explicit bidi mode"
     );
-    let options = host::render_options(std::ffi::OsStr::new(program));
     tracing::info!(?options, "render options");
-    let mut emulator = Emulator::with_options(size.rows, size.cols, options)?;
-    let mut recorder = Recorder::new(recording);
-    let mut life = Lifecycle::default();
-    while let Some(first) = next_event(&inbox, &life) {
-        let events = drain(first, &inbox);
-        record(&mut recorder, &events);
-        apply(events, &pty, &mut emulator, &mut life)?;
-        flush(&mut emulator, &writer)?;
-        if life.code.is_some() && life.output_closed {
-            break;
-        }
-    }
-    let code = life.code.unwrap_or(UNKNOWN_EXIT);
-    tracing::info!(code, output_closed = life.output_closed, "session ended");
-    close_in_background(pty);
-    Ok(code)
 }
 
 fn close_in_background(pty: Pty) {
@@ -74,14 +159,6 @@ fn close_in_background(pty: Pty) {
         drop(pty);
         tracing::debug!("pty closed");
     });
-}
-
-fn next_event(inbox: &Receiver<Event>, life: &Lifecycle) -> Option<Event> {
-    if life.code.is_some() {
-        inbox.recv_timeout(EXIT_GRACE).ok()
-    } else {
-        inbox.recv().ok()
-    }
 }
 
 fn record(recorder: &mut Recorder, events: &[Event]) {
@@ -120,15 +197,23 @@ fn apply(
     Ok(())
 }
 
-fn flush(emulator: &mut Emulator, writer: &SharedWriter) -> Result<()> {
-    let started = Instant::now();
+fn forward(emulator: &mut Emulator, writer: &SharedWriter) -> Result<()> {
     let output = emulator.take_output();
     if !output.to_child.is_empty() {
         io::write_to_child(writer, &output.to_child);
     }
+    if !output.to_host.is_empty() {
+        let mut stdout = std::io::stdout();
+        stdout.write_all(&output.to_host)?;
+        stdout.flush()?;
+    }
+    Ok(())
+}
+
+fn draw(emulator: &mut Emulator) -> Result<()> {
+    let started = Instant::now();
     let frame = emulator.frame();
     let mut stdout = std::io::stdout();
-    stdout.write_all(&output.to_host)?;
     stdout.write_all(frame.as_bytes())?;
     stdout.flush()?;
     tracing::debug!(

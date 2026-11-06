@@ -1,12 +1,26 @@
 mod local;
 mod passthrough;
 
-use crate::sequences::BEL;
+use crate::sequences::{BEL, MODE_SYNCHRONIZED_OUTPUT};
 
 #[derive(Default)]
 pub(crate) struct Bridge {
     pub(crate) to_host: Vec<u8>,
     pub(crate) to_child: Vec<u8>,
+    pub(crate) synchronized: bool,
+}
+
+fn synchronized_output(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c: char) -> Option<bool> {
+    let toggles = i1 == Some(b'?')
+        && i2.is_none()
+        && params
+            .iter()
+            .any(|p| p.first() == Some(&MODE_SYNCHRONIZED_OUTPUT));
+    match c {
+        'h' if toggles => Some(true),
+        'l' if toggles => Some(false),
+        _ => None,
+    }
 }
 
 fn first_param(params: &[&[u16]]) -> u16 {
@@ -35,6 +49,9 @@ impl vt100::Callbacks for Bridge {
         params: &[&[u16]],
         c: char,
     ) {
+        if let Some(on) = synchronized_output(i1, i2, params, c) {
+            self.synchronized = on;
+        }
         if (i1, i2, c) == (None, None, 'n') {
             if let Some(reply) = local::device_status_report(screen, first_param(params)) {
                 self.to_child.extend(reply);
@@ -90,6 +107,13 @@ mod tests {
     fn swallows_synchronized_output_mode() {
         let p = feed(b"\x1b[?2026h\x1b[?1004h");
         assert_eq!(p.callbacks().to_host, b"\x1b[?1004h");
+    }
+
+    #[test]
+    fn tracks_synchronized_output() {
+        assert!(feed(b"\x1b[?2026h").callbacks().synchronized);
+        assert!(!feed(b"\x1b[?2026h\x1b[?2026l").callbacks().synchronized);
+        assert!(!feed(b"\x1b[?2004h").callbacks().synchronized);
     }
 
     #[test]
