@@ -3,7 +3,9 @@ mod command;
 mod debug_files;
 mod host;
 mod logging;
+mod paths;
 mod session;
+mod update;
 
 const FAILURE: u32 = 1;
 
@@ -41,12 +43,18 @@ fn main() {
             print(&text);
             return;
         }
+        cli::Invocation::Update => {
+            let _log_guard = logging::init(None);
+            let code = update::command();
+            std::process::exit(i32::try_from(code).unwrap_or(1));
+        }
         cli::Invocation::Run(run) => run,
     };
     let files = run
         .record
         .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default()));
     let log_guard = logging::init(files.as_ref().map(|f| f.log.as_path()));
+    update::startup();
     host::install_panic_hook();
     let recording = files.as_ref().map(|f| f.recording.clone());
     let code = match session::run(run.cmd, &run.program, recording) {

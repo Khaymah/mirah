@@ -49,6 +49,7 @@ fn run_mirah(name: &str, args: &[&str], path: Option<std::ffi::OsString>) -> (u3
     let mut cmd = CommandBuilder::new(env!("CARGO_BIN_EXE_mirah"));
     cmd.args(args);
     cmd.env("MIRAH_LOG", "debug");
+    cmd.env("MIRAH_NO_UPDATE_CHECK", "1");
     cmd.env(STATE_ENV, log_dir(name));
     if let Some(path) = path {
         cmd.env("PATH", path);

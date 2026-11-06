@@ -2,6 +2,25 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.9 - 2026-11-06
+
+**`mirah update`.**
+
+- **`mirah update`:**
+  - بيدوّر على آخر نسخة، والـ alpha من ضمنها.
+  - بينزّلها، **وبيتأكد من الـ SHA-256**، وبيبدّل `mirah` بيها.
+  - ولو الـ checksum مش متطابق، مفيش حاجة بتتغير.
+  - على ويندوز، الـ exe الشغال بيتغيّر اسمه لـ `.old` لحد المرة الجاية، فالتحديث بيشتغل وانت جوه مرآة.
+- **الفحص لما مرآة تبدأ:**
+  - النتيجة بتتحفظ ساعة، والفحص ليه timeout ثانيتين.
+  - لو فيه نسخة أحدث، بيظهر سطر فيه **Install** و**Later**.
+  - Later بتسكّت السؤال عن نفس النسخة 24 ساعة.
+  - بيتقفل بـ `MIRAH_NO_UPDATE_CHECK=1`، ومابيظهرش لو stdin أو stdout مش ترمنال.
+- **`mirah -- PROGRAM`:** بيشغّل برنامج اسمه زي أمر من أوامر مرآة، زي برنامج اسمه `update`.
+- **من غير مكتبات HTTP:** التحميل بـ `curl`، والفك بـ `tar`، وفي ويندوز بالـ `tar.exe` بتاع ويندوز نفسه، لأن الـ GNU tar اللي بييجي مع Git مابيفكش zip. والـ binary على لينكس لسه 2.3 MB.
+
+**English:** `mirah update` finds the newest release (alphas included), downloads it, checks its SHA-256 and replaces `mirah` with it; nothing changes if the checksum does not match. On Windows the running exe is moved to `.old` until the next start, so updating works from inside mirah. At startup mirah checks for a newer version (result kept for an hour, 2-second timeout) and offers **Install** or **Later**; Later quiets that version for 24 hours. `MIRAH_NO_UPDATE_CHECK=1` turns the check off, and it never appears when stdin or stdout is not a terminal. `mirah -- PROGRAM` runs a program named like a mirah command. Downloads use `curl` and unpacking uses `tar` (Windows' own `tar.exe`, since Git's GNU tar cannot unpack zip), with no HTTP library inside mirah; the Linux binary is still 2.3 MB.
+
 ## 0.1.0-alpha.8 - 2026-11-06
 
 **frames أقل، ومفيش شاشة نص مرسومة.**

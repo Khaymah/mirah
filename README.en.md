@@ -74,6 +74,16 @@ mirah claude
 
 With no command, mirah opens your shell.
 
+### Updating
+
+```bash
+mirah update
+```
+
+This looks for the newest release, alphas included. If there is a newer one, it downloads it, **checks its SHA-256**, and replaces `mirah` with it. If the checksum does not match, nothing changes. The new version runs from the next start.
+
+At startup mirah checks for a newer version and keeps the result for an hour. If there is one, a line with two buttons appears: **Install** and **Later**. Move between them with the arrows or Tab, confirm with Enter, and Esc means Later. After Later, mirah does not ask again about the same version for 24 hours. The check needs `curl` and `tar`, which Windows 10 and 11, macOS and Linux all ship.
+
 ### Recording a session for a bug report
 
 ```bash
@@ -94,6 +104,7 @@ This saves `mirah-session-N.vt` (the program's raw output) and `mirah-session-N.
 | `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
 | `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it. mirah puts each row back in logical order and checks that this reproduces exactly what the program drew; when it cannot confirm that, it keeps the row as drawn and only fixes brackets. Picked automatically for Claude Code on Windows |
 | `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
+| `MIRAH_NO_UPDATE_CHECK` | `1` | Turns off the new-version check at startup |
 | `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
 | `MIRAH_LOG` | `debug` | Writes a log file |
 

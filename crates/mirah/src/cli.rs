@@ -7,6 +7,8 @@ Usage:
   mirah [PROGRAM [ARGS...]]   run PROGRAM inside mirah (default: your shell)
   mirah --record PROGRAM ...  same, and save mirah-session-N.vt and
                               mirah-session-N.log in the current folder
+  mirah update                install the newest release
+  mirah -- PROGRAM ...        run a program named like a mirah command
   mirah --version             print the version
   mirah --help                print this help
 
@@ -21,11 +23,13 @@ Environment:
   MIRAH_CONPTY=system         Windows: use the conpty that ships with Windows
                               instead of the one bundled with mirah
   MIRAH_RECORD=<file>         save the program's raw output for bug reports
+  MIRAH_NO_UPDATE_CHECK=1     do not check for a new version at startup
 
 https://github.com/Khaymah/mirah";
 
 pub(crate) enum Invocation {
     Run(Run),
+    Update,
     Print(String),
 }
 
@@ -49,6 +53,11 @@ pub(crate) fn parse(mut args: impl Iterator<Item = String>) -> Invocation {
     match args.peek().map(String::as_str) {
         Some("--version" | "-V") => Invocation::Print(format!("mirah {VERSION}")),
         Some("--help" | "-h") => Invocation::Print(HELP.to_string()),
+        Some("update") => Invocation::Update,
+        Some("--") => {
+            args.next();
+            run(args, false)
+        }
         Some("--record" | "-r") => {
             args.next();
             run(args, true)
@@ -82,6 +91,15 @@ mod tests {
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect()
+    }
+
+    #[test]
+    fn update_is_a_command_and_double_dash_runs_a_program_with_that_name() {
+        assert!(matches!(parse_args(&["update"]), Invocation::Update));
+        let Invocation::Run(run) = parse_args(&["--", "update", "x"]) else {
+            panic!("expected a program to run");
+        };
+        assert_eq!(argv(&run.cmd), ["update", "x"]);
     }
 
     #[test]

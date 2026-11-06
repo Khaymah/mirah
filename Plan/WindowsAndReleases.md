@@ -68,6 +68,8 @@
 
 ## W3: التحديث
 
+> **اتنفّذ في `0.1.0-alpha.9` (2026-11-06)، بس بطريقة غير اللي مكتوبة تحت.** الريبو هيبقى public، فمفيش token. ومن غير axoupdater، بـ `curl` و`tar` و`sha2`. السبب في "تعديل تاني" في [ADR-0003](ADR/0003-windows-first-releases-and-updates.md).
+
 **W3.1 `mirah update`**
 - `crates/mirah/src/update/mod.rs` بيستخدم `axoupdater`. بيبص على آخر release في `Khaymah/mirah`، ويقارن النسخ، ويتأكد من الـ checksum، ويركّب.
 - **حالات حرجة:**

@@ -13,6 +13,8 @@ anyhow.workspace = true
 crossterm.workspace = true
 mirah-term.workspace = true
 portable-pty.workspace = true
+semver.workspace = true
+sha2.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
@@ -25,6 +27,7 @@ windows-sys.workspace = true
 
 [dev-dependencies]
 portable-pty.workspace = true
+sha2.workspace = true
 
 [lints]
 workspace = true
