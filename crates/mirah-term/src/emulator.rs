@@ -1,6 +1,6 @@
 use crate::bridge::Bridge;
 use crate::error::TermError;
-use crate::layout::RenderOptions;
+use crate::layout::{InputOrder, RenderOptions};
 use crate::overlay::Overlay;
 use crate::render::Renderer;
 use std::num::NonZeroU16;
@@ -33,13 +33,10 @@ impl Emulator {
 
     pub fn with_options(rows: u16, cols: u16, options: RenderOptions) -> Result<Self, TermError> {
         let (rows, cols) = non_zero(rows, cols)?;
+        let mut bridge = Bridge::default();
+        bridge.clipboard.visual_text = options.input == InputOrder::Visual;
         Ok(Self {
-            parser: vt100::Parser::new_with_callbacks(
-                rows,
-                cols,
-                SCROLLBACK_ROWS,
-                Bridge::default(),
-            ),
+            parser: vt100::Parser::new_with_callbacks(rows, cols, SCROLLBACK_ROWS, bridge),
             renderer: Renderer::new(options),
             changed: true,
         })
@@ -93,8 +90,13 @@ impl Emulator {
     }
 
     pub fn set_options(&mut self, options: RenderOptions) {
+        self.parser.callbacks_mut().clipboard.visual_text = options.input == InputOrder::Visual;
         self.renderer.set_options(options);
         self.changed = true;
+    }
+
+    pub fn allow_clipboard(&mut self, allow: bool) {
+        self.parser.callbacks_mut().clipboard.allow = allow;
     }
 }
 

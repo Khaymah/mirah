@@ -2,6 +2,16 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.3.0-alpha.4 - 2026-11-06
+
+**النسخ، وREADME جديد.**
+
+- **النسخ من Claude Code بقى بالترتيب الصح.** Claude على ويندوز بيقلب العربي بنفسه، فلما بينسخ اللي انت محدده (`OSC 52`)، كان بيوصل للحافظة مقلوب: "5. الأداء" كانت بتتنسخ "ءادألا .5". دلوقتي مرآة بترجّع كل سطر للترتيب الصح قبل ما يوصل للحافظة، لأي برنامج "ترتيب نصه" مرئي.
+- **إعداد "النسخ عند التحديد"** في القايمة: Claude بينسخ أي حاجة تحددها لوحده، ولو قفلت الإعداد، التحديد مابيغيّرش الحافظة.
+- **README اتكتب من الأول** بترتيب منطقي: مرآة بتعمل إيه، وإزاي تسطّبها، وأول استخدام، والشريط والتابات، والإعدادات، والجلسات، والحدود. وأوامر التثبيت بقت على آخر نسخة. ومن هنا ورايح أي تغيير بيتكتب في الـ README في نفس الـ commit.
+
+**English:** Copying and a new README. Claude Code on Windows reverses Arabic itself, so its copy-on-select (`OSC 52`) reached the clipboard reversed ("5. الأداء" became "ءادألا .5"); mirah now restores each line to reading order for any program whose text order is visual. A new menu setting, "copy on select", stops selection from changing the clipboard. The README is rewritten in a logical order (what mirah does, install, first run, the bar and tabs, settings, sessions, limits) with install commands for the current version, and from now on every user-visible change updates it in the same commit.
+
 ## 0.3.0-alpha.3 - 2026-11-06
 
 **المحاذاة.** من تسجيل opencode اللي المالك بعته، ومقارنة قبل وبعد على كل تسجيلات Claude.

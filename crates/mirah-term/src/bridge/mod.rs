@@ -1,3 +1,4 @@
+pub(crate) mod clipboard;
 mod local;
 mod passthrough;
 
@@ -8,6 +9,7 @@ pub(crate) struct Bridge {
     pub(crate) to_host: Vec<u8>,
     pub(crate) to_child: Vec<u8>,
     pub(crate) synchronized: bool,
+    pub(crate) clipboard: clipboard::Clipboard,
 }
 
 fn synchronized_output(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c: char) -> Option<bool> {
@@ -37,6 +39,19 @@ impl vt100::Callbacks for Bridge {
     }
 
     fn copy_to_clipboard(&mut self, _: &mut vt100::Screen, selection: &[u8], data: &[u8]) {
+        if !self.clipboard.allow {
+            tracing::debug!(
+                bytes = data.len(),
+                "dropped a clipboard write from the program"
+            );
+            return;
+        }
+        let fixed = self
+            .clipboard
+            .visual_text
+            .then(|| clipboard::to_logical(data))
+            .flatten();
+        let data = fixed.as_deref().unwrap_or(data);
         tracing::debug!(bytes = data.len(), "forwarding OSC 52 clipboard write");
         self.to_host.extend(passthrough::clipboard(selection, data));
     }
@@ -114,6 +129,39 @@ mod tests {
         assert!(feed(b"\x1b[?2026h").callbacks().synchronized);
         assert!(!feed(b"\x1b[?2026h\x1b[?2026l").callbacks().synchronized);
         assert!(!feed(b"\x1b[?2004h").callbacks().synchronized);
+    }
+
+    #[test]
+    fn clipboard_writes_can_be_dropped_or_put_in_reading_order() {
+        let write = [
+            b"\x1b]52;c;".as_slice(),
+            &clipboard::encode("الهأ".as_bytes()),
+            b"\x07",
+        ]
+        .concat();
+        let plain = feed(&write).callbacks().to_host.clone();
+        assert_eq!(plain, [&write[..write.len() - 1], b"\x1b\\"].concat());
+        let rows = core::num::NonZeroU16::new(24).unwrap_or(core::num::NonZeroU16::MIN);
+        let bridge = Bridge {
+            clipboard: clipboard::Clipboard {
+                allow: true,
+                visual_text: true,
+            },
+            ..Bridge::default()
+        };
+        let mut p = vt100::Parser::new_with_callbacks(rows, rows, 0, bridge);
+        p.process(&write);
+        let expected = [
+            b"\x1b]52;c;".as_slice(),
+            &clipboard::encode("أهلا".as_bytes()),
+            b"\x1b\\",
+        ]
+        .concat();
+        assert_eq!(p.callbacks().to_host, expected);
+        p.callbacks_mut().clipboard.allow = false;
+        p.callbacks_mut().to_host.clear();
+        p.process(&write);
+        assert!(p.callbacks().to_host.is_empty());
     }
 
     #[test]

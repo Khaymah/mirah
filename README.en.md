@@ -2,19 +2,17 @@
 
 [العربية](README.md) · Arabic is the primary documentation language; this is the English translation.
 
-**mirah** runs any terminal program inside it and fixes Arabic, Persian and Hebrew text before it reaches your screen. It works with Claude Code, Codex, Gemini CLI or any other program, without touching that program's code.
+**mirah** runs Claude Code, OpenCode, Codex, Gemini or any other terminal program inside one window, and fixes Arabic before it reaches your screen: text reads right to left, letters are joined, and paragraphs and tables align to the right. Above the program sits an Arabic bar with tabs, settings and recording.
 
 ```bash
-mirah claude
-mirah codex
-mirah gemini
+mirah
 ```
 
-> ⚠️ **Experimental.** mirah has been tested on emulated terminals and recorded sessions. It has not yet been tested widely on real terminals. Read [Current limits](#current-limits) before relying on it.
+> ⚠️ **mirah is still alpha.** It has been tested on real recorded Claude Code and OpenCode sessions, on Windows and Linux, but it changes daily. Read [Current limits](#current-limits).
 
 ## The problem
 
-Most terminals draw characters left to right, one cell at a time. Arabic text comes out **reversed** with **disconnected letters**:
+Most terminals draw characters left to right, one cell at a time. Arabic comes out **reversed** with **disconnected letters**, and tables and lists stay on the left:
 
 ```
 What the program wrote:   افتح الملف src/main.rs في السطر 42
@@ -22,16 +20,25 @@ What you see:             reversed, letters disconnected
 What mirah draws:         42 ﺮﻄﺴﻟﺍ ﻲﻓ src/main.rs ﻒﻠﻤﻟﺍ ﺢﺘﻓﺍ   (reads correctly right to left)
 ```
 
-Existing fixes each cover one tool or one terminal. mirah works at the terminal level, so it covers any program.
+Existing fixes each cover one tool or one terminal. mirah sits between the program and the terminal, so it covers any program without touching its code.
 
 ## What it does
 
-- **Splits each row before reordering it.** Frames (`│ ╭ ─`) and columns stay in place, and each sentence is reordered on its own.
-- **Applies [UAX #9](https://unicode.org/reports/tr9/)** to each sentence. English words, numbers and paths stay left to right inside Arabic text.
-- **Joins letters**, including the lam-alef ligature and Persian letters (پ چ ژ گ ک ی). Diacritics stay with their letters.
-- **Turns off the terminal's own bidi** with BDSM (`CSI 8 l`) so text is not reversed twice, and restores it on exit.
-- **Moves the real cursor** to its visual position.
-- **Redraws only the rows that changed**, inside synchronized output.
+**Arabic:**
+- **Reorders every row** with [UAX #9](https://unicode.org/reports/tr9/). English words, numbers and paths stay left to right inside Arabic text.
+- **Joins letters**, including lam-alef and Persian letters (پ چ ژ گ ک ی), with marks kept on their letter, or leaves joining to the terminal, as in Windows Terminal.
+- **Aligns prose right:** paragraphs, headings, lists with their markers, and text inside boxes. Code and the command line stay where they are.
+- **Mirrors tables**, so the first column is on the right.
+- **Understands split screens** such as OpenCode's sidebar and treats each part on its own.
+- **Restores the order of programs that reverse Arabic themselves**, such as Claude Code on Windows.
+- **Mouse and copy:** a click reaches the program at the word you see, and text the program copies reaches the clipboard in reading order.
+
+**Working:**
+- **A picker:** `mirah` on its own looks for the agents installed on your machine and lets you choose.
+- **Tabs:** run several programs side by side without leaving.
+- **An Arabic bar with settings** that change live and are saved in `config.toml`.
+- **Sessions with IDs:** continue any conversation later with `mirah resume`; recordings and logs live in one organised place.
+- **One-command updates** with a SHA-256 check.
 
 ## Install
 
@@ -40,35 +47,37 @@ Existing fixes each cover one tool or one terminal. mirah works at the terminal 
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.sh | sh
 ```
 
-This puts mirah in `~/.mirah/bin` and adds it to PATH. Open a new terminal afterwards. From then on `mirah update` brings any newer version, so even if this command names an older release, mirah offers the update the first time it starts.
+This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
 
-> Every release is still an alpha, and GitHub does not count those as "latest", so the command has to name a version. Each release lists its own command.
-
-> Windows may show a SmartScreen warning the first time because the file is not signed yet.
+> - Every release is still an alpha, which GitHub does not call "latest", so the command names a version. Each release lists its own command.
+> - Windows may show a SmartScreen warning the first time, because the binary is not signed yet.
 
 ### By hand, with a check
 
-The PowerShell installer does not check the SHA-256 itself. To check it yourself:
+The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
 
-The third command must print `True`, which means the downloaded file is the one the release built and nothing changed it. Add `%USERPROFILE%\.mirah\bin` to your PATH. On ARM machines use `aarch64-pc-windows-msvc`. On macOS and Linux, use the file for your machine, such as `mirah-aarch64-apple-darwin.tar.xz` or `mirah-x86_64-unknown-linux-gnu.tar.xz`.
+- **The third command must print `True`:** the file you downloaded is the one the release built.
+- **Add `%USERPROFILE%\.mirah\bin` to PATH.**
+- **On ARM:** use `aarch64-pc-windows-msvc`.
+- **On macOS and Linux:** the same steps with your platform's file, such as `mirah-aarch64-apple-darwin.tar.xz` or `mirah-x86_64-unknown-linux-gnu.tar.xz`.
 
-**Provenance:** from `0.1.0-alpha.10`, every file has a GitHub attestation proving it was built from this repository in GitHub Actions. With the [GitHub CLI](https://cli.github.com):
+**Provenance:** every file has a GitHub attestation proving it was built from this repository in GitHub Actions. With the [GitHub CLI](https://cli.github.com):
 
 ```bash
 gh attestation verify mirah-x86_64-pc-windows-msvc.zip --repo Khaymah/mirah
@@ -76,7 +85,7 @@ gh attestation verify mirah-x86_64-pc-windows-msvc.zip --repo Khaymah/mirah
 
 ### From source
 
-You need Rust 1.97 or newer:
+Requires Rust 1.97 or newer:
 
 ```bash
 git clone https://github.com/Khaymah/mirah
@@ -86,67 +95,87 @@ cargo build --release
 
 The binary is at `target/release/mirah`.
 
-## Usage
+### Font
+
+mirah does not change the terminal's font, so pick a monospace font with Arabic:
+
+- **Kawkab Mono:** made for Arabic in the terminal.
+- **Cascadia Mono:** ships with Windows Terminal and has Arabic since version 2106.17.
+- **DejaVu Sans Mono.**
+
+## First run
 
 ```bash
 mirah
 ```
 
-mirah looks for the programs installed on your machine (Claude Code, OpenCode, Codex, Gemini and others) and opens a screen to pick one. The program you used last is preselected, and recent sessions you can continue are listed under the programs.
+mirah looks for the programs installed on your machine (Claude Code, OpenCode, Codex, Gemini, Qwen, Aider, Crush, Cursor Agent, Amp, Copilot, Goose, then your shell) and opens a picker:
 
-To open a program directly, without that screen:
+- **The program you used last** is preselected.
+- **Below the programs** are recent sessions you can continue.
+- **Moving:** arrows and Enter, or the row's number directly.
+
+To start a program directly, without the picker:
 
 ```bash
 mirah claude
+mirah opencode --model gpt-5
 ```
 
-### The mirah bar and tabs
+**On Windows:**
+- Programs installed with npm (such as `opencode` and `gemini`) work, because mirah finds their `.cmd` shim.
+- If you run from the folder holding `mirah.exe` without adding it to PATH, PowerShell needs `.\mirah.exe`.
 
-mirah keeps the first row of the screen for an Arabic bar, and the program runs below it:
+## The bar and tabs
+
+The first row belongs to mirah, and the program runs below it:
 
 ```
  ✕  ≡  ●                                 + ┃ opencode • ┃▐ claude ▌┃ مرآة ◆
 ```
 
-- **Tabs:** each tab runs one program; the open tab is highlighted. Other tabs keep running in the background, and one with new output shows `•`.
-- **`Ctrl+]`** opens the bar. Arrows move (moving onto a tab opens it), Enter chooses, Esc returns to the program. Pressing `Ctrl+]` twice sends it to the program.
+| Item | Does |
+|---|---|
+| A tab | Each tab runs a program; the open one is highlighted. Other tabs keep running, and one with new output shows `•` |
+| `+` | A new tab, from the picker |
+| `●` | Starts recording this tab; while recording it shows `■` and the time. Press again to stop, and again to continue the same file |
+| `↻` | Appears when a new version exists; clicking it installs it for the next start |
+| `≡` | Settings |
+| `✕` | Closes this tab after asking. Closing the last tab exits mirah |
 
-  | Shortcut | Does |
-  |---|---|
-  | `Ctrl+]` then 1 to 9 | go to that tab |
-  | `Ctrl+]` then `t`, or `+` | a new tab, from the picker |
+**Keyboard:**
 
-- **Mouse:** clicking the bar (a tab, `+` or a button) works when the program asks for the mouse, as Claude Code does. mirah never captures the mouse on its own, so normal text selection keeps working.
-- **≡ Settings:** alignment, table mirroring, "record every session" and the update check; letter joining, the program's text order and mouse mapping sit under "advanced options". The values sit side by side with the current one highlighted; changes show at once and apply to every program or to this one only.
-- **● Record:** records the open tab into its session folder; press again to stop, and again to continue the same file.
-- **↻:** appears when a new version exists; clicking it installs it for the next start.
-- **✕:** asks first, then closes the open tab. Closing the last tab exits mirah.
+| Shortcut | Does |
+|---|---|
+| `Ctrl+]` | Opens the bar: arrows move (reaching a tab opens it), Enter chooses, Esc returns to the program |
+| `Ctrl+]` then `1` to `9` | Goes to that tab |
+| `Ctrl+]` then `t` | A new tab |
+| `Ctrl+]` twice | Sends `Ctrl+]` to the program |
 
-### Sessions
+**Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code and OpenCode do. mirah never captures the mouse on its own, so the terminal's normal selection keeps working.
 
-Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder in `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere, holding:
+## Settings
 
-- `session.toml`: the program, the command, the folder it ran in, and when it started and ended.
-- `output.vt`: the recording, when recording was on.
-- `mirah.log`: the log, when recording was on from the start.
+`≡` opens a menu; each setting changes live, for every program or for this one only:
 
-```bash
-mirah sessions
-mirah resume 1106-0457-k3f2
-```
-
-- **`mirah sessions`** lists recent sessions.
-- **`mirah resume <ID>`** continues the same conversation: it opens the same program in the same folder with that program's own continue option (`claude --continue`, `opencode --continue`, `codex resume --last`, `gemini --resume`) and keeps recording into the same file. Without an ID it continues the newest session.
-- mirah keeps the newest 50 sessions, or the last 14 days if that is more.
+| Setting | Choices | Does |
+|---|---|---|
+| Alignment | all text · Arabic only · off | Aligns prose right, Arabic and English, or Arabic only |
+| Mirror tables | on · off | First column on the right |
+| Record every session | on · off | Every new tab is recorded into its session folder |
+| Copy on select | on · off | Claude Code copies anything you select. Off keeps selection from changing the clipboard |
+| Check for updates | on · off | Looks for a new version in the background |
+| **Advanced:** letter joining | auto · mirah · terminal | Who joins letters; Windows Terminal joins them itself |
+| **Advanced:** program text order | auto · logical · visual | "Visual" for programs that reverse Arabic themselves, such as Claude Code on Windows |
+| **Advanced:** map mouse clicks | on · off | A click reaches the program at the word you see |
 
 ### The settings file
 
-The bar saves to `config.toml`, in `%APPDATA%\mirah\` on Windows and `~/.config/mirah/` elsewhere. You can edit it by hand, and your comments are kept:
+The menu saves to `config.toml`, in `%APPDATA%\mirah\` on Windows and `~/.config/mirah/` elsewhere. You can edit it by hand, and your comments are kept:
 
 ```toml
 align = "prose"
-shaping = "auto"
-update_check = true
+record = true
 
 [programs.opencode]
 align = "arabic"
@@ -158,105 +187,106 @@ command = "claude-work"
 resume = ["--continue"]
 ```
 
-`[[agents]]` adds a program to the picker, even one mirah does not look for.
+- **`[programs.X]`** holds settings for one program.
+- **`[[agents]]`** adds a program to the picker, even one mirah does not look for.
+- **What wins:** `MIRAH_*` variables, then the program's section, then the global settings.
+- **A broken file:** mirah uses the defaults and never writes over it.
 
-`MIRAH_*` variables win over a program's section, which wins over the global settings. If the file is broken, mirah uses the defaults and never writes over it.
+### Environment variables
 
-### Updating
+| Variable | Values | Does |
+|---|---|---|
+| `MIRAH_ALIGN` | `prose`, `arabic`, `off` | Same as the alignment setting |
+| `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them |
+| `MIRAH_INPUT` | `logical`, `visual` | Same as "program text order" |
+| `MIRAH_BAR` | `0` | Hides the bar, so the program gets the whole screen |
+| `MIRAH_NO_UPDATE_CHECK` | `1` | Turns off the update check |
+| `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
+| `MIRAH_RECORD` | a file path | Records the program's output to that file |
+| `MIRAH_LOG` | `debug` | Writes a log to `%LOCALAPPDATA%\mirah\mirah.log` or `~/.local/state/mirah/mirah.log` |
+
+## Sessions and recording
+
+Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder in `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere, holding:
+
+- **`session.toml`:** the program, the command, the folder, and when it started and ended.
+- **`output.vt`:** the recording, when recording was on.
+- **`mirah.log`:** the log, when recording was on from the start.
+
+```bash
+mirah sessions
+mirah resume 1106-0457-k3f2
+mirah --record claude
+```
+
+- **`mirah sessions`:** lists recent sessions and the folder.
+- **`mirah resume <ID>`:** continues the same conversation. It opens the same program in the same folder with that program's own continue option (`claude --continue`, `opencode --continue`, `codex resume --last`, `gemini --resume`) and keeps recording into the same file. Without an ID it continues the newest session.
+- **`mirah --record`:** records this session with a full log, and prints the ID when you exit.
+- **Cleanup:** mirah keeps the newest 50 sessions, or the last 14 days if that is more.
+
+> **A recording can contain paths from your machine or anything shown on screen.** Review it before attaching it to a bug report.
+
+## Updating
 
 ```bash
 mirah update
 ```
 
-This looks for the newest release, alphas included. If there is a newer one, it downloads it, **checks its SHA-256**, and replaces `mirah` with it. If the checksum does not match, nothing changes. The new version runs from the next start.
-
-At startup mirah checks for a newer version and keeps the result for an hour. If there is one, a line with two buttons appears: **Install** and **Later**. Move between them with the arrows or Tab, confirm with Enter, and Esc means Later. After Later, mirah does not ask again about the same version for 24 hours. The check needs `curl` and `tar`, which Windows 10 and 11, macOS and Linux all ship.
-
-### Recording a session for a bug report
-
-```bash
-mirah --record claude
-```
-
-This saves the program's raw output and a full log in the session folder. mirah prints the session ID when you exit, and `mirah sessions` shows the folder. Turning on "record every session" in the settings does the same for every session.
-
-> A recording can contain paths from your machine or anything shown on screen. Review it before sending it.
-
-**On Windows:** programs installed with npm (such as `opencode` and `gemini`) work, because mirah finds their `.cmd` shim on PATH. If you run from the folder that holds `mirah.exe` without adding it to PATH, PowerShell needs `.\mirah.exe`.
-
-### Settings
-
-| Variable | Values | What it does |
-|---|---|---|
-| `MIRAH_ALIGN` | `prose` (default), `arabic`, `off` | Right-align prose (Arabic and English), Arabic only, or nothing |
-| `MIRAH_SHAPING` | `full`, `plain` | `full`: mirah joins letters. `plain`: the terminal joins them, picked automatically in Windows Terminal |
-| `MIRAH_INPUT` | `logical`, `visual` | `visual`: the program reorders Arabic itself before sending it. mirah puts each row back in logical order and checks that this reproduces exactly what the program drew; when it cannot confirm that, it keeps the row as drawn and only fixes brackets. Picked automatically for Claude Code on Windows |
-| `MIRAH_CONPTY` | `system` | Windows: use the ConPTY that ships with Windows instead of the newer one bundled with mirah |
-| `MIRAH_BAR` | `0` | Hides the mirah bar so the program gets the whole screen |
-| `MIRAH_NO_UPDATE_CHECK` | `1` | Turns off the new-version check at startup |
-| `MIRAH_RECORD` | file path | Saves the program's raw output so you can attach it to a bug report |
-| `MIRAH_LOG` | `debug` | Writes a log file |
-
-To see what happens inside without printing anything to the screen:
-
-```bash
-MIRAH_LOG=debug mirah codex
-```
-
-The log is written to `~/.local/state/mirah/mirah.log`, or `%LOCALAPPDATA%\mirah\mirah.log` on Windows. With `--record` it goes to the session folder.
+- Looks for the newest release, alphas included.
+- If there is a newer one, it downloads it and **checks its SHA-256** before replacing `mirah`. If the checksum does not match, nothing changes.
+- The bar also checks in the background and shows `↻` when it finds a new version.
+- Needs `curl` and `tar`, which Windows 10 and 11, macOS and Linux all ship.
 
 ## Terminals
 
-| Terminal | Has bidi | Can turn it off (BDSM) | What mirah does |
+| Terminal | Has bidi | Turns it off with BDSM | What mirah does |
 |---|---|---|---|
-| GNOME Terminal / VTE | ✅ | ✅ | Turns off its bidi and reorders itself |
-| iTerm2 3.7 | ✅ | ✅ | Turns off its bidi and reorders itself |
-| Kitty · Alacritty · Ghostty | ❌ | Not needed | Reorders and joins letters |
-| VS Code · Cursor (xterm.js) | ❌ | Not needed | Reorders and joins letters |
-| Konsole | ✅ | ❌ | ⚠️ Text is reversed twice. Turn off bidi in Konsole's settings |
-| Windows Terminal | ❌ | Not needed | ⚠️ Experimental: reorders, and the terminal joins letters |
+| Windows Terminal | ❌ | not needed | Reorders; the terminal joins letters. mirah bundles a newer ConPTY |
+| GNOME Terminal / VTE | ✅ | ✅ | Turns the terminal's bidi off and reorders itself |
+| iTerm2 3.7 | ✅ | ✅ | Turns the terminal's bidi off and reorders itself |
+| Kitty · Alacritty · Ghostty | ❌ | not needed | Reorders and joins letters |
+| VS Code · Cursor (xterm.js) | ❌ | not needed | Reorders and joins letters |
+| Konsole | ✅ | ❌ | ⚠️ text is reversed twice. Turn bidi off in Konsole's settings |
 
-> This table comes from [research](Plan/MarketResearch.md) and published reports, not from testing every terminal. If you test one, please add your result.
-
-You need a font with **Arabic Presentation Forms-B**, such as DejaVu Sans Mono.
+> This table comes from [research](Plan/MarketResearch.md) and the owner's use of Windows Terminal, not from testing every terminal. If you try one, add your result.
 
 ## Current limits
 
-- **Selections inside an Arabic word:** the fake cursor that Claude Code and other Ink-based programs draw works correctly. Selecting more than one letter inside an Arabic word (such as vim visual mode) still splits the word. See [Plan/FakeCursor.md](Plan/FakeCursor.md).
-- **Copying:** selecting text with the mouse copies shaped letters in visual order. A mirah copy mode will fix this.
-- **Mouse:** when the program asks for SGR mouse reports (as Claude Code does), mirah maps each click from the screen back to the program's column, so a selection covers the text you see. Other mouse formats pass through unchanged.
+- **The terminal's own selection:** selecting in a program that does not ask for the mouse makes the terminal copy what is on screen, in visual order. Copies made by the program (such as Claude Code) arrive correctly.
+- **Selecting several characters inside an Arabic word** (as in vim's visual mode) breaks the word. Details in [Plan/FakeCursor.md](Plan/FakeCursor.md).
+- **Alignment guesses** what is prose and what is code from colours and symbols. If an Arabic line stays on the left, send a screenshot or a recording.
 - **Scrollback:** mirah runs on the alternate screen, so text that scrolled off the top does not come back.
-- **Windows** is still experimental. mirah bundles a newer ConPTY (from Microsoft, MIT licensed) and extracts it to `%LOCALAPPDATA%\mirah\conpty\` on first run. See [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md) (Arabic).
+- **Windows** is still being tested. mirah unpacks a newer ConPTY (from Microsoft, MIT licensed) into `%LOCALAPPDATA%\mirah\conpty\` the first time. Details in [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md).
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  APP["claude · codex · gemini"] -->|VT bytes| TERM["mirah-term<br/>emulator and renderer"]
-  TERM -->|logical row| BIDI["mirah-bidi<br/>segment + bidi + shaping"]
+  APP["claude · opencode · codex"] -->|VT bytes| TERM["mirah-term<br/>emulator and renderer"]
+  TERM -->|logical row| BIDI["mirah-bidi<br/>bidi + shaping"]
   BIDI -->|visual row| TERM
   TERM -->|frames| SCREEN["your screen"]
-  KEYS["keyboard"] --> APP
+  KEYS["keyboard and mouse"] --> BAR["bar and tabs"] --> APP
 ```
 
 | Crate | Responsibility |
 |---|---|
-| [`mirah-bidi`](crates/mirah-bidi) | Pure logic with no I/O. Builds for WebAssembly, so any terminal can use it |
-| [`mirah-term`](crates/mirah-term) | VT bytes in, frames out, and answers terminal queries. Tested without a pty |
-| [`mirah`](crates/mirah) | The program itself: pty, threads, logging, and restoring the terminal |
+| [`mirah-bidi`](crates/mirah-bidi) | Reordering, letter joining and restoring order. No I/O, builds for WebAssembly, so any terminal can use it |
+| [`mirah-term`](crates/mirah-term) | The emulator: bytes in, frames out. Row classification, alignment, tables, split screens and copying. Tested without a pty |
+| [`mirah`](crates/mirah) | The program: tabs, the bar, settings, sessions, updates and the pty |
 
-Decisions and their reasons are in [`Plan/ADR`](Plan/ADR) (Arabic). All research is in [`Plan`](Plan).
+Decisions and their reasons are in [`Plan/ADR`](Plan/ADR), and each day of work in [`Plan/Progress`](Plan/Progress).
 
 ## Contributing
 
-**The easiest contribution needs no code: add a case to the corpus.** If you find a row that renders wrong, add it to `corpus/rows/` in this format:
+**The easiest contribution needs no code: add a corpus case.** If a row renders wrong, add it to `corpus/rows/` in this format:
 
 ```
 L|the row as the program wrote it
 V|the row as it should appear
 ```
 
-Before opening a PR:
+Before any PR:
 
 ```bash
 cargo fmt --all
@@ -264,12 +294,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-**Releasing:** bump the version in `Cargo.toml`, add a `CHANGELOG.md` section, and push. CI creates the tag and the release. See [Plan/Releasing.md](Plan/Releasing.md) (Arabic).
-
-Rules:
-- **No comments in code.** The reason behind a decision goes in `Plan/ADR/`.
-- `unwrap`, `expect` and `panic` are not allowed outside tests.
-- Documentation is **Arabic first, English as the alternative**.
+- **No comments in code.** The reason behind any decision goes in `Plan/ADR/`.
+- **`unwrap`, `expect` and `panic` are not allowed** outside tests.
+- **Documentation is Arabic first, with English as the alternative.**
+- **mirah's own interface** has rules in [`.claude/skills/mirah-ui`](.claude/skills/mirah-ui/SKILL.md): direction, simplified Standard Arabic wording, glyphs and colours.
+- **Releases:** bump the version in `Cargo.toml`, add a `CHANGELOG.md` section and push; CI creates the tag and the release. Details in [Plan/Releasing.md](Plan/Releasing.md).
 
 ## License
 

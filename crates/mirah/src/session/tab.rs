@@ -114,6 +114,8 @@ impl Tab {
             }
         };
         let recorder = Recorder::new(path);
+        let mut emulator = Emulator::with_options(open.size.rows, open.size.cols, options)?;
+        emulator.allow_clipboard(settings.clipboard);
         tracing::info!(
             tab = open.id,
             argv = ?open.spawn.argv,
@@ -129,7 +131,7 @@ impl Tab {
             pty: Some(pty),
             writer,
             killer,
-            emulator: Emulator::with_options(open.size.rows, open.size.cols, options)?,
+            emulator,
             recording_since: recorder.active().then(Instant::now),
             recorder,
             life: Lifecycle::default(),
@@ -184,6 +186,7 @@ impl Tab {
         self.settings = config.settings(&self.program);
         self.emulator
             .set_options(self.settings.render_options(&self.program));
+        self.emulator.allow_clipboard(self.settings.clipboard);
     }
 
     pub(super) fn close(mut self, store: Option<&Store>) -> u32 {

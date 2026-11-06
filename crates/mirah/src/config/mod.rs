@@ -24,6 +24,7 @@ pub(crate) struct Settings {
     pub(crate) update_check: bool,
     pub(crate) bar: bool,
     pub(crate) record: bool,
+    pub(crate) clipboard: bool,
 }
 
 impl Default for Settings {
@@ -37,6 +38,7 @@ impl Default for Settings {
             update_check: true,
             bar: true,
             record: false,
+            clipboard: true,
         }
     }
 }
@@ -83,6 +85,7 @@ impl Settings {
             Key::Mouse => return flag().map(|f| self.mouse = f).is_some(),
             Key::UpdateCheck => return flag().map(|f| self.update_check = f).is_some(),
             Key::Record => return flag().map(|f| self.record = f).is_some(),
+            Key::Clipboard => return flag().map(|f| self.clipboard = f).is_some(),
         }
         true
     }
@@ -109,6 +112,7 @@ impl Settings {
             Key::Mouse => flag(self.mouse),
             Key::UpdateCheck => flag(self.update_check),
             Key::Record => flag(self.record),
+            Key::Clipboard => flag(self.clipboard),
         }
     }
 
