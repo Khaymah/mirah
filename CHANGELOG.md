@@ -2,6 +2,21 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.1 - 2026-11-06
+
+**عارض ملفات Markdown، والكود اللي فيه عربي.**
+
+- **`mirah view FILE.md`**، أو من شاشة الاختيار تحت "ملفات Markdown" (آخر 5 ملفات في الفولدر): الملف بيتفتح في تاب.
+  - العناوين، والقوايم، والاقتباسات على اليمين.
+  - الجداول بإطار، ومعكوسة، وعلى يمين الشاشة.
+  - الكود على الشمال، والسطور الطويلة بتلف.
+  - التنقل: الأسهم، وعجلة الماوس، و`PgUp` و`PgDn`، و`Home` و`End`.
+  - **`S` بيحفظ نسخة في التنزيلات**، باسم جديد لو الملف موجود. و`Q` بيقفل.
+- **سطر الكود اللي فيه كلمة عربي** (زي `println!("مرحبا");`) بقى بيتقري من الشمال لليمين، بدل ما كان بيتقلب. ده بيحصل بس لو أغلب حروف السطر لاتيني، عشان الكلام العربي مايتأثرش.
+- **الخط اللي على الشمال** (`┃` أو `│`) في رسالتك في opencode وفي الاقتباسات بقى بيروح على يمين الكلام، زي علامة القايمة.
+
+**English:** A Markdown viewer and code with Arabic in it. `mirah view FILE.md`, or the picker's "Markdown files" section (the newest five in the folder), opens the file in a tab: headings, lists and quotes on the right, tables with borders mirrored to the right, code on the left, long lines wrapped; arrows, the mouse wheel, PgUp/PgDn and Home/End move, `S` saves a copy to Downloads under a new name if one exists, and `Q` closes it. A code line holding an Arabic word, such as `println!("مرحبا");`, now reads left to right instead of reversed, only when most of its letters are Latin. The left bar (`┃`, `│`) of opencode's user message and of quotes moves to the right of the text, like a list marker.
+
 ## 0.3.0-alpha.4 - 2026-11-06
 
 **النسخ، وREADME جديد.**

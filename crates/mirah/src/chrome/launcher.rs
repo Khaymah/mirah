@@ -16,6 +16,7 @@ const DAY: u64 = 86_400;
 pub(crate) enum Entry {
     Start(Agent),
     Resume(Box<SessionMeta>, Agent),
+    Document(std::path::PathBuf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,11 +89,16 @@ impl Launcher {
         }
     }
 
-    fn agents(&self) -> usize {
-        self.entries
-            .iter()
-            .filter(|e| matches!(e, Entry::Start(_)))
-            .count()
+    fn section(&self, entry: usize) -> u8 {
+        match self.entries.get(entry) {
+            Some(Entry::Start(_)) | None => 0,
+            Some(Entry::Resume(..)) => 1,
+            Some(Entry::Document(_)) => 2,
+        }
+    }
+
+    fn opens_section(&self, entry: usize) -> bool {
+        entry > 0 && self.section(entry) != self.section(entry - 1)
     }
 
     fn chosen(&self) -> Option<Pick> {
@@ -119,8 +125,7 @@ impl Launcher {
     }
 
     fn body_row(&self, entry: usize) -> usize {
-        let header = usize::from(entry >= self.agents() && self.agents() < self.entries.len());
-        entry + header
+        entry + (0..=entry).filter(|&e| self.opens_section(e)).count()
     }
 
     pub(crate) fn click(&mut self, row: usize) -> Option<Pick> {
@@ -164,15 +169,35 @@ impl Launcher {
                 let path = shaped(&short_path(&meta.cwd), style(DIM, BOX_BG, false), shaping);
                 line(&[mark, name, when, path, number])
             }
+            Entry::Document(path) => {
+                let mark = shaped(
+                    "•",
+                    style(if focused { ACCENT } else { DIM }, BOX_BG, false),
+                    shaping,
+                );
+                let file = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let name = shaped(&file, style(TEXT, BOX_BG, focused), shaping);
+                let folder = path.parent().map(short_path).unwrap_or_default();
+                let folder = shaped(&folder, style(DIM, BOX_BG, false), shaping);
+                line(&[mark, name, folder, number])
+            }
         }
     }
 
     pub(crate) fn draw(&self, shaping: Shaping) -> Frame {
         let mut lines = Vec::new();
         for (i, entry) in self.entries.iter().enumerate() {
-            if i == self.agents() && i > 0 {
+            if self.opens_section(i) {
+                let header = if self.section(i) == 1 {
+                    "استئناف جلسة سابقة"
+                } else {
+                    "ملفات Markdown"
+                };
                 lines.push(Line::new(
-                    shaped("استئناف جلسة سابقة", style(DIM, BOX_BG, true), shaping),
+                    shaped(header, style(DIM, BOX_BG, true), shaping),
                     false,
                 ));
             }
@@ -224,6 +249,7 @@ mod tests {
                 Entry::Start(claude.clone()),
                 Entry::Start(agent("opencode", "OpenCode")),
                 Entry::Resume(Box::new(meta()), claude),
+                Entry::Document(PathBuf::from("/work/app/خطة.md")),
             ],
             Some("opencode"),
             false,
@@ -257,8 +283,9 @@ mod tests {
     #[test]
     fn arrows_wrap_and_escape_cancels() {
         let mut l = launcher();
-        l.key(Key::Down);
-        l.key(Key::Down);
+        for _ in 0..3 {
+            l.key(Key::Down);
+        }
         assert_eq!(l.row, 0);
         assert_eq!(l.key(Key::Escape), Some(Pick::Cancel));
     }
@@ -292,5 +319,11 @@ mod tests {
             Some(Pick::Open(Entry::Resume(..)))
         ));
         assert!(frame.rows.iter().all(|r| r.len() == frame.width));
+        assert!(rows[BODY_TOP + 4].contains("Markdown"), "{rows:?}");
+        assert!(rows[BODY_TOP + 5].contains("/work/app"), "{rows:?}");
+        assert!(matches!(
+            l.click(BODY_TOP + 5),
+            Some(Pick::Open(Entry::Document(_)))
+        ));
     }
 }

@@ -72,6 +72,7 @@ pub(crate) enum Kind {
     Prose,
     Framed,
     Fixed,
+    Code,
 }
 
 pub(super) fn base(cell: &Cell) -> char {
@@ -177,6 +178,12 @@ fn looks_like_code(row: &[Cell], text: Palette) -> bool {
         || (indent >= CODE_INDENT && !has_rtl(row) && !super::align::has_marker(row, indent))
 }
 
+fn mostly_latin_code(row: &[Cell], text: Palette) -> bool {
+    let letters: Vec<char> = row.iter().map(base).filter(|c| c.is_alphabetic()).collect();
+    let rtl = letters.iter().filter(|c| is_rtl(**c)).count();
+    rtl > 0 && rtl * 2 < letters.len() && looks_like_code(row, text)
+}
+
 fn has_gap(row: &[Cell]) -> bool {
     let first = row.iter().position(|c| !is_blank(c));
     let last = row.iter().rposition(|c| !is_blank(c));
@@ -257,6 +264,8 @@ pub(super) fn classify(logical: &[Vec<Cell>], cursor: &Cursor, align: Align) -> 
                 };
             if prose[i] && wanted {
                 Kind::Prose
+            } else if !framed && !below_input && mostly_latin_code(row, text) {
+                Kind::Code
             } else {
                 Kind::Fixed
             }
@@ -323,6 +332,16 @@ mod tests {
     }
 
     #[test]
+    fn arabic_prose_that_looks_like_code_keeps_its_direction() {
+        let line = row(&[
+            ("- ", Color::Default),
+            ("Go:", CODE),
+            (" اتعملت عشان البساطة", CODE),
+        ]);
+        assert_ne!(kinds(&screen(line))[2], Kind::Code);
+    }
+
+    #[test]
     fn coloured_code_stays_fixed_even_with_an_arabic_string() {
         let line = row(&[
             ("println!", CODE),
@@ -330,7 +349,7 @@ mod tests {
             ("مرحبا", Color::Rgb(120, 200, 120)),
             ("\");", Color::Default),
         ]);
-        assert_eq!(kinds(&screen(line))[2], Kind::Fixed);
+        assert_eq!(kinds(&screen(line))[2], Kind::Code);
         let plain_code = row(&[("let x = foo(a, b);", CODE)]);
         assert_eq!(kinds(&screen(plain_code))[2], Kind::Fixed);
     }

@@ -10,6 +10,7 @@ mod paths;
 mod session;
 mod store;
 mod update;
+mod viewer;
 
 use session::Spawn;
 use std::path::PathBuf;
@@ -50,6 +51,7 @@ fn first_tab(argv: Vec<String>, extra: &[agents::Agent]) -> Option<Spawn> {
         argv,
         cwd: here(),
         meta: None,
+        document: false,
     })
 }
 
@@ -76,6 +78,7 @@ fn resumed_tab(store: Option<&Store>, id: Option<&str>, extra: &[agents::Agent])
         agent: meta.agent.clone(),
         cwd: meta.cwd.clone(),
         meta: Some(meta),
+        document: false,
     }
 }
 
@@ -112,14 +115,17 @@ fn main() {
             }
             return;
         }
+        cli::Invocation::Pager(path) => exit(viewer::run(&path)),
+        cli::Invocation::View(path) => (Ok(Err(path)), false),
         cli::Invocation::Resume(id) => (Err(id), false),
-        cli::Invocation::Run(run) => (Ok(run.argv), run.record),
+        cli::Invocation::Run(run) => (Ok(Ok(run.argv)), run.record),
     };
     let config = config::Config::load();
     let extra = config.agents();
     let store = Store::open();
     let first = match first {
-        Ok(argv) => first_tab(argv, &extra),
+        Ok(Ok(argv)) => first_tab(argv, &extra),
+        Ok(Err(path)) => Some(viewer::spawn(&path)),
         Err(id) => Some(resumed_tab(store.as_ref(), id.as_deref(), &extra)),
     };
     let program = first

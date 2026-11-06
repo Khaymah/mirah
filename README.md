@@ -40,6 +40,7 @@ mirah
 - **تابات:** تفتح أكتر من برنامج جنب بعض، من غير ما تخرج.
 - **شريط بالعربي فيه الإعدادات:** كل إعداد بيتغير وانت شغال، وبيتحفظ في `config.toml`.
 - **جلسات ليها ID:** تكمّل أي محادثة بعدين بـ `mirah resume`، والتسجيلات والـ logs في مكان واحد منظم.
+- **عارض ملفات Markdown:** تقرا أي ملف `.md` بالعربي ومن اليمين، وتحفظ نسخة منه في التنزيلات.
 - **تحديث بأمر واحد**، ومعاه التأكد من الـ SHA-256.
 
 ## التثبيت
@@ -49,13 +50,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -68,8 +69,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -114,7 +115,7 @@ mirah
 مرآة بتدوّر على البرامج المتسطّبة عندك: Claude Code، وOpenCode، وCodex، وGemini، وQwen، وAider، وCrush، وCursor Agent، وAmp، وCopilot، وGoose، وفي الآخر الـ shell بتاعك. وبتفتح شاشة تختار منها:
 
 - **آخر برنامج استخدمته** بيبقى هو المختار.
-- **تحت البرامج** آخر الجلسات اللي تقدر تكمّلها.
+- **تحت البرامج** آخر الجلسات اللي تقدر تكمّلها، وآخر ملفات Markdown في الفولدر.
 - **التنقل:** الأسهم، وEnter، أو رقم السطر على طول.
 
 ولو عايز برنامج بعينه من غير الشاشة دي:
@@ -127,6 +128,27 @@ mirah opencode --model gpt-5
 **على ويندوز:**
 - البرامج اللي متسطّبة بـ npm (زي `opencode` و`gemini`) بتشتغل عادي، لأن مرآة بتدوّر على الـ `.cmd` بتاعها.
 - ولو شغّال من الفولدر اللي فيه `mirah.exe` ومش حاطّه في الـ PATH، PowerShell محتاج `.\mirah.exe`.
+
+## عارض ملفات Markdown
+
+```bash
+mirah view خطة.md
+```
+
+أو اختار الملف من شاشة الاختيار، تحت "ملفات Markdown". الملف بيتفتح في تاب:
+
+- **العناوين، والقوايم، والاقتباسات** على اليمين، والعلامة على يمين السطر.
+- **الجداول** بإطار، ومعكوسة، وعلى يمين الشاشة.
+- **الكود** على الشمال، وبيتقري من الشمال لليمين حتى لو فيه عربي.
+- **السطور الطويلة** بتلف على عرض الشاشة.
+
+| الزرار | بيعمل إيه |
+|---|---|
+| `↑` `↓` أو عجلة الماوس | تمرير |
+| `PgUp` `PgDn` أو المسافة | صفحة كاملة |
+| `Home` `End` | أول الملف وآخره |
+| `S` | يحفظ نسخة في التنزيلات (`Downloads`)، ولو فيه ملف بنفس الاسم بيسمّيها `خطة (2).md` |
+| `Q` أو `Esc` | يقفل التاب |
 
 ## الشريط والتابات
 
@@ -257,6 +279,7 @@ mirah update
 - **التحديد بتاع الترمنال نفسه:** لو حددت بالماوس في برنامج مش طالب الماوس، الترمنال بينسخ اللي على الشاشة، يعني بالترتيب المرئي. النسخ اللي البرنامج بيعمله (زي Claude Code) بيوصل صح.
 - **تحديد أكتر من حرف جوه كلمة عربي** (زي visual mode في vim) بيقطّع الكلمة. التفاصيل في [Plan/FakeCursor.md](Plan/FakeCursor.md).
 - **المحاذاة بتخمّن** إيه الكلام وإيه الكود من الألوان والرموز. لو لقيت سطر عربي فاضل على الشمال، ابعت screenshot أو تسجيل.
+- **عارض Markdown** مابيعرضش الصور، وبيكتب مكانها رابطها. والـ HTML اللي جوه الملف بيظهر كنص.
 - **الـ scrollback:** مرآة شغالة على الـ alternate screen، فالكلام اللي طلع برا الشاشة من فوق مابيرجعش.
 - **ويندوز** لسه بيتجرّب. مرآة بتفكّ ConPTY أحدث (من Microsoft، بترخيص MIT) في `%LOCALAPPDATA%\mirah\conpty\` أول مرة. التفاصيل في [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md).
 

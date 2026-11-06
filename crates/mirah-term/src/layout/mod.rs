@@ -111,6 +111,11 @@ fn arrange(
     settled: &[bool],
     caches: &mut Caches,
 ) -> Vec<VisualRow> {
+    let kinds = if options.align == Align::Off {
+        vec![Kind::Fixed; logical.len()]
+    } else {
+        classify::classify(&logical, cursor, options.align)
+    };
     let mut visual: Vec<VisualRow> = logical
         .iter()
         .enumerate()
@@ -121,7 +126,7 @@ fn arrange(
             let col = (cursor.visible && i == cursor.row).then_some(cursor.col);
             let bidi = BidiOptions {
                 shaping: options.shaping,
-                rtl_base: options.align != Align::Off,
+                rtl_base: options.align != Align::Off && kinds[i] != Kind::Code,
             };
             if !classify::has_rtl(row) {
                 return visual_row_with(row, col, bidi);
@@ -131,20 +136,16 @@ fn arrange(
                 .get_or(row, &(col, bidi), || visual_row_with(row, col, bidi))
         })
         .collect();
-    align_rows(&logical, &mut visual, cursor, options.align);
+    align_rows(&logical, &mut visual, &kinds);
     visual
 }
 
-fn align_rows(logical: &[Vec<Cell>], visual: &mut [VisualRow], cursor: &Cursor, align: Align) {
-    if align == Align::Off {
-        return;
-    }
-    let kinds = classify::classify(logical, cursor, align);
-    for (i, kind) in kinds.into_iter().enumerate() {
+fn align_rows(logical: &[Vec<Cell>], visual: &mut [VisualRow], kinds: &[Kind]) {
+    for (i, kind) in kinds.iter().enumerate() {
         match kind {
             Kind::Prose => align::align_prose(&logical[i], &mut visual[i]),
             Kind::Framed => align::align_inside_frames(&mut visual[i]),
-            Kind::Fixed => {}
+            Kind::Fixed | Kind::Code => {}
         }
     }
 }

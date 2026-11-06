@@ -38,6 +38,7 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 - **Tabs:** run several programs side by side without leaving.
 - **An Arabic bar with settings** that change live and are saved in `config.toml`.
 - **Sessions with IDs:** continue any conversation later with `mirah resume`; recordings and logs live in one organised place.
+- **A Markdown viewer:** read any `.md` file in Arabic, right to left, and save a copy to Downloads.
 - **One-command updates** with a SHA-256 check.
 
 ## Install
@@ -47,13 +48,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -66,8 +67,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.3.0-alpha.4/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.1/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -112,7 +113,7 @@ mirah
 mirah looks for the programs installed on your machine (Claude Code, OpenCode, Codex, Gemini, Qwen, Aider, Crush, Cursor Agent, Amp, Copilot, Goose, then your shell) and opens a picker:
 
 - **The program you used last** is preselected.
-- **Below the programs** are recent sessions you can continue.
+- **Below the programs** are recent sessions you can continue and the newest Markdown files in the folder.
 - **Moving:** arrows and Enter, or the row's number directly.
 
 To start a program directly, without the picker:
@@ -125,6 +126,27 @@ mirah opencode --model gpt-5
 **On Windows:**
 - Programs installed with npm (such as `opencode` and `gemini`) work, because mirah finds their `.cmd` shim.
 - If you run from the folder holding `mirah.exe` without adding it to PATH, PowerShell needs `.\mirah.exe`.
+
+## The Markdown viewer
+
+```bash
+mirah view plan.md
+```
+
+Or pick the file in the picker, under "Markdown files". It opens in a tab:
+
+- **Headings, lists and quotes** sit on the right, with their marker on the right of the line.
+- **Tables** get borders, are mirrored, and sit on the right of the screen.
+- **Code** stays on the left and reads left to right even when it holds Arabic.
+- **Long lines** wrap at the screen width.
+
+| Key | Does |
+|---|---|
+| `↑` `↓` or the mouse wheel | Scroll |
+| `PgUp` `PgDn` or space | A whole page |
+| `Home` `End` | Start and end of the file |
+| `S` | Saves a copy to `Downloads`; if a file with that name exists, the copy is named `plan (2).md` |
+| `Q` or `Esc` | Closes the tab |
 
 ## The bar and tabs
 
@@ -255,6 +277,7 @@ mirah update
 - **The terminal's own selection:** selecting in a program that does not ask for the mouse makes the terminal copy what is on screen, in visual order. Copies made by the program (such as Claude Code) arrive correctly.
 - **Selecting several characters inside an Arabic word** (as in vim's visual mode) breaks the word. Details in [Plan/FakeCursor.md](Plan/FakeCursor.md).
 - **Alignment guesses** what is prose and what is code from colours and symbols. If an Arabic line stays on the left, send a screenshot or a recording.
+- **The Markdown viewer** does not show images; it writes their link instead. HTML inside the file shows as text.
 - **Scrollback:** mirah runs on the alternate screen, so text that scrolled off the top does not come back.
 - **Windows** is still being tested. mirah unpacks a newer ConPTY (from Microsoft, MIT licensed) into `%LOCALAPPDATA%\mirah\conpty\` the first time. Details in [ADR-0004](Plan/ADR/0004-bundle-conpty-on-windows.md).
 

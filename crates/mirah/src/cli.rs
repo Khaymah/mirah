@@ -8,6 +8,8 @@ Usage:
                               session folder
   mirah sessions              list recent sessions and their IDs
   mirah resume [ID]           continue a session (the newest one without an ID)
+  mirah view FILE.md          read a Markdown file, right to left, and save a
+                              copy to Downloads with S
   mirah update                install the newest release
   mirah -- PROGRAM ...        run a program named like a mirah command
   mirah --version             print the version
@@ -41,6 +43,8 @@ https://github.com/Khaymah/mirah";
 
 pub(crate) enum Invocation {
     Run(Run),
+    View(std::path::PathBuf),
+    Pager(std::path::PathBuf),
     Resume(Option<String>),
     Sessions,
     Update,
@@ -66,6 +70,19 @@ pub(crate) fn parse(mut args: impl Iterator<Item = String>) -> Invocation {
         Some("--help" | "-h") => Invocation::Print(HELP.to_string()),
         Some("update") => Invocation::Update,
         Some("sessions") => Invocation::Sessions,
+        Some("view") => {
+            args.next();
+            match args.next() {
+                Some(path) => Invocation::View(path.into()),
+                None => Invocation::Print(
+                    "mirah view needs a Markdown file: mirah view README.md".to_string(),
+                ),
+            }
+        }
+        Some(crate::viewer::COMMAND) => {
+            args.next();
+            Invocation::Pager(args.next().unwrap_or_default().into())
+        }
         Some("resume") => {
             args.next();
             Invocation::Resume(args.next())
@@ -118,6 +135,9 @@ mod tests {
     fn commands_and_double_dash() {
         assert!(matches!(parse_args(&["update"]), Invocation::Update));
         assert!(matches!(parse_args(&["sessions"]), Invocation::Sessions));
+        assert!(
+            matches!(parse_args(&["view", "خطة.md"]), Invocation::View(p) if p.to_string_lossy() == "خطة.md")
+        );
         assert!(matches!(parse_args(&["resume"]), Invocation::Resume(None)));
         assert!(
             matches!(parse_args(&["resume", "1106-0457-k3f2"]), Invocation::Resume(Some(id)) if id == "1106-0457-k3f2")

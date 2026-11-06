@@ -23,6 +23,7 @@ pub(crate) struct Spawn {
     pub(crate) argv: Vec<String>,
     pub(crate) cwd: PathBuf,
     pub(crate) meta: Option<SessionMeta>,
+    pub(crate) document: bool,
 }
 
 #[derive(Default)]
@@ -73,6 +74,9 @@ pub(super) struct Open<'a> {
 }
 
 fn session(open: &mut Open<'_>) -> Option<SessionMeta> {
+    if open.spawn.document {
+        return None;
+    }
     let store = open.store?;
     let mut meta = match open.spawn.meta.take() {
         Some(meta) => meta,
@@ -106,7 +110,7 @@ impl Tab {
             .zip(open.store)
             .map(|(m, store)| store.output(&m.id));
         let continuing = resuming && output.as_ref().is_some_and(|p| p.exists());
-        let wanted = open.record || settings.record || continuing;
+        let wanted = !open.spawn.document && (open.record || settings.record || continuing);
         let path = match output {
             Some(output) => wanted.then_some(output),
             None => {

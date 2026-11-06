@@ -99,12 +99,12 @@ fn align_after_left_bar(visual: &mut VisualRow, bar: usize) {
         return;
     }
     let (first, last) = (bar + 1 + first, bar + 1 + last);
-    let len = last + 1 - first;
-    let Some(start) = width.checked_sub(FRAME_PADDING + len) else {
+    let order: Vec<usize> = (first..=last).chain(bar + 1..first).chain([bar]).collect();
+    let Some(start) = width.checked_sub(FRAME_PADDING + order.len()) else {
         return;
     };
-    if start > first {
-        place(visual, &(first..=last).collect::<Vec<_>>(), start);
+    if start > bar {
+        place(visual, &order, start);
     }
 }
 
@@ -167,7 +167,7 @@ mod tests {
             logical_to_visual: (0..19).collect(),
         };
         align_inside_frames(&mut v);
-        assert_eq!(text(&v), "  ┃          ابحرم ");
+        assert_eq!(text(&v), "          ابحرم  ┃ ");
         let mut boxed = VisualRow {
             cells: row("│ ابحرم │       "),
             logical_to_visual: (0..15).collect(),

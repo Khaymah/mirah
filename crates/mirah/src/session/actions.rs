@@ -18,13 +18,16 @@ fn spawn_for(entry: Entry) -> Spawn {
             agent: agent.name,
             cwd: std::env::current_dir().unwrap_or_default(),
             meta: None,
+            document: false,
         },
         Entry::Resume(meta, agent) => Spawn {
             argv: agents::resume_argv(&agent, &meta.argv),
             agent: meta.agent.clone(),
             cwd: meta.cwd.clone(),
             meta: Some(*meta),
+            document: false,
         },
+        Entry::Document(path) => crate::viewer::spawn(&path),
     }
 }
 
@@ -77,6 +80,12 @@ impl Workspace {
                 .take(RECENT_SESSIONS);
             entries.extend(recent);
         }
+        let here = std::env::current_dir().unwrap_or_default();
+        entries.extend(
+            crate::viewer::recent_files(&here)
+                .into_iter()
+                .map(Entry::Document),
+        );
         let last = agents::last();
         let launcher = Launcher::new(
             entries,
@@ -112,7 +121,9 @@ impl Workspace {
             Action::Open(entry) => {
                 let spawn = spawn_for(entry);
                 let name = spawn.agent.clone();
-                agents::remember(&name);
+                if !spawn.document {
+                    agents::remember(&name);
+                }
                 if let Err(err) = self.open(spawn) {
                     tracing::warn!(error = format!("{err:#}"), "could not start the program");
                     self.notice(format!("تعذّر تشغيل {name}"));
