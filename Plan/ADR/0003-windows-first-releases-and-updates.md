@@ -69,7 +69,7 @@
 
 ## تعديل بعد القرار (2026-11-05)
 
-- **الـ attestations مقفولة طول ما الريبو private.** [وثائق GitHub](https://docs.github.com/de/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) بتقول إنها في الريبوهات الـ private محتاجة GitHub Enterprise Cloud، ومقدرتش أتأكد من خطة Khaymah. التحقق دلوقتي بالـ SHA-256 checksum بس. **لما الريبو يبقى public:** `github-attestations = true` في `dist-workspace.toml`، وبعدها `dist generate`.
+- **(اتحلّت في 2026-11-06: الريبو بقى public والـ attestations اشتغلت من `0.1.0-alpha.10`.)** الـ attestations مقفولة طول ما الريبو private. [وثائق GitHub](https://docs.github.com/de/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) بتقول إنها في الريبوهات الـ private محتاجة GitHub Enterprise Cloud، ومقدرتش أتأكد من خطة Khaymah. التحقق دلوقتي بالـ SHA-256 checksum بس. **لما الريبو يبقى public:** `github-attestations = true` في `dist-workspace.toml`، وبعدها `dist generate`.
 
 ## تعديل تاني: أداة التحديث (2026-11-06)
 

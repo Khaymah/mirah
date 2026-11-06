@@ -37,24 +37,44 @@ mirah gemini
 
 ## التثبيت
 
-### من صفحة الـ Releases
-
-الريبو لسه private، فالتحميل محتاج تكون متسجّل دخول في [GitHub CLI](https://cli.github.com) (`gh auth login`).
+### بأمر واحد
 
 **ويندوز (PowerShell):**
 
 ```powershell
-gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip"
-gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip.sha256"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.ps1 | iex"
+```
+
+**macOS وLinux:**
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.sh | sh
+```
+
+الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH. افتح ترمنال جديد بعده، وبعد كده `mirah update` بيجيبلك أي نسخة أحدث. يعني حتى لو الأمر ده لنسخة قديمة، أول ما مرآة تشتغل هتعرض عليك التحديث.
+
+> كل النسخ لسه alpha، وGitHub مابيعتبرش النسخ دي "latest"، فالأمر لازم يبقى لنسخة بعينها. وأي release فيه الأمر بالنسخة بتاعته.
+
+> ويندوز ممكن يطلّع تحذير SmartScreen أول مرة، لأن الملف لسه مش موقّع.
+
+### بإيدك، ومعاه التأكد من الملف
+
+installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه، فلو عايز تتأكد بإيدك:
+
+```powershell
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
 
-لازم الأمر التالت يطبع `True`، وده معناه إن الملف اللي نزل هو نفسه اللي الـ release بناه، ومحدش غيّر فيه. ضيف `%USERPROFILE%\.mirah\bin` للـ PATH. ولو جهازك ARM، استخدم `aarch64-pc-windows-msvc`.
+لازم الأمر التالت يطبع `True`، وده معناه إن الملف اللي نزل هو نفسه اللي الـ release بناه، ومحدش غيّر فيه. ضيف `%USERPROFILE%\.mirah\bin` للـ PATH. ولو جهازك ARM، استخدم `aarch64-pc-windows-msvc`. وعلى macOS وLinux نفس الخطوات بالملف المناسب لجهازك، مثلاً `mirah-aarch64-apple-darwin.tar.xz` أو `mirah-x86_64-unknown-linux-gnu.tar.xz`.
 
-> ويندوز ممكن يطلّع تحذير SmartScreen أول مرة، لأن الملف لسه مش موقّع.
+**إثبات المصدر:** من أول `0.1.0-alpha.10`، كل ملف معاه GitHub attestation. وده بيثبت إنه اتبنى من الريبو ده في GitHub Actions. ولو عندك [GitHub CLI](https://cli.github.com):
 
-**macOS وLinux:** نفس الخطوات بالملف المناسب لجهازك، مثلاً `mirah-aarch64-apple-darwin.tar.xz` أو `mirah-x86_64-unknown-linux-gnu.tar.xz`.
+```bash
+gh attestation verify mirah-x86_64-pc-windows-msvc.zip --repo Khaymah/mirah
+```
 
 ### من الكود
 

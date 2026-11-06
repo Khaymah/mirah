@@ -35,24 +35,44 @@ Existing fixes each cover one tool or one terminal. mirah works at the terminal 
 
 ## Install
 
-### From the Releases page
-
-The repository is still private, so downloading needs a signed-in [GitHub CLI](https://cli.github.com) (`gh auth login`).
+### One command
 
 **Windows (PowerShell):**
 
 ```powershell
-gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip"
-gh release download --repo Khaymah/mirah --pattern "mirah-x86_64-pc-windows-msvc.zip.sha256"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.ps1 | iex"
+```
+
+**macOS and Linux:**
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-installer.sh | sh
+```
+
+This puts mirah in `~/.mirah/bin` and adds it to PATH. Open a new terminal afterwards. From then on `mirah update` brings any newer version, so even if this command names an older release, mirah offers the update the first time it starts.
+
+> Every release is still an alpha, and GitHub does not count those as "latest", so the command has to name a version. Each release lists its own command.
+
+> Windows may show a SmartScreen warning the first time because the file is not signed yet.
+
+### By hand, with a check
+
+The PowerShell installer does not check the SHA-256 itself. To check it yourself:
+
+```powershell
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.1.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
 
-The third command must print `True`, which means the downloaded file is the one the release built and nothing changed it. Add `%USERPROFILE%\.mirah\bin` to your PATH. On ARM machines use `aarch64-pc-windows-msvc`.
+The third command must print `True`, which means the downloaded file is the one the release built and nothing changed it. Add `%USERPROFILE%\.mirah\bin` to your PATH. On ARM machines use `aarch64-pc-windows-msvc`. On macOS and Linux, use the file for your machine, such as `mirah-aarch64-apple-darwin.tar.xz` or `mirah-x86_64-unknown-linux-gnu.tar.xz`.
 
-> Windows may show a SmartScreen warning the first time because the file is not signed yet.
+**Provenance:** from `0.1.0-alpha.10`, every file has a GitHub attestation proving it was built from this repository in GitHub Actions. With the [GitHub CLI](https://cli.github.com):
 
-**macOS and Linux:** the same steps with the file for your machine, such as `mirah-aarch64-apple-darwin.tar.xz` or `mirah-x86_64-unknown-linux-gnu.tar.xz`.
+```bash
+gh attestation verify mirah-x86_64-pc-windows-msvc.zip --repo Khaymah/mirah
+```
 
 ### From source
 

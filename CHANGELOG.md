@@ -2,6 +2,16 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.10 - 2026-11-06
+
+**الريبو بقى public.**
+
+- **GitHub attestations:** كل ملف في الـ release معاه attestation بيثبت إنه اتبنى من `Khaymah/mirah` في GitHub Actions. ممكن تتأكد بـ `gh attestation verify <الملف> --repo Khaymah/mirah`. والـ action اللي بيعمل ده (`actions/attest`) متثبّت على commit بعينه، زي كل الـ actions التانية.
+- **التثبيت بأمر واحد** من غير `gh`: الأمر موجود في الـ README وفي كل release. وبعدها `mirah update` بيكمّل.
+- **أول نسخة تقدر تحدّث ليها من alpha.9** بـ `mirah update` أو بزرار Install.
+
+**English:** The repository is public. Every release file now has a GitHub attestation proving it was built from `Khaymah/mirah` in GitHub Actions; check it with `gh attestation verify <file> --repo Khaymah/mirah`. The attest action is pinned to a commit like every other action. Installing takes one command with no `gh` (in the README and in each release), and `mirah update` takes over from there. This is the first version alpha.9 can update to with `mirah update` or the Install button.
+
 ## 0.1.0-alpha.9 - 2026-11-06
 
 **`mirah update`.**
