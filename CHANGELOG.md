@@ -2,6 +2,18 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.3.0-alpha.3 - 2026-11-06
+
+**المحاذاة.** من تسجيل opencode اللي المالك بعته، ومقارنة قبل وبعد على كل تسجيلات Claude.
+
+- **الكلام العربي اللي فيه كود صغير** (زي "Rust: بيستخدم `Result<T, E>`") بقى بيتحاذى يمين. قبل كده opencode بيلوّن الكود جوه الجملة، فلو السطر قصير، نص حروفه بتبقى ملوّنة، ومرآة كانت بتفتكره كود. دلوقتي السطر اللي حروفه العربي بلون الكلام العادي بيتحسب كلام. ونسبة رموز الكود المسموحة في السطر العربي بقت 25%، بعد ما كانت 12%.
+- **الكلام العربي الرمادي** (زي "Thought" في opencode) بيتحاذى يمين.
+- **رسالتك في opencode** (الصندوق اللي ليه خط على الشمال بس `┃`)، والاقتباسات اللي جنبها `│`: الكلام اللي جواهم بقى يمين.
+- **سطر الكتابة في Claude لما يكون فيه عربي** بقى بيتحاذى يمين زي ما المالك طلب، بعد ما كانت علامة `>` بتخلّيه يتحسب كود.
+- **ملاحظة:** لما يبقى فيه عربي على الشاشة، الكلام الإنجليزي اللي جنبه بيتحاذى يمين كمان، زي القاعدة القديمة. فالسطر "Resume this session with:" اللي Claude بيكتبه وهو بيقفل بقى يمين.
+
+**English:** Alignment fixes from the owner's opencode recording, checked before and after on every Claude recording. Arabic sentences with a little inline code, which opencode colours, are prose again: a row whose Arabic letters are in the text colour is not treated as code, and Arabic rows allow 25% code characters instead of 12%. Grey Arabic such as opencode's "Thought" aligns right. Text after a single left bar (`┃`, `│`), as in opencode's user message and in quotes, aligns right. Claude's input row aligns right when it holds Arabic, as asked; before, its `>` made it look like code. English prose next to Arabic still aligns right, so "Resume this session with:" at Claude's exit does too.
+
 ## 0.3.0-alpha.2 - 2026-11-06
 
 **نصوص أوضح، وقايمة أبسط.** على حسب المقال اللي بعته المالك عن تصميم الواجهات العربي.

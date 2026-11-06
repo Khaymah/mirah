@@ -5,6 +5,8 @@ use unicode_bidi::{BidiClass, bidi_class};
 const TOOL_OUTPUT: char = '⎿';
 const CODE_INDENT: usize = 4;
 const CODE_CHAR_RATIO: f32 = 0.12;
+const ARABIC_CODE_CHAR_RATIO: f32 = 0.25;
+const GRAY_SPREAD: u8 = 24;
 const CODE_CHARS: &str = "{}[]();=<>&|$`\\_#";
 const COLORED_RATIO: f32 = 0.5;
 const MIN_LETTERS: usize = 2;
@@ -114,6 +116,29 @@ fn input_row(logical: &[Vec<Cell>], cursor: &Cursor) -> Option<usize> {
     fake.max(real)
 }
 
+fn is_gray(color: Color) -> bool {
+    match color {
+        Color::Rgb(r, g, b) => {
+            let (high, low) = (r.max(g).max(b), r.min(g).min(b));
+            high - low <= GRAY_SPREAD
+        }
+        Color::Indexed(n) => matches!(n, 8 | 232..=255),
+        Color::Default => true,
+    }
+}
+
+fn rtl_in_text_color(content: &[&Cell], text: Palette) -> bool {
+    let rtl: Vec<&&Cell> = content
+        .iter()
+        .filter(|c| c.text.chars().any(is_rtl))
+        .collect();
+    let plain = rtl
+        .iter()
+        .filter(|c| !is_syntax_color(c.style.fg, text.fg) || is_gray(c.style.fg))
+        .count();
+    plain * 2 > rtl.len()
+}
+
 fn looks_like_code(row: &[Cell], text: Palette) -> bool {
     let content: Vec<&Cell> = row.iter().filter(|c| !is_blank(c)).collect();
     if content.is_empty() {
@@ -135,9 +160,19 @@ fn looks_like_code(row: &[Cell], text: Palette) -> bool {
     let heading = has_rtl(row)
         && letters.iter().all(|c| c.style.bold)
         && letters.windows(2).all(|w| w[0].style.fg == w[1].style.fg);
+    let rtl = has_rtl(row);
+    let arabic_prose = rtl && rtl_in_text_color(&content, text);
+    let char_ratio = if rtl {
+        ARABIC_CODE_CHAR_RATIO
+    } else {
+        CODE_CHAR_RATIO
+    };
     is_diff_line(&content)
-        || (!heading && plain_bg * 2.0 >= total && colored / plain_bg > COLORED_RATIO)
-        || code_chars / total > CODE_CHAR_RATIO
+        || (!heading
+            && !arabic_prose
+            && plain_bg * 2.0 >= total
+            && colored / plain_bg > COLORED_RATIO)
+        || code_chars / total > char_ratio
         || first == TOOL_OUTPUT
         || (indent >= CODE_INDENT && !has_rtl(row) && !super::align::has_marker(row, indent))
 }
@@ -227,4 +262,76 @@ pub(super) fn classify(logical: &[Vec<Cell>], cursor: &Cursor, align: Align) -> 
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CODE: Color = Color::Rgb(230, 160, 90);
+
+    fn row(parts: &[(&str, Color)]) -> Vec<Cell> {
+        let mut cells: Vec<Cell> = Vec::new();
+        for (text, fg) in parts {
+            for c in text.chars() {
+                let mut cell = Cell::plain(c.to_string());
+                cell.style.fg = *fg;
+                cells.push(cell);
+            }
+        }
+        cells.resize(60, Cell::plain(" "));
+        cells
+    }
+
+    fn kinds(rows: &[Vec<Cell>]) -> Vec<Kind> {
+        let cursor = Cursor {
+            row: 0,
+            col: 0,
+            visible: false,
+            editor: false,
+        };
+        classify(rows, &cursor, Align::Prose)
+    }
+
+    fn screen(line: Vec<Cell>) -> Vec<Vec<Cell>> {
+        let prose = row(&[("هذا سطر عادي من الكلام العربي الطويل نسبيًا", Color::Default)]);
+        vec![prose.clone(), prose, line]
+    }
+
+    #[test]
+    fn arabic_with_coloured_inline_code_is_prose() {
+        let line = row(&[
+            ("- ", Color::Default),
+            ("Rust:", CODE),
+            (" بيستخدم ", Color::Default),
+            ("Result<T, E>", CODE),
+        ]);
+        assert_eq!(kinds(&screen(line))[2], Kind::Prose);
+    }
+
+    #[test]
+    fn arabic_with_a_few_code_characters_is_prose() {
+        let line = row(&[("claude ready args=[] مرحبا", Color::Default)]);
+        assert_eq!(kinds(&screen(line))[2], Kind::Prose);
+    }
+
+    #[test]
+    fn grey_arabic_like_a_thought_is_prose() {
+        let grey = Color::Rgb(128, 128, 128);
+        let line = row(&[("الاتنين لغات حديثة و", grey)]);
+        assert_eq!(kinds(&screen(line))[2], Kind::Prose);
+    }
+
+    #[test]
+    fn coloured_code_stays_fixed_even_with_an_arabic_string() {
+        let line = row(&[
+            ("println!", CODE),
+            ("(\"", Color::Default),
+            ("مرحبا", Color::Rgb(120, 200, 120)),
+            ("\");", Color::Default),
+        ]);
+        assert_eq!(kinds(&screen(line))[2], Kind::Fixed);
+        let plain_code = row(&[("let x = foo(a, b);", CODE)]);
+        assert_eq!(kinds(&screen(plain_code))[2], Kind::Fixed);
+    }
 }

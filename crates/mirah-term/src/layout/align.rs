@@ -85,6 +85,29 @@ fn has_gap(cells: &[Cell]) -> bool {
     cells.windows(2).any(|w| is_blank(&w[0]) && is_blank(&w[1]))
 }
 
+fn align_after_left_bar(visual: &mut VisualRow, bar: usize) {
+    let width = visual.cells.len();
+    let inner = &visual.cells[bar + 1..];
+    let (Some(first), Some(last)) = (
+        inner.iter().position(|c| !is_blank(c)),
+        inner.iter().rposition(|c| !is_blank(c)),
+    ) else {
+        return;
+    };
+    let content = &inner[first..=last];
+    if !content.iter().any(|c| c.text.chars().any(is_rtl)) || has_gap(content) {
+        return;
+    }
+    let (first, last) = (bar + 1 + first, bar + 1 + last);
+    let len = last + 1 - first;
+    let Some(start) = width.checked_sub(FRAME_PADDING + len) else {
+        return;
+    };
+    if start > first {
+        place(visual, &(first..=last).collect::<Vec<_>>(), start);
+    }
+}
+
 pub(super) fn align_inside_frames(visual: &mut VisualRow) {
     let frames: Vec<usize> = visual
         .cells
@@ -93,6 +116,12 @@ pub(super) fn align_inside_frames(visual: &mut VisualRow) {
         .filter(|(_, c)| is_frame(base(c)))
         .map(|(i, _)| i)
         .collect();
+    if let [bar] = frames[..]
+        && visual.cells[..bar].iter().all(is_blank)
+    {
+        align_after_left_bar(visual, bar);
+        return;
+    }
     for pair in frames.windows(2) {
         let (left, right) = (pair[0], pair[1]);
         let inner = &visual.cells[left + 1..right];
@@ -129,6 +158,22 @@ mod tests {
 
     fn text(v: &VisualRow) -> String {
         v.cells.iter().map(|c| c.text.as_str()).collect()
+    }
+
+    #[test]
+    fn text_after_a_left_bar_moves_right() {
+        let mut v = VisualRow {
+            cells: row("  ┃  ابحرم         "),
+            logical_to_visual: (0..19).collect(),
+        };
+        align_inside_frames(&mut v);
+        assert_eq!(text(&v), "  ┃          ابحرم ");
+        let mut boxed = VisualRow {
+            cells: row("│ ابحرم │       "),
+            logical_to_visual: (0..15).collect(),
+        };
+        align_inside_frames(&mut boxed);
+        assert_eq!(text(&boxed), "│ ابحرم │       ");
     }
 
     #[test]
