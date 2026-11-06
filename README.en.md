@@ -74,6 +74,18 @@ mirah claude
 
 With no command, mirah opens your shell.
 
+### Recording a session for a bug report
+
+```bash
+mirah --record claude
+```
+
+This saves `mirah-session-N.vt` (the program's raw output) and `mirah-session-N.log` (a full log) **in the current folder**, numbered after the last session already there. mirah prints where they are when you exit.
+
+> A recording can contain paths from your machine or anything shown on screen. Review it before sending it.
+
+**On Windows:** programs installed with npm (such as `opencode` and `gemini`) work, because mirah finds their `.cmd` shim on PATH. If you run from the folder that holds `mirah.exe` without adding it to PATH, PowerShell needs `.\mirah.exe`.
+
 ### Settings
 
 | Variable | Values | What it does |
@@ -91,7 +103,7 @@ To see what happens inside without printing anything to the screen:
 MIRAH_LOG=debug mirah codex
 ```
 
-The log is written to `~/.local/state/mirah/mirah.log`.
+The log is written to `~/.local/state/mirah/mirah.log`, or `%LOCALAPPDATA%\mirah\mirah.log` on Windows. With `--record` it goes to the current folder.
 
 ## Terminals
 

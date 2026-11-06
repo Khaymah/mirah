@@ -1,5 +1,6 @@
 mod cli;
 mod command;
+mod debug_files;
 mod host;
 mod logging;
 mod session;
@@ -22,17 +23,33 @@ fn print(text: &str) {
     println!("{text}");
 }
 
+#[allow(
+    clippy::print_stderr,
+    reason = "the terminal is already restored when the saved files are listed"
+)]
+fn report_saved(files: &debug_files::DebugFiles) {
+    eprintln!(
+        "mirah: saved {} and {}",
+        files.recording.display(),
+        files.log.display()
+    );
+}
+
 fn main() {
-    let cmd = match cli::parse(std::env::args().skip(1)) {
+    let run = match cli::parse(std::env::args().skip(1)) {
         cli::Invocation::Print(text) => {
             print(&text);
             return;
         }
-        cli::Invocation::Run(cmd) => cmd,
+        cli::Invocation::Run(run) => run,
     };
-    let log_guard = logging::init();
+    let files = run
+        .record
+        .then(|| debug_files::next_in(&std::env::current_dir().unwrap_or_default()));
+    let log_guard = logging::init(files.as_ref().map(|f| f.log.as_path()));
     host::install_panic_hook();
-    let code = match session::run(cmd) {
+    let recording = files.as_ref().map(|f| f.recording.clone());
+    let code = match session::run(run.cmd, &run.program, recording) {
         Ok(code) => code,
         Err(err) => {
             host::disable_raw_mode();
@@ -42,5 +59,8 @@ fn main() {
         }
     };
     drop(log_guard);
+    if let Some(files) = &files {
+        report_saved(files);
+    }
     std::process::exit(i32::try_from(code).unwrap_or(1));
 }

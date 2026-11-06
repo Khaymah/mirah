@@ -26,8 +26,11 @@ struct Lifecycle {
     output_closed: bool,
 }
 
-pub(crate) fn run(cmd: CommandBuilder) -> Result<u32> {
-    let program = cmd.get_argv().first().cloned().unwrap_or_default();
+pub(crate) fn run(
+    cmd: CommandBuilder,
+    program: &str,
+    recording: Option<std::path::PathBuf>,
+) -> Result<u32> {
     host::prepare_pty();
     let size = host::size();
     let (pty, child) = Pty::spawn(cmd, size)?;
@@ -46,10 +49,10 @@ pub(crate) fn run(cmd: CommandBuilder) -> Result<u32> {
         term_program = std::env::var("TERM_PROGRAM").unwrap_or_default(),
         "session started with explicit bidi mode"
     );
-    let options = host::render_options(&program);
+    let options = host::render_options(std::ffi::OsStr::new(program));
     tracing::info!(?options, "render options");
     let mut emulator = Emulator::with_options(size.rows, size.cols, options)?;
-    let mut recorder = Recorder::from_env();
+    let mut recorder = Recorder::new(recording);
     let mut life = Lifecycle::default();
     while let Some(first) = next_event(&inbox, &life) {
         let events = drain(first, &inbox);

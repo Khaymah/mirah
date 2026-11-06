@@ -2,6 +2,14 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.6 - 2026-11-06
+
+- **`mirah --record claude`:** بيحفظ `mirah-session-N.vt` و`mirah-session-N.log` في الفولدر اللي انت فيه، بالرقم اللي بعد آخر جلسة، وبيكتب مكانهم لما تخرج. مش محتاج `MIRAH_RECORD` ولا `MIRAH_LOG` ولا تدوّر في `%LOCALAPPDATA%`.
+- **ويندوز: البرامج اللي متسطّبة بـ npm** (`opencode` و`gemini` وغيرهم) كانت بتفشل بـ `%1 is not a valid Win32 application`، لأن مرآة كانت بتلاقي ملف الـ shell script اللي من غير امتداد قبل الـ `.cmd`. مرآة بقت بتدوّر بنفسها في الـ PATH بالامتدادات اللي في `PATHEXT`، وبتشغّل الـ `.cmd` و`.bat` عن طريق `cmd.exe /d /c`.
+- **وضع `visual` بيتحدد من اسم البرنامج اللي انت كتبته**، فلو Claude متسطّب بـ npm (`claude.cmd`) لسه بيتعرف عليه.
+
+**English:** `mirah --record claude` saves `mirah-session-N.vt` and `mirah-session-N.log` in the current folder, numbered after the last session there, and prints their location on exit. On Windows, programs installed with npm (`opencode`, `gemini` and others) failed with `%1 is not a valid Win32 application` because the extensionless shell script was found before the `.cmd` shim; mirah now searches PATH with `PATHEXT` itself and runs `.cmd`/`.bat` files through `cmd.exe /d /c`. Visual input order is now detected from the program name as typed, so Claude installed through npm is still recognized.
+
 ## 0.1.0-alpha.5 - 2026-11-05
 
 تصليحات من أول تسجيل لـ alpha.4 على ويندوز.
