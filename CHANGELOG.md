@@ -6,12 +6,14 @@
 
 **ألوان للماركداون، والجلسات جنب البرنامج، والنسخ من Claude على ويندوز.**
 
-- **تلوين Markdown** (إعداد جديد، شغال افتراضياً): العناوين وعلامات القوايم بلون مميز، وإطار الجداول أهدى، وصف العناوين بخط عريض، زي opencode. مرآة بتلوّن الكلام اللي بلون الكلام العادي بس، فالبرامج اللي بتلوّن بنفسها مابتتأثرش.
+- **تلوين Markdown** (إعداد جديد، شغال افتراضياً)، زي opencode:
+  - العناوين، وعلامات القوايم، والكلمات العريضة جوه الكلام (زي **Rust** و**Go**)، وصف عناوين الجدول بلون مميز.
+  - إطار الجداول وخطوط الفصل `---` بلون أهدى. مرآة بتلوّن الكلام اللي بلون الكلام العادي بس، فالبرامج اللي بتلوّن بنفسها مابتتأثرش.
 - **الجداول العربي اللي Claude بيعكسها بنفسه** (على ويندوز) بقت بتروح على يمين الشاشة هي كمان.
 - **الجلسات بقت في فولدر `sessions` جنب `mirah.exe`.** ولو مرآة مش قادرة تكتب هناك، بترجع لـ `%LOCALAPPDATA%\mirah\sessions`. و`sessions_dir` في `config.toml` بيختار مكان تاني. ومرآة بتكتب مكان الفولدر وهي خارجة.
 - **النسخ من Claude على ويندوز:** Claude الظاهر بيكتب في حافظة ويندوز بنفسه كمان، فالنص المقلوب كان بيفضل. دلوقتي بعد أي نسخة من برنامج بيقلب العربي، مرآة بتحط النص بالترتيب الصح في حافظة ويندوز بنفسها، مرتين (بعد ربع ثانية، وبعد حوالي ثانية).
 
-**English:** Markdown colours, sessions next to the program, and copying from Claude on Windows. A new "highlight Markdown" setting (on by default) colours headings and list markers with the accent, quiets table borders and bolds header rows, like opencode, touching only text in the normal text colour. Arabic tables that Claude mirrors itself on Windows now move to the right as well. Sessions are kept in a `sessions` folder next to `mirah.exe`, falling back to `%LOCALAPPDATA%\mirah\sessions` when that is not writable; `sessions_dir` in `config.toml` picks another place, and mirah prints the folder on exit. Claude on Windows apparently writes the Windows clipboard itself as well, so the reversed text stayed; after a copy from a program that reverses Arabic, mirah now puts the corrected text on the Windows clipboard itself, twice (after a quarter second and after about a second).
+**English:** Markdown colours, sessions next to the program, and copying from Claude on Windows. A new "highlight Markdown" setting (on by default) colours headings, list markers, bold words in prose and table header rows with the accent and quiets table borders and `---` rules, like opencode, touching only text in the normal text colour. Arabic tables that Claude mirrors itself on Windows now move to the right as well. Sessions are kept in a `sessions` folder next to `mirah.exe`, falling back to `%LOCALAPPDATA%\mirah\sessions` when that is not writable; `sessions_dir` in `config.toml` picks another place, and mirah prints the folder on exit. Claude on Windows apparently writes the Windows clipboard itself as well, so the reversed text stayed; after a copy from a program that reverses Arabic, mirah now puts the corrected text on the Windows clipboard itself, twice (after a quarter second and after about a second).
 
 ## 0.4.0-alpha.4 - 2026-11-06
 

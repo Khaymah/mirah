@@ -262,7 +262,11 @@ mod tests {
 
     #[test]
     fn a_table_the_program_already_mirrored_still_moves_right() {
-        let input = rows(&["┌────┬───────┐    ", "│ id │ الاسم │    ", "└────┴───────┘    "]);
+        let input = rows(&[
+            "┌────┬───────┐    ",
+            "│ id │ الاسم │    ",
+            "└────┴───────┘    ",
+        ]);
         let out = mirror_rtl_tables(input, &[true, true, true]);
         assert_eq!(texts(&out)[1], "    │ id │ الاسم │");
     }

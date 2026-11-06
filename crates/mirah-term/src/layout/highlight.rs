@@ -6,6 +6,8 @@ const ACCENT: Color = Color::Rgb(217, 145, 104);
 const BORDER: Color = Color::Rgb(110, 114, 124);
 const MIN_LETTERS: usize = 2;
 const TOP_LEFT: [char; 2] = ['┌', '╭'];
+const RULE_CHARS: [char; 4] = ['-', '─', '—', '━'];
+const MIN_RULE: usize = 3;
 
 fn plain(cell: &Cell, text: Palette) -> bool {
     cell.style.fg == text.fg || cell.style.fg == Color::Default
@@ -51,6 +53,28 @@ fn paint_table(visual: &mut VisualRow, header: bool, text: Palette) {
             cell.style.fg = BORDER;
         } else if header {
             cell.style.bold = true;
+            cell.style.fg = ACCENT;
+        }
+    }
+}
+
+fn is_rule(row: &[Cell]) -> bool {
+    let content: Vec<char> = row.iter().filter(|c| !is_blank(c)).map(base).collect();
+    content.len() >= MIN_RULE && content.iter().all(|c| RULE_CHARS.contains(c))
+}
+
+fn paint_rule(visual: &mut VisualRow, text: Palette) {
+    for cell in &mut visual.cells {
+        if !is_blank(cell) && plain(cell, text) {
+            cell.style.fg = BORDER;
+        }
+    }
+}
+
+fn paint_bold(visual: &mut VisualRow, text: Palette) {
+    for cell in &mut visual.cells {
+        if cell.style.bold && !is_blank(cell) && plain(cell, text) {
+            cell.style.fg = ACCENT;
         }
     }
 }
@@ -75,6 +99,10 @@ pub(super) fn paint(
             continue;
         }
         header_next = false;
+        if is_rule(row) {
+            paint_rule(out, text);
+            continue;
+        }
         if kinds.get(i) != Some(&Kind::Prose) {
             continue;
         }
@@ -82,6 +110,7 @@ pub(super) fn paint(
             paint_heading(out, text);
         } else {
             paint_marker(row, out, text);
+            paint_bold(out, text);
         }
     }
 }
@@ -149,7 +178,23 @@ mod tests {
         assert_eq!(out[1].cells[2].style.fg, Color::Default);
         assert_eq!(out[2].cells[0].style.fg, BORDER);
         assert!(out[3].cells[2].style.bold);
+        assert_eq!(out[3].cells[2].style.fg, ACCENT);
         assert!(!out[5].cells[2].style.bold);
+    }
+
+    #[test]
+    fn bold_words_and_rules_get_colour() {
+        let mut line = row("هنا Rust مهم", false);
+        for cell in &mut line[4..8] {
+            cell.style.bold = true;
+        }
+        let rule = row("---", false);
+        let logical = vec![line, rule];
+        let mut out: Vec<VisualRow> = logical.iter().map(|r| visual(r)).collect();
+        paint(&logical, &mut out, &[Kind::Prose, Kind::Fixed], palette());
+        assert_eq!(out[0].cells[4].style.fg, ACCENT);
+        assert_eq!(out[0].cells[0].style.fg, Color::Default);
+        assert_eq!(out[1].cells[0].style.fg, BORDER);
     }
 
     #[test]

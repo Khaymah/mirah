@@ -205,7 +205,7 @@ The first row belongs to mirah, and the program runs below it:
 | Setting | Choices | Does |
 |---|---|---|
 | Alignment | all text · Arabic only · off | Aligns prose right, Arabic and English, or Arabic only |
-| Highlight Markdown | on · off | Headings and list markers in an accent colour, quieter table borders and bold header rows, like opencode. Only text in the normal text colour is changed |
+| Highlight Markdown | on · off | Headings, list markers, bold words and table header rows in an accent colour, with quieter table borders and `---` rules, like opencode. Only text in the normal text colour is changed |
 | Mirror tables | on · off | First column on the right, and Arabic tables move to the right of the screen |
 | Record every session | on · off | Every new tab is recorded into its session folder |
 | Copy on select | on · off | Claude Code copies anything you select; mirah restores the Arabic order (and on Windows puts the corrected text on the clipboard itself). Off keeps selection from changing the clipboard |
