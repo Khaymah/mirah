@@ -19,21 +19,36 @@ fn is_syntax_color(color: Color, text: Color) -> bool {
         )
 }
 
-fn text_color(logical: &[Vec<Cell>]) -> Color {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Palette {
+    fg: Color,
+    bg: Color,
+}
+
+fn dominant(colors: impl Iterator<Item = Color>) -> Color {
     let mut counts: Vec<(Color, usize)> = Vec::new();
-    for cell in logical.iter().flatten() {
-        if !base(cell).is_alphabetic() {
-            continue;
-        }
-        match counts.iter_mut().find(|(c, _)| *c == cell.style.fg) {
+    for color in colors {
+        match counts.iter_mut().find(|(c, _)| *c == color) {
             Some((_, n)) => *n += 1,
-            None => counts.push((cell.style.fg, 1)),
+            None => counts.push((color, 1)),
         }
     }
     counts
         .into_iter()
         .max_by_key(|(_, n)| *n)
         .map_or(Color::Default, |(c, _)| c)
+}
+
+fn palette(logical: &[Vec<Cell>]) -> Palette {
+    let letters = || {
+        logical
+            .iter()
+            .flatten()
+            .filter(|cell| base(cell).is_alphabetic())
+    };
+    let bg = dominant(letters().map(|c| c.style.bg));
+    let fg = dominant(letters().filter(|c| c.style.bg == bg).map(|c| c.style.fg));
+    Palette { fg, bg }
 }
 
 fn is_diff_line(content: &[&Cell]) -> bool {
@@ -62,7 +77,7 @@ pub(super) fn base(cell: &Cell) -> char {
 }
 
 pub(super) fn is_blank(cell: &Cell) -> bool {
-    base(cell) == ' '
+    !cell.continuation && base(cell) == ' '
 }
 
 pub(super) fn blank_like(cell: Option<&Cell>) -> Cell {
@@ -99,15 +114,16 @@ fn input_row(logical: &[Vec<Cell>], cursor: &Cursor) -> Option<usize> {
     fake.max(real)
 }
 
-fn looks_like_code(row: &[Cell], text: Color) -> bool {
+fn looks_like_code(row: &[Cell], text: Palette) -> bool {
     let content: Vec<&Cell> = row.iter().filter(|c| !is_blank(c)).collect();
     if content.is_empty() {
         return false;
     }
     let total = content.len() as f32;
+    let plain_bg = content.iter().filter(|c| c.style.bg == text.bg).count() as f32;
     let colored = content
         .iter()
-        .filter(|c| is_syntax_color(c.style.fg, text))
+        .filter(|c| c.style.bg == text.bg && is_syntax_color(c.style.fg, text.fg))
         .count() as f32;
     let code_chars = content
         .iter()
@@ -115,8 +131,12 @@ fn looks_like_code(row: &[Cell], text: Color) -> bool {
         .count() as f32;
     let indent = row.iter().take_while(|c| is_blank(c)).count();
     let first = content.first().map(|c| base(c)).unwrap_or(' ');
+    let letters: Vec<&&Cell> = content.iter().filter(|c| base(c).is_alphabetic()).collect();
+    let heading = has_rtl(row)
+        && letters.iter().all(|c| c.style.bold)
+        && letters.windows(2).all(|w| w[0].style.fg == w[1].style.fg);
     is_diff_line(&content)
-        || colored / total > COLORED_RATIO
+        || (!heading && plain_bg * 2.0 >= total && colored / plain_bg > COLORED_RATIO)
         || code_chars / total > CODE_CHAR_RATIO
         || first == TOOL_OUTPUT
         || (indent >= CODE_INDENT && !has_rtl(row) && !super::align::has_marker(row, indent))
@@ -133,7 +153,7 @@ fn has_gap(row: &[Cell]) -> bool {
         .any(|w| is_blank(&w[0]) && is_blank(&w[1]))
 }
 
-fn is_prose(row: &[Cell], text: Color) -> bool {
+fn is_prose(row: &[Cell], text: Palette) -> bool {
     let letters = row.iter().filter(|c| base(c).is_alphabetic()).count();
     letters >= MIN_LETTERS && !looks_like_code(row, text) && !has_gap(row)
 }
@@ -142,7 +162,7 @@ fn is_empty_row(row: &[Cell]) -> bool {
     row.iter().all(is_blank)
 }
 
-fn rows_in_code_blocks(logical: &[Vec<Cell>], text: Color) -> Vec<bool> {
+fn rows_in_code_blocks(logical: &[Vec<Cell>], text: Palette) -> Vec<bool> {
     let mut in_code = vec![false; logical.len()];
     let mut start = 0;
     while start < logical.len() {
@@ -168,7 +188,7 @@ fn rows_in_code_blocks(logical: &[Vec<Cell>], text: Color) -> Vec<bool> {
 
 pub(super) fn classify(logical: &[Vec<Cell>], cursor: &Cursor, align: Align) -> Vec<Kind> {
     let input = input_row(logical, cursor);
-    let text = text_color(logical);
+    let text = palette(logical);
     let in_code = rows_in_code_blocks(logical, text);
     let prose: Vec<bool> = logical
         .iter()

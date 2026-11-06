@@ -1,6 +1,7 @@
 use crate::bridge::Bridge;
 use crate::error::TermError;
 use crate::layout::RenderOptions;
+use crate::overlay::Overlay;
 use crate::render::Renderer;
 use std::num::NonZeroU16;
 
@@ -78,8 +79,17 @@ impl Emulator {
     }
 
     pub fn frame(&mut self) -> String {
+        self.frame_with(&Overlay::default())
+    }
+
+    pub fn frame_with(&mut self, overlay: &Overlay) -> String {
         self.changed = false;
-        self.renderer.frame(self.parser.screen())
+        self.renderer.frame(self.parser.screen(), overlay)
+    }
+
+    pub fn set_options(&mut self, options: RenderOptions) {
+        self.renderer.set_options(options);
+        self.changed = true;
     }
 }
 

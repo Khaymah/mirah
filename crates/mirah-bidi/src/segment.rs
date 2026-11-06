@@ -1,4 +1,4 @@
-use crate::cell::{Cell, Color};
+use crate::cell::Cell;
 use crate::classify::{MIN_GAP_COLUMNS, is_frame, is_strong};
 use std::ops::Range;
 
@@ -30,9 +30,8 @@ impl Row<'_> {
         !self.cells[i].continuation && self.cells[i].is_blank() && !self.is_cursor(i)
     }
 
-    fn style_key(&self, i: usize) -> (Color, bool) {
-        let inverse = self.inverse(i) && !self.is_lone_inverse(i);
-        (self.cells[i].style.bg, inverse)
+    fn style_key(&self, i: usize) -> bool {
+        self.inverse(i) && !self.is_lone_inverse(i)
     }
 
     fn fixed_columns(&self) -> Vec<bool> {
@@ -145,6 +144,15 @@ mod tests {
     fn trim_keeps_punctuation_touching_the_first_word() {
         let r = row("● **ab** ");
         assert_eq!(trim(&r, 0..r.len()), 2..8);
+    }
+
+    #[test]
+    fn a_background_change_does_not_split_the_sentence() {
+        let mut r = row("ab cd");
+        for cell in &mut r[3..] {
+            cell.style.bg = crate::cell::Color::Rgb(238, 238, 238);
+        }
+        assert_eq!(segments(&r), vec![0..5]);
     }
 
     #[test]

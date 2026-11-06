@@ -2,6 +2,7 @@ mod cursor;
 mod sgr;
 
 use crate::layout::{Caches, Cursor, RenderOptions, layout};
+use crate::overlay::Overlay;
 use crate::screen::logical_row;
 use crate::sequences::{
     CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
@@ -78,53 +79,72 @@ impl Renderer {
         self.prev.clear();
     }
 
-    pub(crate) fn frame(&mut self, screen: &vt100::Screen) -> String {
-        let (rows, cols) = screen.size();
-        let (rows, cols) = (rows.get(), cols.get());
-        let mut out = format!("{SYNC_BEGIN}{CURSOR_HIDE}");
-        if self.prev.len() != usize::from(rows) {
-            out.push_str(SGR_RESET);
-            out.push_str(CLEAR_SCREEN);
-            self.prev = vec![Vec::new(); usize::from(rows)];
-        }
+    pub(crate) fn set_options(&mut self, options: RenderOptions) {
+        self.options = options;
+        self.caches = Caches::default();
+        self.invalidate();
+    }
 
-        let (cursor_row, cursor_col) = screen.cursor_position();
+    fn cursor(screen: &vt100::Screen, rows: u16) -> Cursor {
+        let (row, col) = screen.cursor_position();
         let visible = !screen.hide_cursor();
-        let cursor = Cursor {
-            row: usize::from(cursor_row),
-            col: usize::from(cursor_col),
+        Cursor {
+            row: usize::from(row),
+            col: usize::from(col),
             visible,
             editor: screen.alternate_screen()
                 && visible
-                && u32::from(cursor_row) * EDITOR_CURSOR_DEN < u32::from(rows) * EDITOR_CURSOR_NUM,
-        };
+                && u32::from(row) * EDITOR_CURSOR_DEN < u32::from(rows) * EDITOR_CURSOR_NUM,
+        }
+    }
+
+    pub(crate) fn frame(&mut self, screen: &vt100::Screen, overlay: &Overlay) -> String {
+        let (rows, cols) = screen.size();
+        let (rows, cols) = (rows.get(), cols.get());
+        let host_rows = rows.saturating_add(overlay.top);
+        let mut out = format!("{SYNC_BEGIN}{CURSOR_HIDE}");
+        if self.prev.len() != usize::from(host_rows) {
+            out.push_str(SGR_RESET);
+            out.push_str(CLEAR_SCREEN);
+            self.prev = vec![Vec::new(); usize::from(host_rows)];
+        }
+        let cursor = Self::cursor(screen, rows);
         let logical: Vec<Vec<Cell>> = (0..rows)
             .map(|row| logical_row(screen, row, cols))
             .collect();
-        let visual = layout(logical, &cursor, self.options, &mut self.caches);
-        let mut cursor_visual = cursor_col;
+        let mut visual = layout(logical, &cursor, self.options, &mut self.caches);
         self.to_child = visual
             .iter()
             .map(|line| invert(&line.logical_to_visual))
             .collect();
-        for (row, line) in (0..rows).zip(visual) {
-            if row == cursor_row {
-                cursor_visual = cursor::visual_column(&line.logical_to_visual, cursor_col);
-            }
-            if self.prev[usize::from(row)] != line.cells {
-                draw_row(&mut out, row, &line.cells);
-                self.prev[usize::from(row)] = line.cells;
+        let cursor_visual = visual.get(cursor.row).map_or(cursor.col, |line| {
+            usize::from(cursor::visual_column(
+                &line.logical_to_visual,
+                u16::try_from(cursor.col).unwrap_or(u16::MAX),
+            ))
+        });
+        for host in 0..host_rows {
+            let mut cells = match host.checked_sub(overlay.top) {
+                Some(child) => std::mem::take(&mut visual[usize::from(child)].cells),
+                None => vec![Cell::plain(" "); usize::from(cols)],
+            };
+            overlay.compose(host, &mut cells);
+            if self.prev[usize::from(host)] != cells {
+                draw_row(&mut out, host, &cells);
+                self.prev[usize::from(host)] = cells;
             }
         }
-
         let modes = screen.input_mode_formatted();
         if modes != self.prev_input_modes {
             out.push_str(&modes);
             self.prev_input_modes = modes;
         }
-
-        out.push_str(&cursor_to(cursor_row, cursor_visual));
-        if !screen.hide_cursor() {
+        let cursor_row = u16::try_from(cursor.row)
+            .unwrap_or(0)
+            .saturating_add(overlay.top);
+        let cursor_col = u16::try_from(cursor_visual).unwrap_or(0);
+        out.push_str(&cursor_to(cursor_row, cursor_col));
+        if cursor.visible && !overlay.hide_cursor && !overlay.covers(cursor_row, cursor_col) {
             out.push_str(CURSOR_SHOW);
         }
         out.push_str(SYNC_END);

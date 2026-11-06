@@ -1,6 +1,7 @@
 mod align;
 mod classify;
 mod memo;
+mod panes;
 mod table;
 mod visual;
 
@@ -44,7 +45,34 @@ pub(crate) fn layout(
     options: RenderOptions,
     caches: &mut Caches,
 ) -> Vec<VisualRow> {
-    let visual = match options.input {
+    let cuts = panes::boundaries(&rows);
+    let visual = if cuts.is_empty() {
+        pane(rows, cursor, options, caches)
+    } else {
+        let width = rows.first().map_or(0, Vec::len);
+        let count = rows.len();
+        let parts = panes::ranges(&cuts, width)
+            .into_iter()
+            .map(|range| {
+                let sliced = panes::slice(&rows, &range);
+                let inner = panes::cursor_in(cursor, &range);
+                let visual = pane(sliced, &inner, options, caches);
+                (range, visual)
+            })
+            .collect();
+        panes::stitch(parts, count)
+    };
+    caches.end_frame();
+    visual
+}
+
+fn pane(
+    rows: Vec<Vec<Cell>>,
+    cursor: &Cursor,
+    options: RenderOptions,
+    caches: &mut Caches,
+) -> Vec<VisualRow> {
+    match options.input {
         InputOrder::Logical => {
             let logical = if options.align == Align::Off {
                 rows
@@ -54,9 +82,7 @@ pub(crate) fn layout(
             arrange(logical, cursor, options, &[], caches)
         }
         InputOrder::Visual => visual::layout(rows, cursor, options, caches),
-    };
-    caches.end_frame();
-    visual
+    }
 }
 
 fn unchanged(row: &[Cell]) -> VisualRow {

@@ -2,6 +2,18 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.12 - 2026-11-06
+
+تصليحات opencode، من تسجيلين حقيقيين (`mirah-session-6` لـ Claude و`mirah-session-7` لـ opencode).
+
+- **أعمدة الشاشة:** opencode بيقسم الشاشة لعمودين بالخلفية: الشات، والـ sidebar على اليمين. مرآة بقت بتلاقي أي عمود الخلفية بتتغير عنده في 75% من السطور على الأقل، **وبتتعامل مع كل عمود لوحده**: الترتيب، وتصنيف كل سطر كلام ولا كود، والمحاذاة، والجداول. فالشات بيتحاذى يمين جوه عموده، ومابقاش بيعدّي فوق الـ sidebar. والمستطيلات الغامقة اللي كانت بتبان اختفت.
+- **التحديد في opencode:** opencode بيلوّن التحديد بخلفية بيضا، وبيلوّن الكلمات المهمة جواه برتقالي. **تغيير الخلفية جوه السطر مابقاش بيقسم الجملة**، والكلام اللي عليه تحديد مابقاش بيتحسب في ألوان الكود.
+- **لون الكلام العادي** بيتحسب من الحروف اللي على الخلفية العادية بس. قبل كده، تحديد كبير كان بيخلّي لون التحديد هو "اللون العادي"، فباقي الشاشة كله كان بيتحسب كود.
+- **العناوين** اللي كلها bold وبلون واحد ومفيها عربي بقت بتتحاذى، زي عناوين opencode البرتقاني.
+- **الـ emoji جوه الجملة** مابقاش بيخلّي السطر يبان كأن فيه فراغ كبير.
+
+**English:** opencode fixes from two real recordings. Columns where the background changes on at least 75% of rows (opencode's chat and sidebar) are now laid out separately, so the chat aligns right inside its own column instead of over the sidebar, and the dark rectangles are gone. A background change inside a row no longer splits a sentence, and highlighted cells are left out of the code-colour test, so opencode selections keep their order and alignment. The usual text colour is taken only from letters on the usual background, so a large selection no longer turns the rest of the screen into "code". Bold, single-colour Arabic rows (opencode's headings) align as headings, and a wide emoji no longer looks like a gap.
+
 ## 0.1.0-alpha.11 - 2026-11-06
 
 تصليحات من تجربة المالك (4 screenshots وتسجيل `mirah-session-5.vt`).
