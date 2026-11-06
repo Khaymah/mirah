@@ -41,7 +41,7 @@ pub(super) fn is_frame(c: char) -> bool {
     ('\u{2500}'..='\u{259F}').contains(&c)
 }
 
-fn has_rtl(row: &[Cell]) -> bool {
+pub(super) fn has_rtl(row: &[Cell]) -> bool {
     row.iter().any(|c| c.text.chars().any(is_rtl))
 }
 

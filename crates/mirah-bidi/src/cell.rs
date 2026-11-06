@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+use compact_str::CompactString;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Color {
     #[default]
     Default,
@@ -6,7 +8,7 @@ pub enum Color {
     Rgb(u8, u8, u8),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Style {
     pub fg: Color,
     pub bg: Color,
@@ -17,16 +19,16 @@ pub struct Style {
     pub inverse: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Cell {
-    pub text: String,
+    pub text: CompactString,
     pub style: Style,
     pub wide: bool,
     pub continuation: bool,
 }
 
 impl Cell {
-    pub fn plain(text: impl Into<String>) -> Self {
+    pub fn plain(text: impl Into<CompactString>) -> Self {
         Self {
             text: text.into(),
             ..Self::default()

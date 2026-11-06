@@ -42,10 +42,10 @@ fn contextual(f: &Forms, connects_prev: bool, connects_next: bool) -> char {
     }
 }
 
-pub fn shape(cells: &[String]) -> Vec<Shaped> {
+pub fn shape<S: AsRef<str>>(cells: &[S]) -> Vec<Shaped> {
     let base: Vec<Option<char>> = cells
         .iter()
-        .map(|s| s.chars().next().map(unshape))
+        .map(|s| s.as_ref().chars().next().map(unshape))
         .collect();
     let mut out = Vec::with_capacity(cells.len());
     let mut i = 0;
@@ -59,8 +59,8 @@ pub fn shape(cells: &[String]) -> Vec<Shaped> {
             let glyph = if connects_prev { final_ } else { isolated };
             out.push(Shaped::Glyph(format!(
                 "{glyph}{}{}",
-                marks(&cells[i]),
-                marks(&cells[i + 1])
+                marks(cells[i].as_ref()),
+                marks(cells[i + 1].as_ref())
             )));
             out.push(Shaped::Absorbed);
             i += 2;
@@ -71,9 +71,12 @@ pub fn shape(cells: &[String]) -> Vec<Shaped> {
             Some(f) => {
                 let connects_next = f.initial.is_some() && joins_prev(next);
                 let glyph = contextual(&f, connects_prev, connects_next);
-                out.push(Shaped::Glyph(format!("{glyph}{}", marks(&cells[i]))));
+                out.push(Shaped::Glyph(format!(
+                    "{glyph}{}",
+                    marks(cells[i].as_ref())
+                )));
             }
-            None => out.push(Shaped::Glyph(cells[i].clone())),
+            None => out.push(Shaped::Glyph(cells[i].as_ref().to_string())),
         }
         i += 1;
     }

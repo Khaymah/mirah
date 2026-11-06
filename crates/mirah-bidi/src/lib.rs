@@ -9,6 +9,7 @@ mod unreorder;
 
 pub use brackets::mirror_reversed_brackets;
 pub use cell::{Cell, Color, Style, VisualRow};
+pub use compact_str::CompactString;
 pub use shape::{Shaped, shape};
 pub use unreorder::{LogicalRow, logical_row};
 
@@ -16,14 +17,14 @@ pub fn visual_row(row: &[Cell]) -> VisualRow {
     visual_row_with_cursor(row, None)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Shaping {
     #[default]
     Full,
     Plain,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct BidiOptions {
     pub shaping: Shaping,
     pub rtl_base: bool,

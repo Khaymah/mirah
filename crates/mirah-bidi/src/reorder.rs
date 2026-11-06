@@ -2,6 +2,7 @@ use crate::cell::{Cell, Style, VisualRow};
 use crate::mirror::mirror;
 use crate::shape::{Shaped, shape};
 use crate::{BidiOptions, Shaping};
+use compact_str::CompactString;
 use std::ops::Range;
 use unicode_bidi::{BidiInfo, Level};
 
@@ -9,7 +10,7 @@ const PAD: &str = " ";
 
 struct Item {
     column: usize,
-    glyph: String,
+    glyph: CompactString,
     style: Style,
 }
 
@@ -29,7 +30,7 @@ fn plain_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
 }
 
 fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
-    let texts: Vec<String> = row[span.clone()].iter().map(|c| c.text.clone()).collect();
+    let texts: Vec<&str> = row[span.clone()].iter().map(|c| c.text.as_str()).collect();
     let shaped = shape(&texts);
     let mut items = Vec::with_capacity(span.len());
     let mut pads = Vec::new();
@@ -46,7 +47,7 @@ fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
                 }
                 items.push(Item {
                     column,
-                    glyph: glyph.clone(),
+                    glyph: glyph.as_str().into(),
                     style,
                 });
             }
@@ -55,7 +56,7 @@ fn shaped_items(row: &[Cell], span: &Range<usize>) -> Vec<Item> {
     }
     items.extend(pads.into_iter().map(|column| Item {
         column,
-        glyph: PAD.to_string(),
+        glyph: PAD.into(),
         style: Style {
             inverse: false,
             ..row[column].style

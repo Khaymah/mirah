@@ -2,6 +2,18 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.1.0-alpha.7 - 2026-11-06
+
+**أسرع.** نفس الشكل بالظبط، بس كل frame بقى بياخد وقت أقل.
+
+- على تسجيل حقيقي لـ Claude على ويندوز (51×183)، الوضع `visual` بقى بيستخدم **نص التعليمات** اللي كان بيستخدمها: 928 مليون بقوا 456 مليون. ومتوسط الـ frame نزل من 3.9ms لـ 1.6ms، وأبطأ frame من 7.5ms لـ 2.4ms. والوضع العادي بقى أقل بـ 18%.
+- **cache لكل سطر:** السطر اللي مااتغيرش من الـ frame اللي فات مابيتحسبش تاني، حتى لو اتحرك لمكان تاني في الشاشة. والسطور اللي مفيهاش عربي مش بتدخل الـ cache أصلاً، لأن حسابها أرخص من البحث عنها.
+- **إرجاع الترتيب المنطقي أخف:** القرايات المكررة مابتتجربش مرتين، واختيار القراية اللي بتحط `│` في مكانها بقى من غير ما ينسخ السطر.
+- **`Cell.text` بقى `CompactString`** بدل `String`، فالحرف الواحد مابيحجزش memory. ودي تغيير في الـ API بتاع `mirah-bidi`، و`shape` بقت بتقبل أي `AsRef<str>`.
+- اتأكدت إن الشاشات طالعة **زي ما هي بالظبط** على 4 تسجيلات حقيقية، في الوضعين، وبنوعين التشكيل.
+
+**English:** Faster, with identical output. On a real recording of Claude on Windows (51×183), visual mode now uses half the instructions (928M to 456M), the average frame dropped from 3.9ms to 1.6ms and the slowest from 7.5ms to 2.4ms; logical mode uses 18% fewer. Rows that did not change since the last frame are not computed again, even when they moved on screen; rows without Arabic skip the cache because computing them is cheaper than looking them up. Un-reordering skips duplicate readings and checks table frames without copying the row. `Cell.text` is now a `CompactString`, so a single character does not allocate; this changes the `mirah-bidi` API, and `shape` now accepts any `AsRef<str>`. Screens were verified identical on four real recordings, in both input orders and both shaping modes.
+
 ## 0.1.0-alpha.6 - 2026-11-06
 
 - **`mirah --record claude`:** بيحفظ `mirah-session-N.vt` و`mirah-session-N.log` في الفولدر اللي انت فيه، بالرقم اللي بعد آخر جلسة، وبيكتب مكانهم لما تخرج. مش محتاج `MIRAH_RECORD` ولا `MIRAH_LOG` ولا تدوّر في `%LOCALAPPDATA%`.

@@ -91,13 +91,13 @@ fn display_order(chars: &[char], base: Option<Level>) -> Vec<usize> {
     let (levels, runs) = info.visual_runs(para, para.range.clone());
     let mut order = Vec::with_capacity(chars.len());
     for run in runs {
-        let mut in_run: Vec<usize> = (0..starts.len())
-            .filter(|&i| run.contains(&starts[i]))
-            .collect();
+        let first = starts.partition_point(|&b| b < run.start);
+        let last = starts.partition_point(|&b| b < run.end);
         if levels[run.start].is_rtl() {
-            in_run.reverse();
+            order.extend((first..last).rev());
+        } else {
+            order.extend(first..last);
         }
-        order.extend(in_run);
     }
     order
 }
@@ -130,17 +130,28 @@ fn candidates(chars: &[char]) -> Vec<Vec<usize>> {
         paired[open] = STRONG_RTL;
         paired[close] = STRONG_RTL;
     }
+    let mut texts: Vec<&[char]> = vec![&paired];
+    for text in [&mirrored[..], chars] {
+        if !texts.contains(&text) {
+            texts.push(text);
+        }
+    }
     let mut found: Vec<(i32, Vec<usize>)> = Vec::new();
+    let mut tried: Vec<Vec<usize>> = Vec::new();
     for base in [Level::rtl(), Level::ltr()] {
-        for text in [&paired, &mirrored, chars] {
+        for &text in &texts {
             let order = display_order(text, Some(base));
+            if tried.contains(&order) {
+                continue;
+            }
             let logical: Vec<char> = order.iter().map(|&i| chars[i]).collect();
             let shown = display_order(&logical, None);
             let reproduces = shown.len() == order.len()
                 && shown.iter().enumerate().all(|(slot, &j)| order[j] == slot);
-            if reproduces && !found.iter().any(|(_, o)| *o == order) {
-                found.push((score(chars, &order), order));
+            if reproduces {
+                found.push((score(chars, &order), order.clone()));
             }
+            tried.push(order);
         }
     }
     found.sort_by_key(|(rank, _)| -rank);
@@ -169,18 +180,36 @@ fn place(
     }
 }
 
-fn frames_at(row: &LogicalRow, frames: &[usize]) -> bool {
-    frames
-        .iter()
-        .all(|&c| row.cells.get(c).is_some_and(|cell| is_frame(cell.base())))
+fn lands_on_frames(
+    visual: &[Cell],
+    span: &Range<usize>,
+    items: &[Item],
+    order: &[usize],
+    frames: &[usize],
+) -> bool {
+    let mut landed = vec![false; span.len()];
+    let mut column = span.start;
+    for &index in order {
+        let item = &items[index];
+        if let Some(slot) = landed.get_mut(column - span.start) {
+            *slot = is_frame(visual[item.column].base());
+        }
+        column += item.width;
+    }
+    frames.iter().all(|&c| {
+        if span.contains(&c) {
+            landed[c - span.start]
+        } else {
+            visual.get(c).is_some_and(|cell| is_frame(cell.base()))
+        }
+    })
 }
 
 fn apply(visual: &[Cell], units: &[Range<usize>], frames: Option<&[usize]>) -> Option<LogicalRow> {
-    let identity = LogicalRow {
+    let mut out = LogicalRow {
         cells: visual.to_vec(),
         from_visual: (0..visual.len()).collect(),
     };
-    let mut out = identity.clone();
     for span in units {
         if !visual[span.clone()].iter().any(|c| has_rtl(&c.text)) {
             continue;
@@ -195,22 +224,14 @@ fn apply(visual: &[Cell], units: &[Range<usize>], frames: Option<&[usize]>) -> O
             .collect();
         let chars: Vec<char> = items.iter().map(|i| visual[i.column].base()).collect();
         let orders = candidates(&chars);
-        let built: Vec<LogicalRow> = orders
-            .iter()
-            .map(|order| {
-                let mut row = out.clone();
-                place(visual, span, &items, order, &mut row);
-                row
-            })
-            .collect();
         let chosen = match frames {
-            Some(frames) if units.len() == 1 => built
+            Some(frames) if units.len() == 1 && orders.len() > 1 => orders
                 .iter()
-                .position(|row| frames_at(row, frames))
+                .position(|order| lands_on_frames(visual, span, &items, order, frames))
                 .unwrap_or(0),
             _ => 0,
         };
-        out = built.into_iter().nth(chosen)?;
+        place(visual, span, &items, orders.get(chosen)?, &mut out);
     }
     Some(out)
 }

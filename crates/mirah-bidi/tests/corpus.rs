@@ -63,7 +63,7 @@ fn render(case: &Case, shaping: Shaping) -> String {
         if c.style.inverse {
             format!("[{}]", c.text)
         } else {
-            c.text.clone()
+            c.text.to_string()
         }
     })
     .collect()

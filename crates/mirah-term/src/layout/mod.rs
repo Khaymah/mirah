@@ -1,9 +1,11 @@
 mod align;
 mod classify;
+mod memo;
 mod table;
 mod visual;
 
 use classify::Kind;
+pub(crate) use memo::Caches;
 use mirah_bidi::{BidiOptions, Cell, Shaping, VisualRow, visual_row_with};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -40,18 +42,21 @@ pub(crate) fn layout(
     rows: Vec<Vec<Cell>>,
     cursor: &Cursor,
     options: RenderOptions,
+    caches: &mut Caches,
 ) -> Vec<VisualRow> {
-    match options.input {
+    let visual = match options.input {
         InputOrder::Logical => {
             let logical = if options.align == Align::Off {
                 rows
             } else {
                 table::mirror_rtl_tables(rows, &[])
             };
-            arrange(logical, cursor, options, &[])
+            arrange(logical, cursor, options, &[], caches)
         }
-        InputOrder::Visual => visual::layout(rows, cursor, options),
-    }
+        InputOrder::Visual => visual::layout(rows, cursor, options, caches),
+    };
+    caches.end_frame();
+    visual
 }
 
 fn unchanged(row: &[Cell]) -> VisualRow {
@@ -66,6 +71,7 @@ fn arrange(
     cursor: &Cursor,
     options: RenderOptions,
     settled: &[bool],
+    caches: &mut Caches,
 ) -> Vec<VisualRow> {
     let mut visual: Vec<VisualRow> = logical
         .iter()
@@ -79,7 +85,12 @@ fn arrange(
                 shaping: options.shaping,
                 rtl_base: options.align != Align::Off,
             };
-            visual_row_with(row, col, bidi)
+            if !classify::has_rtl(row) {
+                return visual_row_with(row, col, bidi);
+            }
+            caches
+                .reorder
+                .get_or(row, &(col, bidi), || visual_row_with(row, col, bidi))
         })
         .collect();
     align_rows(&logical, &mut visual, cursor, options.align);

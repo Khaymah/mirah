@@ -1,10 +1,11 @@
-use super::{Align, Cursor, RenderOptions, arrange, table, unchanged};
+use super::{Align, Caches, Cursor, RenderOptions, arrange, table, unchanged};
 use mirah_bidi::{Cell, VisualRow, logical_row, mirror_reversed_brackets};
 
 pub(super) fn layout(
     rows: Vec<Vec<Cell>>,
     cursor: &Cursor,
     options: RenderOptions,
+    caches: &mut Caches,
 ) -> Vec<VisualRow> {
     if options.align == Align::Off {
         return rows.iter().map(|row| unchanged(row)).collect();
@@ -14,7 +15,14 @@ pub(super) fn layout(
     let mut logical = Vec::with_capacity(rows.len());
     let hints = table::frame_hints(&rows);
     for (row, hint) in rows.iter().zip(&hints) {
-        match logical_row(row, hint.as_deref()) {
+        let undone = if super::classify::has_rtl(row) {
+            caches
+                .unreorder
+                .get_or(row, hint, || logical_row(row, hint.as_deref()))
+        } else {
+            logical_row(row, hint.as_deref())
+        };
+        match undone {
             Some(undone) => {
                 settled.push(false);
                 from_visual.push(undone.from_visual);
@@ -35,7 +43,7 @@ pub(super) fn layout(
         ..*cursor
     };
     let logical = table::mirror_rtl_tables(logical, &settled);
-    let mut visual = arrange(logical, &logical_cursor, options, &settled);
+    let mut visual = arrange(logical, &logical_cursor, options, &settled, caches);
     for (row, first) in visual.iter_mut().zip(&from_visual) {
         row.logical_to_visual = first
             .iter()

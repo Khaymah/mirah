@@ -152,7 +152,7 @@ fn mirror_row(row: &mut [Cell], columns: &[usize]) {
     let at = |abs: usize| &original[abs - left];
     for &c in columns {
         let mut cell = at(c).clone();
-        cell.text = mirrored(base(&cell)).to_string();
+        cell.text = std::iter::once(mirrored(base(&cell))).collect();
         row[left + right - c] = cell;
     }
     for pair in columns.windows(2) {

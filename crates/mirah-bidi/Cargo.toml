@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+compact_str.workspace = true
 unicode-bidi.workspace = true
 
 [dev-dependencies]

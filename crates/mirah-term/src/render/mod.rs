@@ -1,7 +1,7 @@
 mod cursor;
 mod sgr;
 
-use crate::layout::{Cursor, RenderOptions, layout};
+use crate::layout::{Caches, Cursor, RenderOptions, layout};
 use crate::screen::logical_row;
 use crate::sequences::{
     CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW, SGR_RESET, SYNC_BEGIN, SYNC_END, cursor_to,
@@ -15,6 +15,7 @@ pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
     prev_input_modes: String,
     options: RenderOptions,
+    caches: Caches,
 }
 
 fn draw_row(out: &mut String, row: u16, cells: &[Cell]) {
@@ -40,6 +41,7 @@ impl Renderer {
             prev: Vec::new(),
             prev_input_modes: String::new(),
             options,
+            caches: Caches::default(),
         }
     }
 
@@ -70,7 +72,7 @@ impl Renderer {
         let logical: Vec<Vec<Cell>> = (0..rows)
             .map(|row| logical_row(screen, row, cols))
             .collect();
-        let visual = layout(logical, &cursor, self.options);
+        let visual = layout(logical, &cursor, self.options, &mut self.caches);
         let mut cursor_visual = cursor_col;
         for (row, line) in (0..rows).zip(visual) {
             if row == cursor_row {

@@ -10,7 +10,7 @@ fn color(c: vt100::Color) -> Color {
 
 fn cell(c: &vt100::Cell) -> Cell {
     Cell {
-        text: c.contents().to_string(),
+        text: c.contents().into(),
         style: Style {
             fg: color(c.fgcolor()),
             bg: color(c.bgcolor()),
