@@ -1,4 +1,5 @@
 use mirah_bidi::{Cell, logical_row};
+use unicode_bidi::{BidiClass, bidi_class};
 
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const PAD: u8 = b'=';
@@ -66,7 +67,13 @@ pub(crate) fn encode(bytes: &[u8]) -> Vec<u8> {
 }
 
 fn logical_line(line: &str) -> String {
-    let cells: Vec<Cell> = line.chars().map(|c| Cell::plain(c.to_string())).collect();
+    let mut cells: Vec<Cell> = Vec::new();
+    for c in line.chars() {
+        match cells.last_mut() {
+            Some(last) if bidi_class(c) == BidiClass::NSM => last.text.push(c),
+            _ => cells.push(Cell::plain(c.to_string())),
+        }
+    }
     match logical_row(&cells, None) {
         Some(row) => row.cells.iter().map(|c| c.text.as_str()).collect(),
         None => line.to_string(),
@@ -93,6 +100,15 @@ mod tests {
         assert_eq!(encode(b"hello"), b"aGVsbG8=");
         assert_eq!(decode(b"aGVs\nbG8="), Some(b"hello".to_vec()));
         assert_eq!(decode(b"a$=="), None);
+    }
+
+    #[test]
+    fn marks_stay_on_their_letter() {
+        let copied = encode("اًلعف .7".as_bytes());
+        let fixed = to_logical(&copied)
+            .and_then(|b| decode(&b))
+            .unwrap_or_default();
+        assert_eq!(String::from_utf8_lossy(&fixed), "7. فعلاً");
     }
 
     #[test]

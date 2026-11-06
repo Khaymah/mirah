@@ -82,6 +82,22 @@ fn resumed_tab(store: Option<&Store>, id: Option<&str>, extra: &[agents::Agent])
     }
 }
 
+fn recording(what: &str) -> PathBuf {
+    let path = PathBuf::from(what);
+    if path.exists() {
+        return path;
+    }
+    match Store::open() {
+        Some(store) if store.output(what).exists() => store.output(what),
+        _ => {
+            report(&format!(
+                "no recording at {what}, and no session with that ID has one."
+            ));
+            exit(FAILURE);
+        }
+    }
+}
+
 fn log_file(store: Option<&Store>, first: Option<&Spawn>) -> (Option<PathBuf>, Option<String>) {
     match (store, first.and_then(|s| s.meta.as_ref())) {
         (Some(store), Some(meta)) => (Some(store.log(&meta.id)), None),
@@ -115,6 +131,13 @@ fn main() {
             }
             return;
         }
+        cli::Invocation::Player(path) => {
+            let log_guard = logging::init(None);
+            let code = viewer::play::run(&path);
+            drop(log_guard);
+            exit(code);
+        }
+        cli::Invocation::Play(what) => (Ok(Err(recording(&what))), false),
         cli::Invocation::Pager(path) => {
             let log_guard = logging::init(None);
             let code = viewer::run(&path);

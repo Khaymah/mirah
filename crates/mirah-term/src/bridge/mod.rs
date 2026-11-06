@@ -2,7 +2,7 @@ pub(crate) mod clipboard;
 mod local;
 mod passthrough;
 
-use crate::sequences::{BEL, MODE_SYNCHRONIZED_OUTPUT};
+use crate::sequences::{BEL, MODE_FOCUS_EVENTS, MODE_SYNCHRONIZED_OUTPUT};
 
 #[derive(Default)]
 pub(crate) struct Bridge {
@@ -10,6 +10,7 @@ pub(crate) struct Bridge {
     pub(crate) to_child: Vec<u8>,
     pub(crate) synchronized: bool,
     pub(crate) clipboard: clipboard::Clipboard,
+    pub(crate) focus_events: bool,
 }
 
 fn synchronized_output(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c: char) -> Option<bool> {
@@ -66,6 +67,13 @@ impl vt100::Callbacks for Bridge {
     ) {
         if let Some(on) = synchronized_output(i1, i2, params, c) {
             self.synchronized = on;
+        }
+        if i1 == Some(b'?')
+            && i2.is_none()
+            && matches!(c, 'h' | 'l')
+            && params.iter().any(|p| p.first() == Some(&MODE_FOCUS_EVENTS))
+        {
+            self.focus_events = c == 'h';
         }
         if (i1, i2, c) == (None, None, 'n') {
             if let Some(reply) = local::device_status_report(screen, first_param(params)) {
@@ -162,6 +170,12 @@ mod tests {
         p.callbacks_mut().to_host.clear();
         p.process(&write);
         assert!(p.callbacks().to_host.is_empty());
+    }
+
+    #[test]
+    fn tracks_focus_event_reporting() {
+        assert!(feed(b"\x1b[?1004h").callbacks().focus_events);
+        assert!(!feed(b"\x1b[?1004h\x1b[?1004l").callbacks().focus_events);
     }
 
     #[test]

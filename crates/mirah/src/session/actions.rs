@@ -10,6 +10,25 @@ use std::time::{Duration, Instant};
 const NOTICE_FOR: Duration = Duration::from_secs(6);
 const CLOCK_TICK: Duration = Duration::from_secs(1);
 const RECENT_SESSIONS: usize = 5;
+const MOTION: u16 = 32;
+const WHEEL: u16 = 64;
+const FOCUS_IN: &[u8] = b"\x1b[I";
+const FOCUS_OUT: &[u8] = b"\x1b[O";
+
+fn without_focus_events(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let rest = &bytes[i..];
+        if rest.starts_with(FOCUS_IN) || rest.starts_with(FOCUS_OUT) {
+            i += FOCUS_IN.len();
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    out
+}
 
 fn spawn_for(entry: Entry) -> Spawn {
     match entry {
@@ -34,23 +53,35 @@ fn spawn_for(entry: Entry) -> Spawn {
 impl Workspace {
     pub(super) fn input(&mut self, bytes: &[u8]) -> Result<()> {
         let mut actions = Vec::new();
+        let mut hold = None;
         let chrome = &mut self.chrome;
         let emulator = self.tabs.get(self.active).map(|t| &t.emulator);
         let bytes = self.mouse.apply(bytes, |e| {
             let e = chrome.mouse(e, &mut actions)?;
-            Some(match emulator {
-                Some(emulator) if chrome.settings.mouse => MouseEvent {
+            let emulator = emulator.filter(|em| em.wants_mouse())?;
+            if e.button & MOTION == 0 && e.button < WHEEL {
+                hold = Some(e.press);
+            }
+            Some(if chrome.settings.mouse {
+                MouseEvent {
                     column: emulator.child_column(e.row, e.column),
                     ..e
-                },
-                _ => e,
+                }
+            } else {
+                e
             })
         });
-        let bytes = self.chrome.input(&bytes, &mut actions);
-        if !bytes.is_empty()
-            && let Some(tab) = self.tabs.get(self.active)
-        {
-            tab.write(&bytes);
+        let mut bytes = self.chrome.input(&bytes, &mut actions);
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            if let Some(hold) = hold {
+                tab.emulator.hold_mouse_map(hold);
+            }
+            if !tab.emulator.wants_focus() {
+                bytes = without_focus_events(&bytes);
+            }
+            if !bytes.is_empty() {
+                tab.write(&bytes);
+            }
         }
         for action in actions {
             self.act(action)?;
@@ -234,5 +265,15 @@ impl Workspace {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn focus_events_are_dropped_and_other_keys_kept() {
+        assert_eq!(without_focus_events(b"a\x1b[Ib\x1b[Oc\x1b[A"), b"abc\x1b[A");
     }
 }

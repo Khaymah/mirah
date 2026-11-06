@@ -41,6 +41,7 @@ mirah
 - **شريط بالعربي فيه الإعدادات:** كل إعداد بيتغير وانت شغال، وبيتحفظ في `config.toml`.
 - **جلسات ليها ID:** تكمّل أي محادثة بعدين بـ `mirah resume`، والتسجيلات والـ logs في مكان واحد منظم.
 - **عارض ملفات Markdown:** تقرا أي ملف `.md` بالعربي ومن اليمين، وتحفظ نسخة منه في التنزيلات.
+- **تشغيل التسجيلات:** أي تسجيل `.vt` بيتعرض جوه مرآة زي ما كان البرنامج شغال.
 - **تحديث بأمر واحد**، ومعاه التأكد من الـ SHA-256.
 
 ## التثبيت
@@ -50,13 +51,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -69,8 +70,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -115,7 +116,7 @@ mirah
 مرآة بتدوّر على البرامج المتسطّبة عندك: Claude Code، وOpenCode، وCodex، وGemini، وQwen، وAider، وCrush، وCursor Agent، وAmp، وCopilot، وGoose، وفي الآخر الـ shell بتاعك. وبتفتح شاشة تختار منها:
 
 - **آخر برنامج استخدمته** بيبقى هو المختار.
-- **تحت البرامج** آخر الجلسات اللي تقدر تكمّلها، وآخر ملفات Markdown في الفولدر.
+- **تحت البرامج** آخر الجلسات اللي تقدر تكمّلها، وآخر ملفات Markdown والتسجيلات في الفولدر.
 - **التنقل:** الأسهم، وEnter، أو رقم السطر على طول.
 
 ولو عايز برنامج بعينه من غير الشاشة دي:
@@ -135,7 +136,7 @@ mirah opencode --model gpt-5
 mirah view خطة.md
 ```
 
-أو اختار الملف من شاشة الاختيار، تحت "ملفات Markdown". الملف بيتفتح في تاب:
+أو اختار الملف من شاشة الاختيار، تحت "ملفات للعرض". الملف بيتفتح في تاب:
 
 - **العناوين، والقوايم، والاقتباسات** على اليمين، والعلامة على يمين السطر.
 - **الجداول** بإطار، ومعكوسة، وعلى يمين الشاشة.
@@ -151,6 +152,25 @@ mirah view خطة.md
 | `Esc` أو `Q` | يقفل التاب |
 
 > الحروف بتشتغل والكيبورد على العربي كمان: `S` هي `س`، و`Q` هي `ض`. ونفس الكلام في الشريط: `Ctrl+]` وبعدين `t` أو `ف`، والأرقام العربي `١`–`٩`.
+
+## تشغيل التسجيلات
+
+```bash
+mirah play claude-session-1.vt
+mirah play 1106-0457-k3f2
+```
+
+بيشغّل تسجيل `.vt`، أو تسجيل جلسة بالـ ID بتاعها، في تاب، وكأن البرنامج شغال قدامك: الكلام من اليمين، والجداول معكوسة. والتسجيلات اللي في الفولدر بتظهر كمان في شاشة الاختيار تحت "ملفات للعرض".
+
+| الزرار | بيعمل إيه |
+|---|---|
+| المسافة | إيقاف مؤقت وتكملة |
+| `→` | أسرع ×8 |
+| `End` | لآخر التسجيل على طول |
+| `R` | من الأول |
+| `Esc` أو `Q` | يقفل التاب |
+
+> التسجيل مابيحفظش مقاس الشاشة، فبيتعرض صح لما النافذة تبقى بنفس المقاس اللي اتسجّل عليه.
 
 ## الشريط والتابات
 

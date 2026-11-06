@@ -10,6 +10,7 @@ Usage:
   mirah resume [ID]           continue a session (the newest one without an ID)
   mirah view FILE.md          read a Markdown file, right to left, and save a
                               copy to Downloads with S
+  mirah play FILE.vt|ID       replay a recording or a session's recording
   mirah update                install the newest release
   mirah -- PROGRAM ...        run a program named like a mirah command
   mirah --version             print the version
@@ -44,7 +45,9 @@ https://github.com/Khaymah/mirah";
 pub(crate) enum Invocation {
     Run(Run),
     View(std::path::PathBuf),
+    Play(String),
     Pager(std::path::PathBuf),
+    Player(std::path::PathBuf),
     Resume(Option<String>),
     Sessions,
     Update,
@@ -78,6 +81,20 @@ pub(crate) fn parse(mut args: impl Iterator<Item = String>) -> Invocation {
                     "mirah view needs a Markdown file: mirah view README.md".to_string(),
                 ),
             }
+        }
+        Some("play") => {
+            args.next();
+            match args.next() {
+                Some(what) => Invocation::Play(what),
+                None => Invocation::Print(
+                    "mirah play needs a recording or a session ID: mirah play output.vt"
+                        .to_string(),
+                ),
+            }
+        }
+        Some(crate::viewer::PLAY_COMMAND) => {
+            args.next();
+            Invocation::Player(args.next().unwrap_or_default().into())
         }
         Some(crate::viewer::COMMAND) => {
             args.next();
@@ -135,6 +152,9 @@ mod tests {
     fn commands_and_double_dash() {
         assert!(matches!(parse_args(&["update"]), Invocation::Update));
         assert!(matches!(parse_args(&["sessions"]), Invocation::Sessions));
+        assert!(
+            matches!(parse_args(&["play", "1106-0457-k3f2"]), Invocation::Play(id) if id == "1106-0457-k3f2")
+        );
         assert!(
             matches!(parse_args(&["view", "خطة.md"]), Invocation::View(p) if p.to_string_lossy() == "خطة.md")
         );

@@ -2,6 +2,25 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.3 - 2026-11-06
+
+**تشغيل التسجيلات، والماوس بعد ما مرآة تخرج، وجداول Claude.**
+
+- **`mirah play FILE.vt` أو `mirah play <ID>`:**
+  - بيشغّل التسجيل في تاب، وكأن البرنامج شغال قدامك.
+  - المسافة بتوقف، و`→` أسرع، و`End` لآخره، و`R` من الأول، و`Esc` بيقفل.
+  - والتسجيلات اللي في الفولدر بتظهر في شاشة الاختيار تحت "ملفات للعرض".
+- **الترمنال كان بيفضل يبعت حركة الماوس** (`[555;207;45M…`) و`[I` و`[O` بعد ما مرآة تخرج:
+  - مرآة بقت بتقفل الماوس كله (`1000`، و`1002`، و`1003`، و`1005`، و`1006`، و`1015`) وإشارات التركيز (`1004`) أول ما تبدأ.
+  - ووهي خارجة، بتقفلهم في الشاشتين: قبل ما ترجع للشاشة العادية وبعدها.
+  - قبل كده `1004` و`1005` و`1015` ماكانوش بيتقفلوا خالص.
+- **التاب مابياخدش ماوس ولا إشارات تركيز إلا لو البرنامج اللي فيه طالبهم.** فالـ shell اللي في تاب مابقاش بيظهر فيه كلام غريب لما تحرّك الماوس. ولما تتنقل بين التابات، إشارات التركيز بترجع زي ما التاب طالبها.
+- **الرعشة وقت التحديد في Claude:** تحويل مكان الماوس بقى بيتثبّت من أول ما تدوس لحد ما تسيب، فالتحديد مابقاش بيتحرك رايح جاي وClaude بيرسمه.
+- **جداول Claude العربي بقت على يمين الشاشة**، بنفس المسافة اللي كانت على الشمال، لو الجزء اللي يمينها فاضي.
+- **النسخ:** التنوين والشدة بيفضلوا على حرفهم في النص اللي Claude بينسخه ("فعلاً" مابقتش "فعلًا").
+
+**English:** Recording playback, the mouse after mirah exits, and Claude's tables. `mirah play FILE.vt` or `mirah play <ID>` replays a recording in a tab as if the program were running (space pauses, `→` speeds up, `End` jumps to the end, `R` restarts, `Esc` closes), and recordings in the folder appear in the picker under "files to view". The terminal could keep sending mouse motion and focus events after mirah exited: mirah now turns off every mouse mode (1000, 1002, 1003, 1005, 1006, 1015) and focus reporting (1004) when it starts and on both screens when it leaves; 1004, 1005 and 1015 were never turned off before. A tab only receives mouse and focus events when its program asked for them, so a shell tab no longer fills with garbage when the mouse moves, and switching tabs restores each tab's focus reporting. While dragging, the mouse mapping is held from press to release, so Claude's selection no longer jumps back and forth as it redraws. Mirrored Arabic tables from Claude move to the right edge, keeping their margin, when the space is free. Marks such as tanween stay on their letter in text Claude copies.
+
 ## 0.4.0-alpha.2 - 2026-11-06
 
 **الزراير والكيبورد على العربي.**

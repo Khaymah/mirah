@@ -196,7 +196,7 @@ impl Launcher {
                 let header = if self.section(i) == 1 {
                     "استئناف جلسة سابقة"
                 } else {
-                    "ملفات Markdown"
+                    "ملفات للعرض"
                 };
                 lines.push(Line::new(
                     shaped(header, style(DIM, BOX_BG, true), shaping),
@@ -321,7 +321,7 @@ mod tests {
             Some(Pick::Open(Entry::Resume(..)))
         ));
         assert!(frame.rows.iter().all(|r| r.len() == frame.width));
-        assert!(rows[BODY_TOP + 4].contains("Markdown"), "{rows:?}");
+        assert!(rows[BODY_TOP + 4].contains("ضرعلل"), "{rows:?}");
         assert!(rows[BODY_TOP + 5].contains("/work/app"), "{rows:?}");
         assert!(matches!(
             l.click(BODY_TOP + 5),

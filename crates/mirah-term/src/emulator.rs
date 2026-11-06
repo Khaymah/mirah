@@ -3,6 +3,7 @@ use crate::error::TermError;
 use crate::layout::{InputOrder, RenderOptions};
 use crate::overlay::Overlay;
 use crate::render::Renderer;
+use crate::sequences::FOCUS_EVENTS_ON;
 use std::num::NonZeroU16;
 
 const SCROLLBACK_ROWS: usize = 0;
@@ -17,6 +18,7 @@ pub struct Emulator {
     parser: vt100::Parser<Bridge>,
     renderer: Renderer,
     changed: bool,
+    restore_focus: bool,
 }
 
 fn non_zero(rows: u16, cols: u16) -> Result<(NonZeroU16, NonZeroU16), TermError> {
@@ -39,6 +41,7 @@ impl Emulator {
             parser: vt100::Parser::new_with_callbacks(rows, cols, SCROLLBACK_ROWS, bridge),
             renderer: Renderer::new(options),
             changed: true,
+            restore_focus: false,
         })
     }
 
@@ -81,11 +84,28 @@ impl Emulator {
 
     pub fn frame_with(&mut self, overlay: &Overlay) -> String {
         self.changed = false;
-        self.renderer.frame(self.parser.screen(), overlay)
+        let mut frame = self.renderer.frame(self.parser.screen(), overlay);
+        if std::mem::take(&mut self.restore_focus) && self.wants_focus() {
+            frame.push_str(FOCUS_EVENTS_ON);
+        }
+        frame
+    }
+
+    pub fn wants_mouse(&self) -> bool {
+        self.parser.screen().mouse_protocol_mode() != vt100::MouseProtocolMode::None
+    }
+
+    pub fn wants_focus(&self) -> bool {
+        self.parser.callbacks().focus_events
+    }
+
+    pub fn hold_mouse_map(&mut self, hold: bool) {
+        self.renderer.hold_map = hold;
     }
 
     pub fn redraw(&mut self) {
         self.renderer.redraw();
+        self.restore_focus = true;
         self.changed = true;
     }
 
@@ -127,6 +147,20 @@ mod tests {
         e.frame();
         e.resize(10, 40).expect("valid size");
         assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn a_redraw_restores_focus_reporting_and_mouse_is_known() {
+        let mut e = Emulator::new(2, 10).expect("valid size");
+        assert!(!e.wants_mouse());
+        e.feed(b"\x1b[?1004h\x1b[?1000h");
+        assert!(e.wants_mouse() && e.wants_focus());
+        e.frame();
+        e.redraw();
+        let frame = e.frame();
+        let off = frame.find("\x1b[?1004l").expect("focus reporting reset");
+        let on = frame.rfind("\x1b[?1004h").expect("and restored");
+        assert!(off < on);
     }
 
     #[test]

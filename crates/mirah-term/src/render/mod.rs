@@ -17,6 +17,7 @@ pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
     prev_input_modes: String,
     reset_modes: bool,
+    pub(crate) hold_map: bool,
     options: RenderOptions,
     caches: Caches,
     to_child: Vec<Vec<u16>>,
@@ -64,6 +65,7 @@ impl Renderer {
             prev: Vec::new(),
             prev_input_modes: String::new(),
             reset_modes: false,
+            hold_map: false,
             options,
             caches: Caches::default(),
             to_child: Vec::new(),
@@ -146,10 +148,12 @@ impl Renderer {
             .map(|row| logical_row(screen, row, cols))
             .collect();
         let mut visual = layout(logical, &cursor, self.options, &mut self.caches);
-        self.to_child = visual
-            .iter()
-            .map(|line| invert(&line.logical_to_visual))
-            .collect();
+        if !self.hold_map || self.to_child.len() != visual.len() {
+            self.to_child = visual
+                .iter()
+                .map(|line| invert(&line.logical_to_visual))
+                .collect();
+        }
         let cursor_visual = visual.get(cursor.row).map_or(cursor.col, |line| {
             usize::from(cursor::visual_column(
                 &line.logical_to_visual,

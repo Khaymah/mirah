@@ -180,6 +180,31 @@ fn mirror_row(row: &mut [Cell], columns: &[usize]) {
     }
 }
 
+fn move_right(rows: &mut [Vec<Cell>], table: &Table) {
+    let (left, right) = (table.columns[0], table.columns[table.columns.len() - 1]);
+    let width = rows[table.top..=table.bottom]
+        .iter()
+        .map(Vec::len)
+        .min()
+        .unwrap_or(0);
+    let Some(target) = width.checked_sub(1 + left) else {
+        return;
+    };
+    if target <= right {
+        return;
+    }
+    let shift = target - right;
+    let free = rows[table.top..=table.bottom]
+        .iter()
+        .all(|row| row[right + 1..=target].iter().all(is_blank));
+    if !free {
+        return;
+    }
+    for row in &mut rows[table.top..=table.bottom] {
+        row[left..=target].rotate_right(shift);
+    }
+}
+
 pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
     let mut rows = rows;
     for table in find_tables(&rows) {
@@ -188,6 +213,7 @@ pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<V
             for row in &mut rows[table.top..=table.bottom] {
                 mirror_row(row, &table.columns);
             }
+            move_right(&mut rows, &table);
         }
     }
     rows
@@ -208,6 +234,27 @@ mod tests {
         rows.iter()
             .map(|r| r.iter().map(|c| c.text.as_str()).collect())
             .collect()
+    }
+
+    #[test]
+    fn a_narrow_arabic_table_moves_to_the_right_edge() {
+        let input = rows(&[
+            "  ┌───────┬────┐      ",
+            "  │ الاسم │ id │      ",
+            "  └───────┴────┘      ",
+            "  after               ",
+        ]);
+        assert_eq!(
+            texts(&mirror_rtl_tables(input, &[])),
+            [
+                "      ┌────┬───────┐  ",
+                "      │ id │ الاسم │  ",
+                "      └────┴───────┘  ",
+                "  after               ",
+            ]
+        );
+        let busy = rows(&["┌───────┬────┐ x", "│ الاسم │ id │  ", "└───────┴────┘  "]);
+        assert_eq!(texts(&mirror_rtl_tables(busy, &[]))[0], "┌────┬───────┐ x");
     }
 
     #[test]

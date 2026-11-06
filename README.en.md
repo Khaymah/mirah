@@ -39,6 +39,7 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 - **An Arabic bar with settings** that change live and are saved in `config.toml`.
 - **Sessions with IDs:** continue any conversation later with `mirah resume`; recordings and logs live in one organised place.
 - **A Markdown viewer:** read any `.md` file in Arabic, right to left, and save a copy to Downloads.
+- **Recording playback:** any `.vt` recording plays inside mirah as the program ran.
 - **One-command updates** with a SHA-256 check.
 
 ## Install
@@ -48,13 +49,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -67,8 +68,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.2/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.3/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -113,7 +114,7 @@ mirah
 mirah looks for the programs installed on your machine (Claude Code, OpenCode, Codex, Gemini, Qwen, Aider, Crush, Cursor Agent, Amp, Copilot, Goose, then your shell) and opens a picker:
 
 - **The program you used last** is preselected.
-- **Below the programs** are recent sessions you can continue and the newest Markdown files in the folder.
+- **Below the programs** are recent sessions you can continue and the newest Markdown files and recordings in the folder.
 - **Moving:** arrows and Enter, or the row's number directly.
 
 To start a program directly, without the picker:
@@ -133,7 +134,7 @@ mirah opencode --model gpt-5
 mirah view plan.md
 ```
 
-Or pick the file in the picker, under "Markdown files". It opens in a tab:
+Or pick the file in the picker, under "files to view". It opens in a tab:
 
 - **Headings, lists and quotes** sit on the right, with their marker on the right of the line.
 - **Tables** get borders, are mirrored, and sit on the right of the screen.
@@ -149,6 +150,25 @@ Or pick the file in the picker, under "Markdown files". It opens in a tab:
 | `Esc` or `Q` | Closes the tab |
 
 > Letters also work with an Arabic keyboard layout: `S` is `س` and `Q` is `ض`. The same goes for the bar: `Ctrl+]` then `t` or `ف`, and Arabic digits `١`–`٩`.
+
+## Playing recordings
+
+```bash
+mirah play claude-session-1.vt
+mirah play 1106-0457-k3f2
+```
+
+Plays a `.vt` recording, or a session's recording by its ID, in a tab as if the program were running: text right to left, tables mirrored. Recordings in the folder also appear in the picker under "files to view".
+
+| Key | Does |
+|---|---|
+| Space | Pause and resume |
+| `→` | 8× faster |
+| `End` | Jump to the end |
+| `R` | From the start |
+| `Esc` or `Q` | Closes the tab |
+
+> A recording does not store the screen size, so it looks right when the window has the size it was recorded at.
 
 ## The bar and tabs
 

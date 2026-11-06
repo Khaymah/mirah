@@ -13,28 +13,40 @@ pub const ALT_SCREEN_ENTER: &str = "\x1b[?1049h";
 pub const ALT_SCREEN_LEAVE: &str = "\x1b[?1049l";
 pub const BDSM_EXPLICIT: &str = "\x1b[8l";
 pub const BDSM_IMPLICIT: &str = "\x1b[8h";
-pub const MOUSE_TRACKING_OFF: &str = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
+pub const MOUSE_TRACKING_OFF: &str =
+    "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l";
+pub const FOCUS_EVENTS_OFF: &str = "\x1b[?1004l";
+pub const FOCUS_EVENTS_ON: &str = "\x1b[?1004h";
+pub const MODE_FOCUS_EVENTS: u16 = 1004;
 pub const BRACKETED_PASTE_OFF: &str = "\x1b[?2004l";
 pub const CURSOR_KEYS_NORMAL: &str = "\x1b[?1l";
 pub const KEYPAD_NUMERIC: &str = "\x1b>";
 pub const KITTY_KEYBOARD_POP: &str = "\x1b[<u";
-pub const RESET_INPUT_MODES: &str =
-    "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1l\x1b>";
+pub const RESET_INPUT_MODES: &str = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>";
 
 pub const MODE_SYNCHRONIZED_OUTPUT: u16 = 2026;
 
-const ENTER: [&str; 3] = [ALT_SCREEN_ENTER, BDSM_EXPLICIT, CLEAR_SCREEN];
+const ENTER: [&str; 5] = [
+    MOUSE_TRACKING_OFF,
+    FOCUS_EVENTS_OFF,
+    ALT_SCREEN_ENTER,
+    BDSM_EXPLICIT,
+    CLEAR_SCREEN,
+];
 
-const LEAVE: [&str; 10] = [
+const LEAVE: [&str; 13] = [
     SYNC_END,
     SGR_RESET,
     CURSOR_SHOW,
     MOUSE_TRACKING_OFF,
+    FOCUS_EVENTS_OFF,
     BRACKETED_PASTE_OFF,
     CURSOR_KEYS_NORMAL,
     KEYPAD_NUMERIC,
     KITTY_KEYBOARD_POP,
     ALT_SCREEN_LEAVE,
+    MOUSE_TRACKING_OFF,
+    FOCUS_EVENTS_OFF,
     BDSM_IMPLICIT,
 ];
 
@@ -56,15 +68,21 @@ mod tests {
 
     #[test]
     fn enter_switches_to_alt_screen_and_explicit_bidi() {
-        assert_eq!(enter(), "\x1b[?1049h\x1b[8l\x1b[2J");
+        assert!(enter().ends_with("\x1b[?1049h\x1b[8l\x1b[2J"));
+        assert!(enter().starts_with(MOUSE_TRACKING_OFF));
     }
 
     #[test]
     fn leave_restores_every_mode_and_ends_with_implicit_bidi() {
-        assert_eq!(
-            leave(),
-            "\x1b[?2026l\x1b[0m\x1b[?25h\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?2004l\x1b[?1l\x1b>\x1b[<u\x1b[?1049l\x1b[8h"
-        );
+        let leave = leave();
+        assert!(leave.starts_with("\x1b[?2026l\x1b[0m\x1b[?25h"));
+        assert!(leave.ends_with(BDSM_IMPLICIT));
+        let alt = leave.find(ALT_SCREEN_LEAVE).unwrap_or(0);
+        for mode in ["\x1b[?1003l", "\x1b[?1006l", "\x1b[?1015l", "\x1b[?1004l"] {
+            let first = leave.find(mode).unwrap_or(usize::MAX);
+            let last = leave.rfind(mode).unwrap_or(0);
+            assert!(first < alt && last > alt, "{mode} is reset on both screens");
+        }
     }
 
     #[test]

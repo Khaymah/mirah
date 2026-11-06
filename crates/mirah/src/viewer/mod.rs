@@ -1,4 +1,5 @@
 mod markdown;
+pub(crate) mod play;
 
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
@@ -20,6 +21,8 @@ const SKIPPED_DIRS: [&str; 3] = ["target", "node_modules", "dist"];
 const SEARCH_DEPTH: usize = 2;
 const RECENT_FILES: usize = 5;
 pub(crate) const COMMAND: &str = "__view";
+pub(crate) const PLAY_COMMAND: &str = "__play";
+const RECORDING_EXTENSION: &str = "vt";
 
 pub(crate) fn spawn(path: &Path) -> crate::session::Spawn {
     let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
@@ -29,13 +32,28 @@ pub(crate) fn spawn(path: &Path) -> crate::session::Spawn {
         agent: path
             .file_name()
             .map_or_else(|| "md".to_string(), |n| n.to_string_lossy().into_owned()),
-        argv: vec![exe, COMMAND.to_string(), path.display().to_string()],
+        argv: vec![
+            exe,
+            if is_recording(&path) {
+                PLAY_COMMAND
+            } else {
+                COMMAND
+            }
+            .to_string(),
+            path.display().to_string(),
+        ],
         cwd: path
             .parent()
             .map_or_else(|| PathBuf::from("."), Path::to_path_buf),
         meta: None,
         document: true,
     }
+}
+
+pub(crate) fn is_recording(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(RECORDING_EXTENSION))
 }
 
 pub(crate) fn is_markdown(path: &Path) -> bool {
@@ -58,7 +76,7 @@ fn collect(dir: &Path, depth: usize, found: &mut Vec<(std::time::SystemTime, Pat
             if depth > 0 && !name.starts_with('.') && !SKIPPED_DIRS.contains(&name.as_str()) {
                 collect(&path, depth - 1, found);
             }
-        } else if is_markdown(&path) {
+        } else if is_markdown(&path) || is_recording(&path) {
             let modified = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
             found.push((modified, path));
         }
@@ -325,6 +343,7 @@ mod tests {
         for path in [
             "README.md",
             "Plan/x.markdown",
+            "claude-session-1.vt",
             "target/skip.md",
             ".git/skip.md",
             "a.txt",
@@ -338,7 +357,7 @@ mod tests {
             .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
             .collect();
         names.sort();
-        assert_eq!(names, ["README.md", "x.markdown"]);
+        assert_eq!(names, ["README.md", "claude-session-1.vt", "x.markdown"]);
         let _ = std::fs::remove_dir_all(dir);
     }
 }
