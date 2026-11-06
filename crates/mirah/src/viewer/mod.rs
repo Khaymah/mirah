@@ -273,9 +273,14 @@ impl Pager {
 
 fn session(pager: &mut Pager) -> std::io::Result<()> {
     let mut out = std::io::stdout();
+    let mut shown = None;
     loop {
         pager.layout();
-        pager.draw(&mut out)?;
+        let state = (pager.top, pager.cols, pager.rows, pager.notice.clone());
+        if shown.as_ref() != Some(&state) {
+            pager.draw(&mut out)?;
+            shown = Some(state);
+        }
         if !event::poll(POLL)? {
             continue;
         }

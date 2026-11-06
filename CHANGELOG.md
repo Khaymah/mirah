@@ -2,6 +2,18 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.4 - 2026-11-06
+
+**تشغيل التسجيلات كان بيعيد نفسه من غير نهاية.**
+
+- **التسجيل فيه أسئلة للترمنال** (زي "المؤشر فين؟" و"إنت أنهي ترمنال؟")، كان البرنامج اللي اتسجّل بيسألها. ومرآة كانت بترد عليها، والرد بيوصل للمشغّل كأنه زراير، وآخر حرف في الرد `R` اللي هو "من الأول". فالتسجيل كان بيبدأ من الأول من غير نهاية، ومرآة بتبان معلّقة، والتسجيل نفسه بيكبر جداً. دلوقتي المشغّل بيشيل من التسجيل:
+  - أسئلة الترمنال.
+  - أوضاع الماوس والكيبورد وإشارات التركيز، عشان التسجيل مايغيّرش طريقة الإدخال.
+  - النسخ للحافظة (`OSC 52`)، عشان تشغيل تسجيل مايغيّرش الحافظة.
+- **عارض Markdown** مابقاش بيرسم الشاشة كل نص ثانية لما مفيش حاجة اتغيرت.
+
+**English:** Playing a recording restarted forever. Recordings hold the terminal questions the recorded program asked (cursor position, device attributes); mirah answered them, the answers reached the player as keys, and their final `R` meant "restart", so playback looped, mirah looked frozen and recordings of it grew huge. The player now strips terminal questions, mouse, keyboard and focus modes, and clipboard writes from the recording. The Markdown viewer no longer redraws every half second when nothing changed.
+
 ## 0.4.0-alpha.3 - 2026-11-06
 
 **تشغيل التسجيلات، والماوس بعد ما مرآة تخرج، وجداول Claude.**

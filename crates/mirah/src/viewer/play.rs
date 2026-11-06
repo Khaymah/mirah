@@ -13,6 +13,103 @@ const LEAVE: &str = "\x1b[?2026l\x1b[0m\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?10
 const DONE: &str = "انتهى التسجيل · Esc للإغلاق · R للإعادة";
 const DONE_STYLE: &str = "\x1b[0;48;2;30;31;35;38;2;217;145;104m";
 
+const ESC: u8 = 0x1b;
+const BEL: u8 = 0x07;
+const INPUT_MODES: [u16; 10] = [1000, 1002, 1003, 1004, 1005, 1006, 1015, 1016, 2004, 9001];
+
+fn csi_end(bytes: &[u8], start: usize) -> Option<usize> {
+    bytes[start..]
+        .iter()
+        .position(|b| (0x40..=0x7e).contains(b))
+        .map(|p| start + p)
+}
+
+fn osc_end(bytes: &[u8], start: usize) -> Option<(usize, usize)> {
+    let mut i = start;
+    while i < bytes.len() {
+        match bytes[i] {
+            BEL => return Some((i, i + 1)),
+            ESC if bytes.get(i + 1) == Some(&b'\\') => return Some((i, i + 2)),
+            _ => i += 1,
+        }
+    }
+    None
+}
+
+fn kept_csi(body: &[u8], last: u8) -> Option<Vec<u8>> {
+    let private = body.first().copied();
+    let asks = match last {
+        b'n' | b'c' | b't' => true,
+        b'q' => private == Some(b'>'),
+        b'u' => matches!(private, Some(b'?' | b'>' | b'<' | b'=')),
+        b'p' => body.contains(&b'$'),
+        _ => false,
+    };
+    if asks {
+        return None;
+    }
+    if private == Some(b'?') && matches!(last, b'h' | b'l') {
+        let params: Vec<&[u8]> = body[1..]
+            .split(|b| *b == b';')
+            .filter(|p| {
+                std::str::from_utf8(p)
+                    .ok()
+                    .and_then(|t| t.parse::<u16>().ok())
+                    .is_none_or(|n| !INPUT_MODES.contains(&n))
+            })
+            .collect();
+        if params.is_empty() {
+            return None;
+        }
+        let mut out = b"\x1b[?".to_vec();
+        out.extend(params.join(&b';'));
+        out.push(last);
+        return Some(out);
+    }
+    let mut out = b"\x1b[".to_vec();
+    out.extend_from_slice(body);
+    out.push(last);
+    Some(out)
+}
+
+pub(crate) fn quiet(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != ESC {
+            out.push(bytes[i]);
+            i += 1;
+            continue;
+        }
+        match bytes.get(i + 1) {
+            Some(b'[') => match csi_end(bytes, i + 2) {
+                Some(end) => {
+                    if let Some(kept) = kept_csi(&bytes[i + 2..end], bytes[end]) {
+                        out.extend(kept);
+                    }
+                    i = end + 1;
+                }
+                None => break,
+            },
+            Some(b']') => match osc_end(bytes, i + 2) {
+                Some((body_end, next)) => {
+                    let body = &bytes[i + 2..body_end];
+                    if !body.starts_with(b"52;") && !body.ends_with(b"?") {
+                        out.extend_from_slice(&bytes[i..next]);
+                    }
+                    i = next;
+                }
+                None => break,
+            },
+            _ => {
+                out.push(ESC);
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
 pub(crate) fn frames(bytes: &[u8]) -> Vec<&[u8]> {
     let mut out = Vec::new();
     let mut start = 0;
@@ -97,7 +194,8 @@ fn play_once(bytes: &[u8], out: &mut impl Write) -> std::io::Result<Control> {
         skip: false,
     };
     reset(out)?;
-    for frame in frames(bytes) {
+    let bytes = quiet(bytes);
+    for frame in frames(&bytes) {
         out.write_all(frame)?;
         out.flush()?;
         if player.skip {
@@ -164,6 +262,15 @@ mod tests {
             [b"a\x1b[?2026l".as_slice(), b"bb\x1b[?2026l", b"ccc"]
         );
         assert_eq!(parts.concat(), bytes);
+    }
+
+    #[test]
+    fn questions_input_modes_and_copies_are_left_out() {
+        let recorded = b"\x1b[1t\x1b[6n\x1b[c\x1b[?1004h\x1b[?9001h\x1b[?1049h\x1b[?1003;1006;25h\x1b[31mhi\x1b]52;c;aGk=\x07\x1b]11;?\x1b\\\x1b]0;title\x07\x1b[>1u\x1b[?2026$p";
+        assert_eq!(
+            quiet(recorded),
+            b"\x1b[?1049h\x1b[?25h\x1b[31mhi\x1b]0;title\x07"
+        );
     }
 
     #[test]
