@@ -2,6 +2,17 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.7 - 2026-11-07
+
+**✕ والشريط بالماوس مع أي برنامج.**
+
+- **مرآة بقت بتطلب الماوس من الترمنال دايماً.** فالشريط و✕ والتابات بقوا بيشتغلوا بالماوس حتى مع البرامج اللي مش طالبة الماوس، زي Codex والـ shell. قبل كده ✕ ماكانش بيرد مع Codex.
+  - **التحديد العادي** في البرامج دي بقى بـ `Shift` + سحب.
+  - **عجلة الماوس** بتتحول لأسهم فوق وتحت، فالتمرير بيفضل شغال.
+- **إعداد "الماوس للشريط دائمًا"** في الخيارات المتقدّمة بيرجّع السلوك القديم.
+
+**English:** The close button and the bar now respond to the mouse with any program. mirah always asks the terminal for mouse clicks, so the bar, tabs and ✕ work even with programs that never request the mouse, such as Codex and the shell; before, ✕ did nothing with Codex. In those programs normal selection becomes `Shift` + drag, and the wheel turns into up and down arrows so scrolling still works. "Mouse for the bar, always" in the advanced options restores the old behaviour.
+
 ## 0.4.0-alpha.6 - 2026-11-07
 
 **مرآة مابقتش بتبوّظ الترمنال.**

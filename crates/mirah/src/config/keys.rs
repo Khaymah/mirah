@@ -9,6 +9,7 @@ pub(crate) enum Key {
     Record,
     Clipboard,
     Highlight,
+    BarMouse,
 }
 
 pub(crate) struct Spec {
@@ -21,7 +22,7 @@ pub(crate) struct Spec {
 
 const ON_OFF: &[(&str, &str)] = &[("true", "تشغيل"), ("false", "إيقاف")];
 
-pub(crate) const SPECS: [Spec; 9] = [
+pub(crate) const SPECS: [Spec; 10] = [
     Spec {
         key: Key::Align,
         name: "align",
@@ -86,6 +87,13 @@ pub(crate) const SPECS: [Spec; 9] = [
         key: Key::Mouse,
         name: "mouse",
         label: "تحويل نقرات الماوس",
+        values: ON_OFF,
+        advanced: true,
+    },
+    Spec {
+        key: Key::BarMouse,
+        name: "bar_mouse",
+        label: "الماوس للشريط دائمًا",
         values: ON_OFF,
         advanced: true,
     },

@@ -120,6 +120,7 @@ impl Tab {
         let recorder = Recorder::new(path);
         let mut emulator = Emulator::with_options(open.size.rows, open.size.cols, options)?;
         emulator.allow_clipboard(settings.clipboard);
+        emulator.keep_mouse_on(settings.bar && settings.bar_mouse);
         tracing::info!(
             tab = open.id,
             argv = ?open.spawn.argv,
@@ -191,6 +192,8 @@ impl Tab {
         self.emulator
             .set_options(self.settings.render_options(&self.program));
         self.emulator.allow_clipboard(self.settings.clipboard);
+        self.emulator
+            .keep_mouse_on(self.settings.bar && self.settings.bar_mouse);
     }
 
     pub(super) fn close(mut self, store: Option<&Store>) -> u32 {

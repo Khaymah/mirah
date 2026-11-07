@@ -49,13 +49,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.7/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.7/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -68,8 +68,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.7/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.7/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -197,7 +197,10 @@ The first row belongs to mirah, and the program runs below it:
 | `Ctrl+]` then `q` | Closes mirah and every program in it, even one that ignores keys |
 | `Ctrl+]` twice | Sends `Ctrl+]` to the program |
 
-**Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code and OpenCode do. mirah never captures the mouse on its own, so the terminal's normal selection keeps working.
+**Mouse:** the bar, tabs and ✕ respond to the mouse with any program, because mirah always asks the terminal for the mouse.
+- **Normal selection** in programs that do not use the mouse (such as Codex and the shell) is `Shift` + drag, as with any mouse-using program in Windows Terminal.
+- **The mouse wheel** in those programs turns into up and down arrows, so scrolling keeps working.
+- **For selection without `Shift`:** turn off "mouse for the bar, always" in the advanced options; the bar then responds to the mouse only with programs that ask for it, such as Claude Code and OpenCode.
 
 ## Settings
 
@@ -214,6 +217,7 @@ The first row belongs to mirah, and the program runs below it:
 | **Advanced:** letter joining | auto · mirah · terminal | Who joins letters; Windows Terminal joins them itself |
 | **Advanced:** program text order | auto · logical · visual | "Visual" for programs that reverse Arabic themselves, such as Claude Code on Windows |
 | **Advanced:** map mouse clicks | on · off | A click reaches the program at the word you see |
+| **Advanced:** mouse for the bar, always | on · off | The bar works with the mouse for any program; off brings back selection without `Shift` |
 
 ### The settings file
 

@@ -123,6 +123,22 @@ impl Emulator {
         self.renderer.hold_map = hold;
     }
 
+    pub fn keep_mouse_on(&mut self, on: bool) {
+        if self.renderer.base_mouse != on {
+            self.renderer.base_mouse = on;
+            self.changed = true;
+        }
+    }
+
+    pub fn cursor_key(&self, up: bool) -> &'static [u8] {
+        match (self.parser.screen().application_cursor(), up) {
+            (true, true) => b"\x1bOA",
+            (true, false) => b"\x1bOB",
+            (false, true) => b"\x1b[A",
+            (false, false) => b"\x1b[B",
+        }
+    }
+
     pub fn redraw(&mut self) {
         self.renderer.redraw();
         self.restore_focus = true;
@@ -167,6 +183,23 @@ mod tests {
         e.frame();
         e.resize(10, 40).expect("valid size");
         assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn mouse_can_stay_on_for_the_bar() {
+        let mut e = Emulator::new(2, 10).expect("valid size");
+        e.keep_mouse_on(true);
+        assert!(e.frame().contains("\x1b[?1000h\x1b[?1006h"));
+        assert!(!e.wants_mouse());
+        e.keep_mouse_on(false);
+        let off = e.frame();
+        assert!(
+            off.contains("\x1b[?1000l") && !off.contains("\x1b[?1000h"),
+            "{off:?}"
+        );
+        assert_eq!(e.cursor_key(true), b"\x1b[A");
+        e.feed(b"\x1b[?1h");
+        assert_eq!(e.cursor_key(false), b"\x1bOB");
     }
 
     #[test]

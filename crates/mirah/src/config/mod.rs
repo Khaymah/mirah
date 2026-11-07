@@ -27,6 +27,7 @@ pub(crate) struct Settings {
     pub(crate) record: bool,
     pub(crate) clipboard: bool,
     pub(crate) highlight: bool,
+    pub(crate) bar_mouse: bool,
 }
 
 impl Default for Settings {
@@ -42,6 +43,7 @@ impl Default for Settings {
             record: false,
             clipboard: true,
             highlight: true,
+            bar_mouse: true,
         }
     }
 }
@@ -90,6 +92,7 @@ impl Settings {
             Key::Record => return flag().map(|f| self.record = f).is_some(),
             Key::Clipboard => return flag().map(|f| self.clipboard = f).is_some(),
             Key::Highlight => return flag().map(|f| self.highlight = f).is_some(),
+            Key::BarMouse => return flag().map(|f| self.bar_mouse = f).is_some(),
         }
         true
     }
@@ -118,6 +121,7 @@ impl Settings {
             Key::Record => flag(self.record),
             Key::Clipboard => flag(self.clipboard),
             Key::Highlight => flag(self.highlight),
+            Key::BarMouse => flag(self.bar_mouse),
         }
     }
 

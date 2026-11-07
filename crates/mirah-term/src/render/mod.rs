@@ -11,6 +11,7 @@ use crate::sequences::{
 use mirah_bidi::{Cell, Style, VisualRow};
 
 const EDITOR_CURSOR_NUM: u32 = 2;
+const BASE_MOUSE: &str = "\x1b[?1000h\x1b[?1006h";
 const EDITOR_CURSOR_DEN: u32 = 3;
 
 pub(crate) struct Renderer {
@@ -19,6 +20,7 @@ pub(crate) struct Renderer {
     reset_modes: bool,
     pub(crate) modes_reset: bool,
     pub(crate) hold_map: bool,
+    pub(crate) base_mouse: bool,
     options: RenderOptions,
     caches: Caches,
     to_child: Vec<Vec<u16>>,
@@ -68,6 +70,7 @@ impl Renderer {
             reset_modes: false,
             modes_reset: false,
             hold_map: false,
+            base_mouse: false,
             options,
             caches: Caches::default(),
             to_child: Vec::new(),
@@ -163,7 +166,10 @@ impl Renderer {
             ))
         });
         self.draw_rows(&mut out, &mut visual, overlay, cols);
-        let modes = screen.input_mode_formatted();
+        let mut modes = screen.input_mode_formatted();
+        if self.base_mouse && screen.mouse_protocol_mode() == vt100::MouseProtocolMode::None {
+            modes.push_str(BASE_MOUSE);
+        }
         let changed = modes != self.prev_input_modes;
         if std::mem::take(&mut self.reset_modes) || changed {
             out.push_str(RESET_INPUT_MODES);

@@ -56,9 +56,16 @@ impl Workspace {
         let mut hold = None;
         let chrome = &mut self.chrome;
         let emulator = self.tabs.get(self.active).map(|t| &t.emulator);
+        let mut wheel: Vec<u8> = Vec::new();
         let bytes = self.mouse.apply(bytes, |e| {
             let e = chrome.mouse(e, &mut actions)?;
-            let emulator = emulator.filter(|em| em.wants_mouse())?;
+            let emulator = emulator?;
+            if !emulator.wants_mouse() {
+                if e.press && e.button & WHEEL != 0 && e.button & MOTION == 0 {
+                    wheel.extend_from_slice(emulator.cursor_key(e.button & 1 == 0));
+                }
+                return None;
+            }
             if e.button & MOTION == 0 && e.button < WHEEL {
                 hold = Some(e.press);
             }
@@ -72,6 +79,7 @@ impl Workspace {
             })
         });
         let mut bytes = self.chrome.input(&bytes, &mut actions);
+        bytes.extend(wheel);
         if let Some(tab) = self.tabs.get_mut(self.active) {
             if let Some(hold) = hold {
                 tab.emulator.hold_mouse_map(hold);
