@@ -22,6 +22,7 @@ pub const BRACKETED_PASTE_OFF: &str = "\x1b[?2004l";
 pub const CURSOR_KEYS_NORMAL: &str = "\x1b[?1l";
 pub const KEYPAD_NUMERIC: &str = "\x1b>";
 pub const KITTY_KEYBOARD_POP: &str = "\x1b[<u";
+pub const WIN32_INPUT_OFF: &str = "\x1b[?9001l";
 pub const RESET_INPUT_MODES: &str = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>";
 
 pub const MODE_SYNCHRONIZED_OUTPUT: u16 = 2026;
@@ -34,7 +35,7 @@ const ENTER: [&str; 5] = [
     CLEAR_SCREEN,
 ];
 
-const LEAVE: [&str; 13] = [
+const LEAVE: [&str; 14] = [
     SYNC_END,
     SGR_RESET,
     CURSOR_SHOW,
@@ -44,6 +45,7 @@ const LEAVE: [&str; 13] = [
     CURSOR_KEYS_NORMAL,
     KEYPAD_NUMERIC,
     KITTY_KEYBOARD_POP,
+    WIN32_INPUT_OFF,
     ALT_SCREEN_LEAVE,
     MOUSE_TRACKING_OFF,
     FOCUS_EVENTS_OFF,

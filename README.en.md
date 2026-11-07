@@ -49,13 +49,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -68,8 +68,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -194,6 +194,7 @@ The first row belongs to mirah, and the program runs below it:
 | `Ctrl+]` | Opens the bar: arrows move (reaching a tab opens it), Enter chooses, Esc returns to the program |
 | `Ctrl+]` then `1` to `9` | Goes to that tab |
 | `Ctrl+]` then `t` | A new tab |
+| `Ctrl+]` then `q` | Closes mirah and every program in it, even one that ignores keys |
 | `Ctrl+]` twice | Sends `Ctrl+]` to the program |
 
 **Mouse:** clicking the bar works when the program asks for the mouse, as Claude Code and OpenCode do. mirah never captures the mouse on its own, so the terminal's normal selection keeps working.

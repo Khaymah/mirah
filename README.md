@@ -51,13 +51,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -70,8 +70,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.5/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.6/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -196,6 +196,7 @@ mirah play 1106-0457-k3f2
 | `Ctrl+]` | يفتح الشريط: الأسهم بتتنقل، والوصول لتاب بيفتحه، وEnter بيختار، وEsc بيرجعك للبرنامج |
 | `Ctrl+]` وبعدين `1` لـ `9` | يروح للتاب رقم كذا |
 | `Ctrl+]` وبعدين `t` | تاب جديد |
+| `Ctrl+]` وبعدين `q` | يقفل مرآة وكل البرامج اللي جواها، حتى لو البرنامج مش بيرد على الزراير |
 | `Ctrl+]` مرتين | يبعت `Ctrl+]` للبرنامج نفسه |
 
 **الماوس:** الضغط على الشريط بيشتغل لو البرنامج طالب الماوس، زي Claude Code وOpenCode. ومرآة مابتمسكش الماوس لوحدها، فالتحديد العادي في الترمنال بيفضل شغال.

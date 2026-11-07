@@ -3,7 +3,7 @@ use crate::error::TermError;
 use crate::layout::{InputOrder, RenderOptions};
 use crate::overlay::Overlay;
 use crate::render::Renderer;
-use crate::sequences::FOCUS_EVENTS_ON;
+use crate::sequences::{FOCUS_EVENTS_OFF, FOCUS_EVENTS_ON, SYNC_END};
 use std::num::NonZeroU16;
 
 const SCROLLBACK_ROWS: usize = 0;
@@ -19,6 +19,7 @@ pub struct Emulator {
     renderer: Renderer,
     changed: bool,
     restore_focus: bool,
+    focus_sent: bool,
 }
 
 fn non_zero(rows: u16, cols: u16) -> Result<(NonZeroU16, NonZeroU16), TermError> {
@@ -42,6 +43,7 @@ impl Emulator {
             renderer: Renderer::new(options),
             changed: true,
             restore_focus: false,
+            focus_sent: false,
         })
     }
 
@@ -85,8 +87,22 @@ impl Emulator {
     pub fn frame_with(&mut self, overlay: &Overlay) -> String {
         self.changed = false;
         let mut frame = self.renderer.frame(self.parser.screen(), overlay);
-        if std::mem::take(&mut self.restore_focus) && self.wants_focus() {
-            frame.push_str(FOCUS_EVENTS_ON);
+        self.restore_focus = false;
+        if std::mem::take(&mut self.renderer.modes_reset) {
+            self.focus_sent = false;
+        }
+        let wanted = self.wants_focus();
+        if wanted != self.focus_sent {
+            let insert = frame.rfind(SYNC_END).unwrap_or(frame.len());
+            frame.insert_str(
+                insert,
+                if wanted {
+                    FOCUS_EVENTS_ON
+                } else {
+                    FOCUS_EVENTS_OFF
+                },
+            );
+            self.focus_sent = wanted;
         }
         frame
     }
@@ -151,6 +167,20 @@ mod tests {
         e.frame();
         e.resize(10, 40).expect("valid size");
         assert!(e.needs_frame());
+    }
+
+    #[test]
+    fn modes_follow_the_program_without_passing_its_sequences_through() {
+        let mut e = Emulator::new(2, 10).expect("valid size");
+        e.feed(b"\x1b[?2004h\x1b[?1004h");
+        let first = e.frame();
+        assert!(first.contains("\x1b[?2004h") && first.contains("\x1b[?1004h"));
+        assert!(e.take_output().to_host.is_empty());
+        e.feed(b"\x1b[?2004l\x1b[?1004l");
+        let second = e.frame();
+        assert!(second.contains("\x1b[?2004l"), "{second:?}");
+        assert!(second.contains("\x1b[?1004l"), "{second:?}");
+        assert!(!second.contains("\x1b[?1004h"), "{second:?}");
     }
 
     #[test]

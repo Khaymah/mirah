@@ -121,8 +121,8 @@ mod tests {
 
     #[test]
     fn forwards_device_attribute_queries_to_host() {
-        let p = feed(b"\x1b[c\x1b[>q\x1b[?u");
-        assert_eq!(p.callbacks().to_host, b"\x1b[c\x1b[>q\x1b[?u");
+        let p = feed(b"\x1b[c\x1b[>q\x1b[?u\x1b[18t");
+        assert_eq!(p.callbacks().to_host, b"\x1b[c\x1b[>q\x1b[?u\x1b[18t");
     }
 
     #[test]
@@ -132,9 +132,14 @@ mod tests {
     }
 
     #[test]
-    fn swallows_synchronized_output_mode() {
-        let p = feed(b"\x1b[?2026h\x1b[?1004h");
-        assert_eq!(p.callbacks().to_host, b"\x1b[?1004h");
+    fn mode_changes_never_reach_the_host() {
+        let p = feed(b"\x1b[?2026h\x1b[?1004h\x1b[?9001h\x1b[?1049l\x1b[?1003h\x1b[>1u\x1b[<u\x1b[=5;1u\x1b[22;0t");
+        assert!(
+            p.callbacks().to_host.is_empty(),
+            "{:?}",
+            p.callbacks().to_host
+        );
+        assert!(p.callbacks().focus_events);
     }
 
     #[test]

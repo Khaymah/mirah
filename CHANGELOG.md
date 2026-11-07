@@ -2,6 +2,19 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.6 - 2026-11-07
+
+**مرآة مابقتش بتبوّظ الترمنال.**
+
+- **البرنامج اللي جوه مرآة مابقاش بيغيّر وضع الترمنال الحقيقي.** قبل كده، مرآة كانت بتعدّي للترمنال أي أمر بيغيّر وضعه، وده كان سبب مشاكل كتير:
+  - **`?9001h` (الزراير بصيغة ويندوز):** كان بيفضل شغال بعد ما مرآة تخرج، فبرنامج زي `ssh` في نفس التاب كان بيستلم الزراير كده: `;28;13;1;32;1_`.
+  - **`?1049l`:** البرنامج اللي جوه كان بيخرّج الترمنال من الشاشة البديلة، فكلام البرنامج كان بيفضل على الشاشة بعد الخروج.
+  - **أوضاع الكيبورد الخاصة** (زي اللي Codex بيطلبها): الأرجح إنها السبب في إن Codex مابقاش بيرد على أي زرار.
+  - **التصليح:** مرآة بقت بتعدّي للترمنال الأسئلة بس ("إنت أنهي ترمنال؟"، ومقاس الشاشة، والألوان). والماوس والـ paste والتركيز بتظبطهم مرآة بنفسها من حالة كل تاب. ووهي خارجة، بتقفل `9001` كمان.
+- **`Ctrl+]` وبعدين `q`** بيقفل مرآة وكل البرامج اللي جواها، حتى لو البرنامج مش بيرد على الزراير. وبيشتغل كمان والكيبورد على العربي (`ض`).
+
+**English:** mirah no longer breaks the terminal. mirah used to pass the inner program's mode changes straight to the real terminal: `?9001h` (Windows key encoding) stayed on after exit, so `ssh` in the same tab received keys as `;28;13;1;32;1_`; `?1049l` took the terminal out of the alternate screen, leaving the program's output behind after exit; and keyboard modes such as the ones Codex requests most likely stopped Codex from receiving keys. mirah now forwards only questions (terminal identity, size, colours) and sets mouse, paste and focus reporting itself from each tab's state, and turns `9001` off when it leaves. `Ctrl+]` then `q` (or `ض`) closes mirah and every program in it, even one that ignores keys.
+
 ## 0.4.0-alpha.5 - 2026-11-06
 
 **ألوان للماركداون، والجلسات جنب البرنامج، والنسخ من Claude على ويندوز.**

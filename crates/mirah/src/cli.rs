@@ -20,6 +20,7 @@ Inside mirah:
   Ctrl+]                      open the bar (arrows move, Enter picks, Esc closes)
   Ctrl+] then 1-9             go to that tab
   Ctrl+] then t               open a new tab
+  Ctrl+] then q               close mirah and every program in it
   Ctrl+] Ctrl+]               send Ctrl+] to the program
 
 Environment:

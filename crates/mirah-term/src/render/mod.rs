@@ -17,6 +17,7 @@ pub(crate) struct Renderer {
     prev: Vec<Vec<Cell>>,
     prev_input_modes: String,
     reset_modes: bool,
+    pub(crate) modes_reset: bool,
     pub(crate) hold_map: bool,
     options: RenderOptions,
     caches: Caches,
@@ -65,6 +66,7 @@ impl Renderer {
             prev: Vec::new(),
             prev_input_modes: String::new(),
             reset_modes: false,
+            modes_reset: false,
             hold_map: false,
             options,
             caches: Caches::default(),
@@ -162,12 +164,12 @@ impl Renderer {
         });
         self.draw_rows(&mut out, &mut visual, overlay, cols);
         let modes = screen.input_mode_formatted();
-        if std::mem::take(&mut self.reset_modes) {
+        let changed = modes != self.prev_input_modes;
+        if std::mem::take(&mut self.reset_modes) || changed {
             out.push_str(RESET_INPUT_MODES);
-        }
-        if modes != self.prev_input_modes {
             out.push_str(&modes);
             self.prev_input_modes = modes;
+            self.modes_reset = true;
         }
         let cursor_row = u16::try_from(cursor.row)
             .unwrap_or(0)

@@ -18,6 +18,7 @@ use mirah_term::{Overlay, OverlayRow};
 const BAR_ROWS: u16 = 1;
 const LEFT_BUTTON: u16 = 0;
 const NEW_TAB_KEY: char = 't';
+const QUIT_KEY: char = 'q';
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Action {
@@ -153,6 +154,10 @@ impl Chrome {
                 }
             }
             Key::Char(c) if keys::latin(c) == NEW_TAB_KEY => self.activate(Item::NewTab, actions),
+            Key::Char(c) if keys::latin(c).to_ascii_lowercase() == QUIT_KEY => {
+                self.set_mode(Mode::Normal);
+                actions.push(Action::Quit);
+            }
             Key::Char(c) => {
                 if let Some(n) = keys::latin(c)
                     .to_digit(10)
@@ -484,6 +489,9 @@ mod tests {
         actions.clear();
         c.input("\x1dف".as_bytes(), &mut actions);
         assert_eq!(actions, [Action::NewTab]);
+        actions.clear();
+        c.input("\x1dض".as_bytes(), &mut actions);
+        assert_eq!(actions, [Action::Quit]);
         actions.clear();
         c.input("\x1d٢".as_bytes(), &mut actions);
         assert_eq!(actions, [Action::Switch(1)]);
