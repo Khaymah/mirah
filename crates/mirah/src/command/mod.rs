@@ -1,4 +1,6 @@
 #[cfg(any(windows, test))]
+mod pe;
+#[cfg(any(windows, test))]
 mod resolve;
 #[cfg(any(windows, test))]
 mod shim;
@@ -23,6 +25,28 @@ pub(crate) fn command(argv: &[String], cwd: &std::path::Path) -> CommandBuilder 
     let mut cmd = build(program, argv.iter().skip(1).cloned().collect());
     cmd.cwd(cwd);
     cmd
+}
+
+#[cfg(windows)]
+pub(crate) fn windowed(program: &str) -> bool {
+    let path = std::env::var("PATH").ok();
+    let pathext = std::env::var("PATHEXT").ok();
+    let target = match resolve::resolve(program, path.as_deref(), pathext.as_deref()) {
+        Some(resolve::Program::Native(exe)) => Some(exe),
+        Some(resolve::Program::Script(script)) => std::fs::read_to_string(&script)
+            .ok()
+            .zip(script.parent())
+            .and_then(|(text, dir)| shim::parse(&text, dir))
+            .filter(|s| s.interpreter.is_none())
+            .and_then(|s| s.args.first().map(std::path::PathBuf::from)),
+        None => None,
+    };
+    target.is_some_and(|exe| pe::file_is_windowed(&exe))
+}
+
+#[cfg(not(windows))]
+pub(crate) fn windowed(_program: &str) -> bool {
+    false
 }
 
 #[cfg(windows)]

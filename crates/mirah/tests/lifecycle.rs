@@ -228,6 +228,46 @@ fn a_child_left_behind_by_a_program_that_exited_ends_with_its_tab() {
 }
 
 #[test]
+fn a_program_that_leaves_the_terminal_at_once_is_explained_not_kept() {
+    let home = home("windowed");
+    program(&home, "opener", "exit 0");
+    let sessions = home.join("sessions");
+    std::fs::create_dir_all(home.join("config").join("mirah")).expect("config dir");
+    std::fs::write(
+        home.join("config").join("mirah").join("config.toml"),
+        format!("sessions_dir = {:?}\n", sessions.display().to_string()),
+    )
+    .expect("config");
+    let mut mirah = Mirah::start(home.clone(), &["opener"]);
+    assert_eq!(mirah.exit(EXIT_DEADLINE), Some(0));
+    assert!(
+        mirah.saw(
+            b"probably because it opened its own window",
+            0,
+            EXIT_DEADLINE
+        ),
+        "no explanation was printed"
+    );
+    assert!(
+        !mirah.saw(b"mirah resume", 0, Duration::ZERO),
+        "a session was offered"
+    );
+    assert!(sessions.is_dir(), "the chosen sessions folder was not used");
+    let kept = std::fs::read_dir(&sessions)
+        .expect("sessions folder")
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .count();
+    assert_eq!(kept, 0, "the session folder was kept");
+    drop(mirah);
+    let home = self::home("talker");
+    program(&home, "talker", "echo done; exit 0");
+    let mut mirah = Mirah::start(home, &["talker"]);
+    assert_eq!(mirah.exit(EXIT_DEADLINE), Some(0));
+    assert!(!mirah.saw(b"its own window", 0, Duration::ZERO));
+}
+
+#[test]
 fn ctrl_bracket_in_the_picker_opens_the_bar_and_esc_still_leaves() {
     let home = home("picker");
     let mut mirah = Mirah::start(home, &[]);

@@ -13,6 +13,8 @@
 
 <p align="center"><img src="docs/images/demo.gif" alt="mirah: the program picker, an Arabic reply shown right to left, and the settings menu" width="900"></p>
 
+<p align="center"><a href="docs/images/tour.gif">A full 46-second tour: tabs, settings and the Markdown viewer</a></p>
+
 | Without mirah | With mirah |
 |---|---|
 | <img src="docs/images/before.png" alt="A plain terminal: Arabic reversed, letters broken apart, the table on the left" width="440"> | <img src="docs/images/after.png" alt="mirah: Arabic right to left, joined letters, the table mirrored on the right" width="440"> |
@@ -63,6 +65,10 @@ mirah opencode --model gpt-5
 ```
 
 > On Windows, programs installed with npm (such as `codex` and `gemini`) just work. If you run mirah from its own folder without adding it to PATH, PowerShell needs `.\mirah.exe`.
+
+> mirah is for programs that run **inside** the terminal. For programs that open their own window, such as `notepad` or VS Code's `code`:
+> - On Windows, mirah tells from the exe that it opens a window, and says so without starting it.
+> - If a program ends within 3 seconds without showing anything, mirah explains why on exit and keeps no session for it.
 
 ## What it does
 

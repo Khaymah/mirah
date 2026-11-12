@@ -312,6 +312,14 @@ fn writable(dir: &Path) -> bool {
     ok
 }
 
+impl Store {
+    pub(crate) fn remove(&self, id: &str) {
+        if looks_like_id(id) {
+            let _ = std::fs::remove_dir_all(self.dir(id));
+        }
+    }
+}
+
 pub(crate) fn forget_if_empty(store: &Store, id: &str) {
     let dir = store.dir(id);
     if !dir.join(META_FILE).exists() {

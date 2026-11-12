@@ -2,6 +2,20 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.1 - 2026-11-12
+
+**مرآة بقت بتعرف البرامج اللي مابتشتغلش جوه الترمنال.** قبل كده، `mirah code` كان بيفتح VS Code في نافذته، وبعدين مرآة تخرج على طول، ومعاها رسالة جلسة مالهاش لازمة.
+
+- **قبل التشغيل، على ويندوز:** مرآة بتقرا الـ exe، ولو لقته برنامج بيفتح نافذة (زي `notepad`)، بتقولك إنه مش بيشتغل جوه الترمنال، ومابتشغّلوش.
+- **بعد التشغيل، على كل الأنظمة:**
+  - لو البرنامج خلص في أقل من 3 ثواني من غير ما يعرض حاجة (زي `code`)، مرآة بتكتب وهي خارجة إنه غالباً فتح نافذته الخاصة.
+  - ومابتحفظش جلسة ليه.
+  - ولو فيه تابات تانية مفتوحة، الرسالة بتظهر في الشريط.
+- **كود الخروج** بيفضل نفس كود البرنامج.
+- **جولة كاملة في GIF** (`docs/images/tour.gif`)، ولينك ليها في الـ README.
+
+**English:** mirah now recognizes programs that do not run inside the terminal. Before, `mirah code` opened VS Code in its own window and mirah exited at once with a pointless session message. On Windows, mirah reads the exe first and, for a windowed program such as `notepad`, says it does not run in a terminal instead of starting it. On every platform, a program that ends within 3 seconds without showing anything (such as `code`) gets an explanation on exit that it probably opened its own window, and no session is kept for it; with other tabs open the note appears in the bar. The exit code stays the program's own. A full tour GIF (`docs/images/tour.gif`) is linked from the README.
+
 ## 0.4.0 - 2026-11-12
 
 **أول إصدار مستقر من مرآة.** مرآة بتشغّل Claude Code وOpenCode وCodex وGemini، وأي برنامج terminal تاني، وبتصلّح العربي قبل ما يوصل لشاشتك.

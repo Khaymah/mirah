@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 const EXIT_GRACE: Duration = Duration::from_millis(100);
 const AFTER_EXIT: Duration = Duration::from_millis(1_000);
 const AFTER_CLOSE: Duration = Duration::from_millis(1_500);
+const QUICK_EXIT: Duration = Duration::from_secs(3);
 const UNREAD_AFTER: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +83,7 @@ pub(super) struct Tab {
     pub(super) left_at: Option<Instant>,
     pub(super) recording_since: Option<Instant>,
     pub(super) recorded: Duration,
+    opened_at: Instant,
 }
 
 pub(super) struct Open<'a> {
@@ -120,6 +122,11 @@ impl Tab {
         let settings = open.config.settings(&program);
         let options = settings.render_options(&program);
         let mut emulator = Emulator::with_options(open.size.rows, open.size.cols, options)?;
+        if crate::command::windowed(&program) {
+            anyhow::bail!(
+                "`{program}` opens its own window instead of running inside the terminal, so mirah cannot show it. mirah runs programs that work inside the terminal, such as claude, codex and opencode."
+            );
+        }
         let cmd = crate::command::command(&open.spawn.argv, &open.spawn.cwd);
         let (pty, child) = Pty::spawn(cmd, open.size)?;
         let mut killer = child.clone_killer();
@@ -180,6 +187,7 @@ impl Tab {
             unread: false,
             left_at: None,
             recorded: Duration::ZERO,
+            opened_at: Instant::now(),
         })
     }
 
@@ -214,6 +222,15 @@ impl Tab {
         }
         self.emulator.resize(size.rows, size.cols)?;
         Ok(())
+    }
+
+    pub(super) fn left_the_terminal(&self) -> bool {
+        self.life.closing_at.is_none()
+            && self
+                .life
+                .exited_at
+                .is_some_and(|t| t.saturating_duration_since(self.opened_at) < QUICK_EXIT)
+            && !self.emulator.shows_text()
     }
 
     pub(super) fn kill(&mut self) {

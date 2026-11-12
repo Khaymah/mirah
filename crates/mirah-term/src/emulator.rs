@@ -67,6 +67,10 @@ impl Emulator {
         self.changed |= !bytes.is_empty();
     }
 
+    pub fn shows_text(&self) -> bool {
+        !self.parser.screen().contents().trim().is_empty()
+    }
+
     pub fn needs_frame(&self) -> bool {
         self.changed
     }

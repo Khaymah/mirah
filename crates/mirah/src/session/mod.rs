@@ -33,6 +33,7 @@ const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_millis(800
 pub(crate) struct Outcome {
     pub(crate) code: u32,
     pub(crate) sessions: Vec<String>,
+    pub(crate) notes: Vec<String>,
 }
 
 pub(crate) struct Start {
@@ -64,6 +65,7 @@ struct Workspace {
     held: held::Held,
     exit: Option<u32>,
     sessions: Vec<String>,
+    notes: Vec<String>,
 }
 
 fn child_size(size: TerminalSize, top: u16) -> TerminalSize {
@@ -126,6 +128,7 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
         held: held::Held::default(),
         exit: None,
         sessions: Vec::new(),
+        notes: Vec::new(),
     };
     match start.first {
         Some(spawn) => workspace.open(spawn)?,
@@ -149,6 +152,7 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
     Ok(Outcome {
         code,
         sessions: workspace.sessions,
+        notes: workspace.notes,
     })
 }
 
@@ -273,8 +277,20 @@ impl Workspace {
                 continue;
             }
             let tab = self.tabs.remove(index);
+            let left = tab
+                .left_the_terminal()
+                .then(|| (tab.program.clone(), tab.meta.as_ref().map(|m| m.id.clone())));
             let code = tab.close(self.store.as_ref());
             closed = true;
+            if let Some((program, session)) = left {
+                self.forget_session(session);
+                self.notes.push(format!(
+                    "`{program}` ended right away without showing anything, probably because it opened its own window. mirah runs programs that work inside the terminal, such as claude, codex and opencode."
+                ));
+                if !self.tabs.is_empty() || !self.chrome.is_idle() {
+                    self.notice(format!("انتهى {program} فورًا دون أن يعرض شيئًا"));
+                }
+            }
             if self.tabs.is_empty() {
                 if self.chrome.is_idle() {
                     self.exit.get_or_insert(code);
@@ -391,6 +407,16 @@ impl Workspace {
         let mut events = vec![first];
         events.extend(self.inbox.try_iter());
         Some(events)
+    }
+
+    fn forget_session(&mut self, session: Option<String>) {
+        let Some(id) = session else {
+            return;
+        };
+        self.sessions.retain(|s| *s != id);
+        if let Some(store) = &self.store {
+            store.remove(&id);
+        }
     }
 
     fn shutdown(&mut self) {

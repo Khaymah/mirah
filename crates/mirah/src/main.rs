@@ -188,6 +188,9 @@ fn main() {
     drop(log_guard);
     let code = match result {
         Ok(outcome) => {
+            for note in &outcome.notes {
+                report(note);
+            }
             for id in &outcome.sessions {
                 report(&format!(
                     "session {id} · continue it with `mirah resume {id}`"
