@@ -343,6 +343,37 @@ flowchart LR
 
 Decisions and their reasons are in [`Plan/ADR`](Plan/ADR), and the architecture in [`Plan/Architecture.md`](Plan/Architecture.md).
 
+### Why Rust?
+
+It was not a matter of taste. We tried and compared four options before writing the real code:
+
+| Option | Its role | Why it was not chosen |
+|---|---|---|
+| **Python** | The first experiment; it proved the idea works | Every user would need Python installed |
+| **Bun / Node** | The fastest route to a first version | Needs a runtime and a native pty module, and it is the same stack as earlier tools with the same problems |
+| **Go** | Measured against Rust line by line | The official bidi library passed only 66.78%, the terminal emulator was a first release, and Windows needs a separate pty library |
+| **Rust** ✅ | The choice | Details below |
+
+**What was measured between Rust and Go:**
+
+| Criterion | Rust | Go |
+|---|---|---|
+| Text ordering (bidi) on Unicode's official test file, 91,707 cases | **100%** with a very widely used library | 66.78% with the official library; the other one at 100% was three months old with no users |
+| Terminal emulator | Same screen; the library has 18 million downloads | Same screen, but the library was a first release |
+| Windows (ConPTY) | One API in `portable-pty` | Needs a separate library |
+| Speed | Equal | Equal |
+| Code size | Longer | **37% shorter** |
+
+**What Rust gave us:**
+- **One file** of about 3 MB, with no Node, Python or anything else to install first.
+- **No garbage collector**, so no sudden pauses while you type.
+- **Direct access to Windows:** mirah bundles a newer ConPTY and ends a program and everything it started when you close its tab.
+- **mirah's core** (`mirah-bidi`) is a standalone library that builds for WebAssembly, so any other terminal can use it.
+
+**The cost:** longer code and slower writing at first. We accepted it so Arabic comes out 100% right.
+
+> The numbers are in [`Plan/Research/RustVsGo.md`](Plan/Research/RustVsGo.md), and the decision in [ADR-0001](Plan/ADR/0001-rust-as-language.md).
+
 ## Community
 
 mirah is made by [Khaymah (خيمة)](https://github.com/Khaymah). Come talk to us, share feedback, or ask:
