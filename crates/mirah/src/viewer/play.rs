@@ -6,6 +6,7 @@ use std::time::Duration;
 
 const FRAME_END: &[u8] = b"\x1b[?2026l";
 const CHUNK: usize = 4_096;
+const LONGEST_FRAME: usize = CHUNK * 64;
 const FRAME_DELAY: Duration = Duration::from_millis(30);
 const FAST_FACTOR: u32 = 8;
 const IDLE_POLL: Duration = Duration::from_millis(500);
@@ -115,11 +116,11 @@ pub(crate) fn frames(bytes: &[u8]) -> Vec<&[u8]> {
     let mut start = 0;
     while start < bytes.len() {
         let rest = &bytes[start..];
-        let end = rest
+        let window = &rest[..rest.len().min(LONGEST_FRAME)];
+        let end = window
             .windows(FRAME_END.len())
             .position(|w| w == FRAME_END)
             .map(|p| p + FRAME_END.len())
-            .filter(|&p| p <= CHUNK * 64)
             .unwrap_or_else(|| rest.len().min(CHUNK));
         out.push(&rest[..end]);
         start += end;

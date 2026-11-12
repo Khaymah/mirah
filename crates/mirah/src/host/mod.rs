@@ -50,10 +50,17 @@ const CLIPBOARD_RETRIES: [std::time::Duration; 2] = [
 ];
 
 #[cfg(windows)]
+static CLIPBOARD_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[cfg(windows)]
 pub(crate) fn keep_clipboard(text: String) {
+    let generation = CLIPBOARD_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::spawn(move || {
         for wait in CLIPBOARD_RETRIES {
             std::thread::sleep(wait);
+            if CLIPBOARD_GENERATION.load(Ordering::SeqCst) != generation {
+                return;
+            }
             let stored = windows::set_clipboard(&text);
             tracing::debug!(
                 stored,
@@ -114,6 +121,11 @@ impl ProcessGroup {
             tracing::debug!(group, sent, "process group ended");
         }
     }
+}
+
+#[cfg(windows)]
+pub(crate) fn downloads_folder() -> Option<std::path::PathBuf> {
+    windows::downloads_folder()
 }
 
 pub(crate) fn prepare_pty() {

@@ -153,7 +153,10 @@ impl Renderer {
             .map(|row| logical_row(screen, row, cols))
             .collect();
         let mut visual = layout(logical, &cursor, self.options, &mut self.caches);
-        if !self.hold_map || self.to_child.len() != visual.len() {
+        let same_shape = self.to_child.len() == visual.len()
+            && self.to_child.first().map(Vec::len)
+                == visual.first().map(|line| line.logical_to_visual.len());
+        if !self.hold_map || !same_shape {
             self.to_child = visual
                 .iter()
                 .map(|line| invert(&line.logical_to_visual))

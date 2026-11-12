@@ -96,7 +96,9 @@ pub(crate) fn recent_files(dir: &Path) -> Vec<PathBuf> {
 
 #[cfg(windows)]
 fn downloads_dir() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join("Downloads"))
+    crate::host::downloads_folder().or_else(|| {
+        std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join("Downloads"))
+    })
 }
 
 #[cfg(not(windows))]

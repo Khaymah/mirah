@@ -28,16 +28,14 @@ pub(super) struct Palette {
 }
 
 fn dominant(colors: impl Iterator<Item = Color>) -> Color {
-    let mut counts: Vec<(Color, usize)> = Vec::new();
-    for color in colors {
-        match counts.iter_mut().find(|(c, _)| *c == color) {
-            Some((_, n)) => *n += 1,
-            None => counts.push((color, 1)),
-        }
+    let mut counts: std::collections::HashMap<Color, (usize, usize)> =
+        std::collections::HashMap::new();
+    for (seen, color) in colors.enumerate() {
+        counts.entry(color).or_insert((0, seen)).0 += 1;
     }
     counts
         .into_iter()
-        .max_by_key(|(_, n)| *n)
+        .max_by_key(|(_, (n, first))| (*n, *first))
         .map_or(Color::Default, |(c, _)| c)
 }
 

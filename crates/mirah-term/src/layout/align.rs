@@ -37,7 +37,15 @@ fn place(visual: &mut VisualRow, order: &[usize], start: usize) {
     let mut old_to_new: Vec<usize> = (0..visual.cells.len()).collect();
     let destination = start..start + order.len();
     let vacated = order.iter().filter(|old| !destination.contains(old));
-    let displaced = destination.clone().filter(|d| !order.contains(d));
+    let mut ordered = vec![false; visual.cells.len()];
+    for &old in order {
+        if let Some(slot) = ordered.get_mut(old) {
+            *slot = true;
+        }
+    }
+    let displaced = destination
+        .clone()
+        .filter(|&d| !ordered.get(d).copied().unwrap_or(false));
     for (from, to) in displaced.zip(vacated) {
         old_to_new[from] = *to;
     }

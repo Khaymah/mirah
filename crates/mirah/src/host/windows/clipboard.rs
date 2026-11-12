@@ -14,31 +14,27 @@ pub(crate) fn set_text(text: &str) -> bool {
     let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
     let bytes = wide.len() * std::mem::size_of::<u16>();
     unsafe {
-        if OpenClipboard(std::ptr::null_mut()) == 0 {
+        let memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+        if memory.is_null() {
             return false;
         }
-        let stored = (|| {
-            if EmptyClipboard() == 0 {
-                return false;
-            }
-            let memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
-            if memory.is_null() {
-                return false;
-            }
-            let target = GlobalLock(memory).cast::<u16>();
-            if target.is_null() {
-                GlobalFree(memory);
-                return false;
-            }
-            std::ptr::copy_nonoverlapping(wide.as_ptr(), target, wide.len());
-            GlobalUnlock(memory);
-            if SetClipboardData(u32::from(CF_UNICODETEXT), memory).is_null() {
-                GlobalFree(memory);
-                return false;
-            }
-            true
-        })();
+        let target = GlobalLock(memory).cast::<u16>();
+        if target.is_null() {
+            GlobalFree(memory);
+            return false;
+        }
+        std::ptr::copy_nonoverlapping(wide.as_ptr(), target, wide.len());
+        GlobalUnlock(memory);
+        if OpenClipboard(std::ptr::null_mut()) == 0 {
+            GlobalFree(memory);
+            return false;
+        }
+        let stored =
+            EmptyClipboard() != 0 && !SetClipboardData(u32::from(CF_UNICODETEXT), memory).is_null();
         CloseClipboard();
+        if !stored {
+            GlobalFree(memory);
+        }
         stored
     }
 }

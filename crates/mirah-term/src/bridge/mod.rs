@@ -83,6 +83,16 @@ impl vt100::Callbacks for Bridge {
         {
             self.focus_events = c == 'h';
         }
+        if (i1, i2, c) == (None, None, 't')
+            && let Some(reply) = local::window_size_report(screen, first_param(params))
+        {
+            self.to_child.extend(reply);
+            return;
+        }
+        if (i1, i2, c) == (Some(b'?'), None, 'u') {
+            self.to_child.extend_from_slice(local::NO_KEYBOARD_FLAGS);
+            return;
+        }
         if (i1, i2, c) == (None, None, 'n') {
             if let Some(reply) = local::device_status_report(screen, first_param(params)) {
                 self.to_child.extend(reply);
@@ -124,8 +134,9 @@ mod tests {
 
     #[test]
     fn forwards_device_attribute_queries_to_host() {
-        let p = feed(b"\x1b[c\x1b[>q\x1b[?u\x1b[18t");
-        assert_eq!(p.callbacks().to_host, b"\x1b[c\x1b[>q\x1b[?u\x1b[18t");
+        let p = feed(b"\x1b[c\x1b[>q\x1b[?u\x1b[18t\x1b[14t");
+        assert_eq!(p.callbacks().to_host, b"\x1b[c\x1b[>q\x1b[14t");
+        assert_eq!(p.callbacks().to_child, b"\x1b[?0u\x1b[8;24;80t");
     }
 
     #[test]

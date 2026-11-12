@@ -70,7 +70,29 @@ fn extract() -> std::io::Result<PathBuf> {
     for (name, bytes) in [(DLL_NAME, DLL), (HOST_NAME, HOST), (LICENSE_NAME, LICENSE)] {
         ensure_file(&dir.join(name), bytes)?;
     }
+    remove_older(&dir);
     Ok(dir)
+}
+
+fn remove_older(current: &Path) {
+    let Some(parent) = current.parent() else {
+        return;
+    };
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let older = path != current
+            && entry.file_type().is_ok_and(|t| t.is_dir())
+            && entry
+                .file_name()
+                .to_string_lossy()
+                .ends_with(&format!("-{ARCH}"));
+        if older && std::fs::remove_dir_all(&path).is_ok() {
+            tracing::debug!(path = %path.display(), "removed an older bundled conpty");
+        }
+    }
 }
 
 fn ensure_file(path: &Path, bytes: &[u8]) -> std::io::Result<()> {

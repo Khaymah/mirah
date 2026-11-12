@@ -10,12 +10,15 @@ pub(crate) struct Recorder {
 }
 
 impl Recorder {
-    pub(crate) fn new(path: Option<PathBuf>) -> Self {
+    pub(crate) fn new(path: Option<PathBuf>, first_tab: bool) -> Self {
         let mut recorder = Self {
             file: None,
             path: None,
         };
-        if let Some(path) = path.or_else(|| std::env::var_os(RECORD_ENV).map(PathBuf::from)) {
+        let from_env = first_tab
+            .then(|| std::env::var_os(RECORD_ENV).map(PathBuf::from))
+            .flatten();
+        if let Some(path) = path.or(from_env) {
             recorder.start(path);
         }
         recorder
@@ -83,7 +86,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("mirah-record-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("claude-session-1.vt");
-        let mut recorder = Recorder::new(Some(path.clone()));
+        let mut recorder = Recorder::new(Some(path.clone()), false);
         recorder.write(b"one ");
         assert_eq!(recorder.stop(), Some(path.clone()));
         recorder.write(b"lost ");
@@ -96,6 +99,6 @@ mod tests {
 
     #[test]
     fn nothing_to_resume_before_the_first_recording() {
-        assert_eq!(Recorder::new(None).resume(), None);
+        assert_eq!(Recorder::new(None, false).resume(), None);
     }
 }

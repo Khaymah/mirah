@@ -149,7 +149,7 @@ impl Tab {
                 wanted.then(|| crate::debug_files::next_in(&open.spawn.cwd, &program).recording)
             }
         };
-        let recorder = Recorder::new(path);
+        let recorder = Recorder::new(path, open.id == 0 && !open.spawn.document);
         emulator.allow_clipboard(settings.clipboard);
         emulator.keep_mouse_on(settings.bar && settings.bar_mouse);
         tracing::info!(

@@ -17,6 +17,8 @@ use mirah_term::{Overlay, OverlayRow};
 
 const BAR_ROWS: u16 = 1;
 const LEFT_BUTTON: u16 = 0;
+const MOTION_FLAG: u16 = 32;
+const WHEEL_FLAG: u16 = 64;
 const NEW_TAB_KEY: char = 't';
 const QUIT_KEY: char = 'q';
 
@@ -50,6 +52,9 @@ pub(crate) struct Chrome {
     hits: Vec<(Item, std::ops::Range<usize>)>,
     boxed_at: Option<(usize, usize)>,
     boxed_width: usize,
+    swallowing: bool,
+    launcher_room: usize,
+    child_held: bool,
     menu: Option<menu::Drawn>,
     dialog: Option<Dialog>,
 }
@@ -65,6 +70,9 @@ impl Chrome {
             hits: Vec::new(),
             boxed_at: None,
             boxed_width: 0,
+            swallowing: false,
+            launcher_room: usize::MAX,
+            child_held: false,
             menu: None,
             dialog: None,
         }
@@ -294,7 +302,7 @@ impl Chrome {
                 if column >= self.boxed_width {
                     return false;
                 }
-                let pick = launcher.click(row);
+                let pick = launcher.click(row, self.launcher_room);
                 let can_cancel = launcher.can_cancel;
                 self.mode = Mode::Launcher(launcher);
                 let hit = pick.is_some();
@@ -313,6 +321,28 @@ impl Chrome {
     }
 
     pub(crate) fn mouse(&mut self, e: MouseEvent, actions: &mut Vec<Action>) -> Option<MouseEvent> {
+        let follows = !e.press || e.button & MOTION_FLAG != 0;
+        if follows && self.swallowing {
+            self.swallowing = e.press;
+            return None;
+        }
+        if follows && self.child_held {
+            self.child_held = e.press;
+            return Some(MouseEvent {
+                row: e.row.saturating_sub(self.top()),
+                ..e
+            });
+        }
+        let starts = e.press && e.button & (MOTION_FLAG | WHEEL_FLAG) == 0;
+        let routed = self.route_mouse(e, actions);
+        if starts {
+            self.swallowing = routed.is_none();
+            self.child_held = routed.is_some();
+        }
+        routed
+    }
+
+    fn route_mouse(&mut self, e: MouseEvent, actions: &mut Vec<Action>) -> Option<MouseEvent> {
         let top = self.top();
         let click = e.press && e.button == LEFT_BUTTON;
         if e.row < top {
@@ -378,7 +408,8 @@ impl Chrome {
                 self.dialog = Some(dialog);
             }
             Mode::Launcher(launcher) => {
-                let frame = launcher.draw(self.shaping);
+                self.launcher_room = height.saturating_sub(under_bar);
+                let frame = launcher.draw(self.shaping, self.launcher_room);
                 let left = width.saturating_sub(frame.width) / 2;
                 let top = height
                     .saturating_sub(frame.rows.len())
@@ -598,6 +629,29 @@ mod tests {
         c.input(b"\x1b", &mut actions);
         assert!(actions.is_empty());
         assert!(c.is_idle());
+    }
+
+    #[test]
+    fn a_release_follows_its_press_whatever_the_mode_became() {
+        let mut c = chrome();
+        let mut actions = Vec::new();
+        let tab = column_of(&c, Item::Tab(0));
+        click(&mut c, 0, tab, &mut actions);
+        let release = MouseEvent {
+            button: 0,
+            column: 5,
+            row: 10,
+            press: false,
+        };
+        assert_eq!(c.mouse(release, &mut actions), None);
+        let press = MouseEvent {
+            press: true,
+            ..release
+        };
+        assert!(c.mouse(press, &mut actions).is_some());
+        c.input(b"\x1d", &mut actions);
+        assert_eq!(c.mode, Mode::Bar);
+        assert_eq!(c.mouse(release, &mut actions).map(|e| e.press), Some(false));
     }
 
     #[test]

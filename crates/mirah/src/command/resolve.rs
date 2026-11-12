@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
 const SCRIPT_EXTENSIONS: [&str; 2] = ["bat", "cmd"];
+const RUNNABLE: [&str; 4] = [".com", ".exe", ".bat", ".cmd"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Program {
@@ -33,7 +34,7 @@ pub(crate) fn resolve(program: &str, path: Option<&str>, pathext: Option<&str>) 
     let extensions: Vec<&str> = pathext
         .unwrap_or(DEFAULT_PATHEXT)
         .split(';')
-        .filter(|e| e.starts_with('.') && e.len() > 1)
+        .filter(|e| RUNNABLE.iter().any(|r| e.eq_ignore_ascii_case(r)))
         .collect();
     let explicit = Path::new(program).extension().is_some();
     for dir in path
@@ -99,6 +100,17 @@ mod tests {
         assert_eq!(
             resolve("tool.cmd", Some(&path), None),
             Some(Program::Script(bin.join("tool.cmd")))
+        );
+        let _ = std::fs::remove_dir_all(bin);
+    }
+
+    #[test]
+    fn script_types_windows_cannot_start_directly_are_skipped() {
+        let bin = folder("pathext", &["claude.JS", "claude.CMD"]);
+        let path = bin.to_string_lossy().into_owned();
+        assert_eq!(
+            resolve("claude", Some(&path), Some(".JS;.CMD")),
+            Some(Program::Script(bin.join("claude.CMD")))
         );
         let _ = std::fs::remove_dir_all(bin);
     }

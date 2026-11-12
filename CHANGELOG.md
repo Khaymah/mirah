@@ -2,6 +2,37 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.10 - 2026-11-12
+
+**المرحلة التالتة والأخيرة من الفحص الشامل.**
+
+- **`mirah update` بقى أأمن وأهدى:**
+  - `curl` و`tar` بيشتغلوا من `System32` على ويندوز، ومن غير ما يلمسوا الكيبورد أو الشاشة. ودي ممكن تكون سبب التجميد في PowerShell.
+  - `file://` مسموح بس في الاختبارات.
+  - النسخة الجديدة بتتكتب `.new` الأول وبعدين بتتبدّل، فمرآة مابتتقطعش في النص.
+  - كل تحميل ليه فولدر مؤقت لوحده، والبحث في الملف المضغوط مابيتبعش الـ symlinks.
+- **ضغطة الماوس وإفلاتها بيروحوا لنفس المكان:** لو ضغطت في مرآة وفلت فوق البرنامج (أو العكس، بعد ما تفتح الشريط في النص)، البرنامج مابقاش بياخد إفلات من غير ضغطة، ولا بيفضل فاكر إن الزرار لسه مضغوط.
+- **مرآة بقت بترد بنفسها على سؤال البرنامج عن مقاس الشاشة** (`CSI 18t`/`19t`)، بالمقاس الحقيقي من غير الشريط، وعلى سؤال وضع كيبورد kitty (`CSI ?u`).
+- **شاشة الاختيار في الترمنال القصير بتعمل scroll**، والاختيار بيفضل باين.
+- **الحروف العريضة** (صيني، إيموجي) اللي القايمة بتغطّي نصها، بتتمسح بدل ما يفضل نص حرف.
+- **على ويندوز:**
+  - الحافظة: النسخة التانية من النسخ مابقتش بتكتب فوق نسخ أحدث. والحافظة مابقتش بتتفضّى لو مرآة مقدرتش تجهّز الكلام.
+  - مرآة بقت بتحفظ في فولدر Downloads الحقيقي حتى لو انت نقلته.
+  - البحث عن البرامج بيتجاهل الأنواع اللي ويندوز مايقدرش يشغّلها مباشرة، زي `.js` في `PATHEXT`.
+  - نسخ conpty القديمة بتتمسح من `LOCALAPPDATA`.
+- **`MIRAH_RECORD`** بيسجّل أول تاب بس، بدل ما كل التابات تكتب في نفس الملف.
+- **kitty:** إفلات الزراير (`:3`) بقى مابيتحسبش ضغطة، وShift مع حرف بيدّي الحرف الكبير.
+- **الأداء:**
+  - المحاذاة وحساب الألوان بقوا من غير شغل تربيعي.
+  - تشغيل تسجيلات طويلة من غير frames بقى أسرع.
+- **اختبارات تكامل جديدة في CI** (`tests/lifecycle.rs`) بتشغّل مرآة الحقيقية في pty:
+  - قفل برنامج حفيده بيتجاهل الإشارات وبيفضل يطبع.
+  - `Ctrl+]` في شاشة الاختيار.
+  - آخر تاب يخلص وشاشة الاختيار مفتوحة.
+  - `SIGTERM`.
+
+**English:** Phase three of the audit. `mirah update` runs `curl` and `tar` from System32 on Windows with no access to the keyboard or screen (a likely cause of the PowerShell freeze), allows `file://` only in tests, writes the new binary as `.new` before swapping it in, uses a fresh temporary folder per download and does not follow links inside the archive. A mouse release goes wherever its press went, so programs no longer get a release without a press or keep a button held. mirah answers `CSI 18t`/`19t` with the real size below the bar and answers `CSI ?u` itself. The picker scrolls on short terminals. Wide characters half covered by a menu are blanked. On Windows a late clipboard rewrite no longer overwrites a newer copy, the clipboard is not emptied when the text cannot be prepared, saving uses the real Downloads folder, program lookup skips `PATHEXT` types Windows cannot start directly, and older bundled conpty folders are removed. `MIRAH_RECORD` records the first tab only. Kitty key releases are ignored and Shift gives the capital letter. Alignment and colour counting are no longer quadratic, and long recordings without frames start faster. New pty integration tests in CI drive the real binary: a grandchild that ignores signals, `Ctrl+]` in the picker, the last tab ending while choosing, and `SIGTERM`.
+
 ## 0.4.0-alpha.9 - 2026-11-12
 
 **المرحلة التانية من الفحص الشامل.**

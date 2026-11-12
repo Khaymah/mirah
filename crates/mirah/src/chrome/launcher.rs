@@ -8,6 +8,7 @@ use mirah_bidi::{Cell, Shaping};
 
 const GAP: usize = 2;
 const MAX_PATH: usize = 28;
+const BOX_OVERHEAD: usize = 6;
 const MINUTE: u64 = 60;
 const HOUR: u64 = 3_600;
 const DAY: u64 = 86_400;
@@ -130,8 +131,25 @@ impl Launcher {
         entry + (0..=entry).filter(|&e| self.opens_section(e)).count()
     }
 
-    pub(crate) fn click(&mut self, row: usize) -> Option<Pick> {
-        let body = row.checked_sub(BODY_TOP)?;
+    fn body_len(&self) -> usize {
+        self.entries.len()
+            + (0..self.entries.len())
+                .filter(|&e| self.opens_section(e))
+                .count()
+    }
+
+    fn window(&self, room: usize) -> std::ops::Range<usize> {
+        let total = self.body_len();
+        let shown = room.saturating_sub(BOX_OVERHEAD).clamp(1, total.max(1));
+        let focus = self.body_row(self.row.min(self.entries.len().saturating_sub(1)));
+        let start = focus
+            .saturating_sub(shown - 1)
+            .min(total.saturating_sub(shown));
+        start..start + shown
+    }
+
+    pub(crate) fn click(&mut self, row: usize, room: usize) -> Option<Pick> {
+        let body = row.checked_sub(BODY_TOP)? + self.window(room).start;
         let entry = (0..self.entries.len()).find(|&e| self.body_row(e) == body)?;
         self.row = entry;
         self.chosen()
@@ -189,7 +207,7 @@ impl Launcher {
         }
     }
 
-    pub(crate) fn draw(&self, shaping: Shaping) -> Frame {
+    pub(crate) fn draw(&self, shaping: Shaping, room: usize) -> Frame {
         let mut lines = Vec::new();
         for (i, entry) in self.entries.iter().enumerate() {
             if self.opens_section(i) {
@@ -215,6 +233,12 @@ impl Launcher {
             "↑↓ للتنقل · Enter للفتح · Esc للخروج"
         };
         let footer = shaped(hint, style(DIM, BOX_BG, false), shaping);
+        let window = self.window(room);
+        let lines = lines
+            .into_iter()
+            .skip(window.start)
+            .take(window.len())
+            .collect();
         boxed(&title, lines, &footer, shaping)
     }
 }
@@ -223,6 +247,25 @@ impl Launcher {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn a_short_screen_scrolls_the_list_to_keep_the_choice_in_view() {
+        let entries: Vec<Entry> = (0..12)
+            .map(|i| Entry::Start(agent(&format!("a{i}"), &format!("A{i}"))))
+            .collect();
+        let mut l = Launcher::new(entries, None, false, 0);
+        let room = BOX_OVERHEAD + 4;
+        for _ in 0..10 {
+            l.key(Key::Down);
+        }
+        let frame = l.draw(Shaping::Plain, room);
+        assert_eq!(frame.rows.len(), room);
+        let window = l.window(room);
+        assert!(window.contains(&l.body_row(l.row)));
+        let last = BODY_TOP + window.len() - 1;
+        assert!(matches!(l.click(last, room), Some(Pick::Open(_))));
+        assert_eq!(l.row, 10);
+    }
 
     fn agent(name: &str, title: &str) -> Agent {
         Agent {
@@ -305,7 +348,7 @@ mod tests {
     #[test]
     fn sessions_have_a_header_and_clicks_skip_it() {
         let mut l = launcher();
-        let frame = l.draw(Shaping::Plain);
+        let frame = l.draw(Shaping::Plain, usize::MAX);
         let rows: Vec<String> = frame.rows.iter().map(|r| text(r)).collect();
         assert!(rows[BODY_TOP].contains("Claude Code"), "{rows:?}");
         assert!(
@@ -315,16 +358,16 @@ mod tests {
         assert!(rows[BODY_TOP + 2].contains("ةقباس ةسلج"), "{rows:?}");
         assert!(rows[BODY_TOP + 3].contains("/work/app"), "{rows:?}");
         assert!(rows[BODY_TOP + 3].contains("نيتعاس ذنم"), "{rows:?}");
-        assert_eq!(l.click(BODY_TOP + 2), None);
+        assert_eq!(l.click(BODY_TOP + 2, usize::MAX), None);
         assert!(matches!(
-            l.click(BODY_TOP + 3),
+            l.click(BODY_TOP + 3, usize::MAX),
             Some(Pick::Open(Entry::Resume(..)))
         ));
         assert!(frame.rows.iter().all(|r| r.len() == frame.width));
         assert!(rows[BODY_TOP + 4].contains("ضرعلل"), "{rows:?}");
         assert!(rows[BODY_TOP + 5].contains("/work/app"), "{rows:?}");
         assert!(matches!(
-            l.click(BODY_TOP + 5),
+            l.click(BODY_TOP + 5, usize::MAX),
             Some(Pick::Open(Entry::Document(_)))
         ));
     }

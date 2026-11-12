@@ -12,6 +12,8 @@ const VK_RIGHT: u32 = 0x27;
 const VK_DOWN: u32 = 0x28;
 const KITTY_RIGHT_BRACKET: u32 = 93;
 const KITTY_CTRL: u32 = 5;
+const KITTY_SHIFT: u32 = 2;
+const KITTY_RELEASE: &[u8] = b"3";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Key {
@@ -86,6 +88,20 @@ fn numbers(body: &[u8]) -> Vec<u32> {
         .collect()
 }
 
+fn kitty_released(body: &[u8]) -> bool {
+    body.split(|b| *b == b';')
+        .nth(1)
+        .and_then(|field| field.split(|b| *b == b':').nth(1))
+        == Some(KITTY_RELEASE)
+}
+
+fn shifted(code: u32) -> Key {
+    match printable(code) {
+        Key::Char(c) => Key::Char(c.to_uppercase().next().unwrap_or(c)),
+        other => other,
+    }
+}
+
 fn printable(code: u32) -> Key {
     match char::from_u32(code) {
         Some(c) if !c.is_control() && code != 0 => Key::Char(c),
@@ -133,8 +149,10 @@ fn csi(body: &[u8], last: u8) -> Key {
         b'C' => Key::Right,
         b'D' => Key::Left,
         b'Z' => Key::Tab,
+        b'u' if kitty_released(body) => Key::Release,
         b'u' => match (params.first().copied(), params.get(1).copied()) {
             (Some(KITTY_RIGHT_BRACKET), Some(KITTY_CTRL)) => Key::Toggle,
+            (Some(code), Some(KITTY_SHIFT)) => shifted(code),
             (Some(13), _) => Key::Enter,
             (Some(27), _) => Key::Escape,
             (Some(9), _) => Key::Tab,
@@ -181,13 +199,14 @@ pub(crate) fn decode(bytes: &[u8]) -> Vec<(Key, Range<usize>)> {
             b'\r' | b'\n' => (Key::Enter, 1),
             b'\t' => (Key::Tab, 1),
             _ => {
-                let len = bytes[i..]
+                let run = bytes[i..]
                     .iter()
                     .take_while(|b| {
                         !matches!(**b, CTRL_RIGHT_BRACKET | ESC | b'\r' | b'\n' | b'\t')
                     })
                     .count()
                     .max(1);
+                let len = run;
                 (single(&bytes[i..i + len]), len)
             }
         };
@@ -232,6 +251,14 @@ mod tests {
         );
         assert_eq!(keys(b"\x1b[65;30;97;1;0;1_"), [Key::Char('a')]);
         assert_eq!(keys(b"\x1b[16;42;0;1;0;1_"), [Key::Other]);
+    }
+
+    #[test]
+    fn kitty_releases_and_shift_and_typed_runs_are_read_key_by_key() {
+        assert_eq!(keys(b"\x1b[93;5:3u"), [Key::Release]);
+        assert_eq!(keys(b"\x1b[116;2u"), [Key::Char('T')]);
+        assert_eq!(keys("q".as_bytes()), [Key::Char('q')]);
+        assert_eq!(keys("quit".as_bytes()), [Key::Other]);
     }
 
     #[test]

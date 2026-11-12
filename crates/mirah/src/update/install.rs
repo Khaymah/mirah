@@ -2,13 +2,15 @@ use super::source;
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(300);
 const CHECKSUM_SUFFIX: &str = ".sha256";
 const OLD_SUFFIX: &str = ".old";
+const NEW_SUFFIX: &str = ".new";
 const BINARY: &str = "mirah";
+const WORK_DIR_ATTEMPTS: u32 = 16;
 
 fn binary_name() -> String {
     format!("{BINARY}{}", std::env::consts::EXE_SUFFIX)
@@ -41,31 +43,23 @@ fn verify(archive: &Path, checksum: &Path) -> Result<()> {
     Ok(())
 }
 
-#[cfg(windows)]
 fn tar() -> Command {
-    let system = std::env::var_os("SystemRoot").map(PathBuf::from);
-    match system.map(|root| root.join("System32").join("tar.exe")) {
-        Some(path) if path.is_file() => Command::new(path),
-        _ => Command::new("tar"),
-    }
-}
-
-#[cfg(not(windows))]
-fn tar() -> Command {
-    Command::new("tar")
+    source::system_tool("tar")
 }
 
 fn extract(archive: &Path, into: &Path) -> Result<()> {
     std::fs::create_dir_all(into)?;
-    let status = tar()
+    let output = tar()
         .arg("-xf")
         .arg(archive)
         .arg("-C")
         .arg(into)
-        .status()
+        .stdin(Stdio::null())
+        .output()
         .context("could not start tar")?;
-    if !status.success() {
-        bail!("tar could not unpack the download");
+    if !output.status.success() {
+        let reason = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        bail!("tar could not unpack the download: {reason}");
     }
     Ok(())
 }
@@ -73,32 +67,67 @@ fn extract(archive: &Path, into: &Path) -> Result<()> {
 fn find(dir: &Path, name: &str) -> Option<PathBuf> {
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_dir() {
             if let Some(found) = find(&path, name) {
                 return Some(found);
             }
-        } else if path.file_name().is_some_and(|n| n == name) {
+        } else if kind.is_file() && path.file_name().is_some_and(|n| n == name) {
             return Some(path);
         }
     }
     None
 }
 
-fn old_path(current: &Path) -> PathBuf {
+fn with_suffix(current: &Path, suffix: &str) -> PathBuf {
     let mut name = current.file_name().unwrap_or_default().to_os_string();
-    name.push(OLD_SUFFIX);
+    name.push(suffix);
     current.with_file_name(name)
 }
 
+fn old_path(current: &Path) -> PathBuf {
+    with_suffix(current, OLD_SUFFIX)
+}
+
 pub(crate) fn replace(current: &Path, new: &Path) -> Result<()> {
-    let old = old_path(current);
-    let _ = std::fs::remove_file(&old);
-    std::fs::rename(current, &old).context("cannot move the running mirah aside")?;
-    if let Err(err) = std::fs::copy(new, current) {
-        let _ = std::fs::rename(&old, current);
+    let staged = with_suffix(current, NEW_SUFFIX);
+    let _ = std::fs::remove_file(&staged);
+    if let Err(err) = std::fs::copy(new, &staged) {
+        let _ = std::fs::remove_file(&staged);
         return Err(err).context("cannot write the new mirah, the old one was kept");
     }
+    let old = old_path(current);
+    let _ = std::fs::remove_file(&old);
+    if let Err(err) = std::fs::rename(current, &old) {
+        let _ = std::fs::remove_file(&staged);
+        return Err(err).context("cannot move the running mirah aside");
+    }
+    if let Err(err) = std::fs::rename(&staged, current) {
+        let _ = std::fs::rename(&old, current);
+        let _ = std::fs::remove_file(&staged);
+        return Err(err).context("cannot put the new mirah in place, the old one was kept");
+    }
     Ok(())
+}
+
+fn work_dir() -> Result<PathBuf> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos());
+    for attempt in 0..WORK_DIR_ATTEMPTS {
+        let dir = std::env::temp_dir().join(format!(
+            "mirah-update-{}-{nanos:x}-{attempt}",
+            std::process::id()
+        ));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(err) => return Err(err).context("cannot make a folder for the download"),
+        }
+    }
+    bail!("cannot make a folder for the download")
 }
 
 pub(crate) fn remove_leftover() {
@@ -110,8 +139,7 @@ pub(crate) fn remove_leftover() {
 pub(crate) fn install(tag: &str) -> Result<()> {
     let artifact = source::artifact().context("there is no release build for this platform")?;
     let current = std::env::current_exe().context("cannot find the running mirah")?;
-    let work = std::env::temp_dir().join(format!("mirah-update-{}", std::process::id()));
-    std::fs::create_dir_all(&work)?;
+    let work = work_dir()?;
     let result = (|| {
         let archive = work.join(artifact);
         let checksum = work.join(format!("{artifact}{CHECKSUM_SUFFIX}"));
@@ -190,6 +218,34 @@ mod tests {
         assert!(replace(&current, &dir.join("missing")).is_err());
         assert_eq!(std::fs::read(&current).expect("read"), b"old");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn replacing_leaves_no_staged_copy_and_each_download_gets_its_own_folder() {
+        let dir = scratch("staged");
+        let current = dir.join("mirah");
+        let new = dir.join("new-mirah");
+        std::fs::write(&current, b"old").expect("write");
+        std::fs::write(&new, b"new").expect("write");
+        replace(&current, &new).expect("replace");
+        assert!(!with_suffix(&current, NEW_SUFFIX).exists());
+        let (a, b) = (work_dir().expect("dir"), work_dir().expect("dir"));
+        assert_ne!(a, b);
+        let _ = std::fs::remove_dir_all(a);
+        let _ = std::fs::remove_dir_all(b);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_to_a_binary_elsewhere_is_not_followed() {
+        let dir = scratch("link");
+        let outside = scratch("outside");
+        std::fs::write(outside.join(binary_name()), b"bin").expect("write");
+        std::os::unix::fs::symlink(&outside, dir.join("nested")).expect("link");
+        assert_eq!(find(&dir, &binary_name()), None);
+        let _ = std::fs::remove_dir_all(dir);
+        let _ = std::fs::remove_dir_all(outside);
     }
 
     #[test]

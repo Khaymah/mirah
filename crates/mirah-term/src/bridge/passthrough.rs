@@ -14,7 +14,6 @@ pub(super) fn forwards_csi(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c:
     match (i1, i2, c) {
         (None | Some(b'>' | b'='), None, 'c')
         | (Some(b'>'), None, 'q')
-        | (Some(b'?'), None, 'u')
         | (_, Some(b'$'), 'p')
         | (Some(b'$'), None, 'p') => true,
         (None, None, 't') => params

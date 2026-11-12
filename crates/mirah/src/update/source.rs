@@ -6,7 +6,6 @@ use std::time::Duration;
 const REPO: &str = "Khaymah/mirah";
 const API_ENV: &str = "MIRAH_UPDATE_API_URL";
 const DOWNLOAD_ENV: &str = "MIRAH_UPDATE_DOWNLOAD_URL";
-const CURL: &str = "curl";
 
 #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
 const ARTIFACT: Option<&str> = Some("mirah-x86_64-pc-windows-msvc.zip");
@@ -52,10 +51,31 @@ pub(crate) fn download_url(tag: &str, file: &str) -> String {
     }
 }
 
+#[cfg(windows)]
+pub(crate) fn system_tool(name: &str) -> Command {
+    let system = std::env::var_os("SystemRoot").map(std::path::PathBuf::from);
+    match system.map(|root| root.join("System32").join(format!("{name}.exe"))) {
+        Some(path) if path.is_file() => Command::new(path),
+        _ => Command::new(name),
+    }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn system_tool(name: &str) -> Command {
+    Command::new(name)
+}
+
+fn protocols() -> &'static str {
+    let overridden =
+        std::env::var_os(API_ENV).is_some() || std::env::var_os(DOWNLOAD_ENV).is_some();
+    if overridden { "=https,file" } else { "=https" }
+}
+
 fn curl(timeout: Duration) -> Command {
-    let mut cmd = Command::new(CURL);
-    cmd.args(["--fail", "--silent", "--show-error", "--location"])
-        .args(["--proto", "=https,file", "--proto-redir", "=https"])
+    let mut cmd = system_tool("curl");
+    cmd.stdin(std::process::Stdio::null())
+        .args(["--fail", "--silent", "--show-error", "--location"])
+        .args(["--proto", protocols(), "--proto-redir", "=https"])
         .args(["--max-time", &timeout.as_secs().max(1).to_string()]);
     cmd
 }
