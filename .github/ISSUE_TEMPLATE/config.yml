@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: سؤال أو نقاش على قبيلة · Questions on Qabilah
+    url: https://qabilah.com/communities/Khaymah
+    about: مجتمع خيمة على قبيلة · The Khaymah community on Qabilah
+  - name: جروب الواتساب · WhatsApp group
+    url: https://chat.whatsapp.com/GIixmbibIix8PyUzFBbNoq
+    about: دردشة مع مجتمع خيمة · Chat with the Khaymah community
   - name: ثغرة أمنية · Security vulnerability
     url: https://github.com/Khaymah/mirah/security/advisories/new
     about: بلّغ بشكل خاص، مش في issue عام · Report privately, not in a public issue

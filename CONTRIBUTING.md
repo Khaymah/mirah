@@ -4,7 +4,9 @@
 
 [English](#contributing-to-mirah)
 
-شكراً إنك عايز تساعد. أي حاجة بتفرق، حتى لو مش كود.
+شكراً إنك عايز تساعد. مرآة من [خيمة (Khaymah)](https://github.com/Khaymah)، وأي حاجة بتفرق، حتى لو مش كود.
+
+**عايز تسأل أو تتناقش قبل ما تبدأ؟** [النقاشات على قبيلة](https://qabilah.com/communities/Khaymah) أو [جروب الواتساب](https://chat.whatsapp.com/GIixmbibIix8PyUzFBbNoq).
 
 ## من غير كود
 
@@ -67,7 +69,9 @@ cargo test --workspace
 
 # Contributing to mirah
 
-Thanks for wanting to help. Everything counts, code or not.
+Thanks for wanting to help. mirah is made by [Khaymah (خيمة)](https://github.com/Khaymah), and everything counts, code or not.
+
+**Want to ask or discuss before starting?** [Discussions on Qabilah](https://qabilah.com/communities/Khaymah) or the [WhatsApp group](https://chat.whatsapp.com/GIixmbibIix8PyUzFBbNoq).
 
 ## Without code
 

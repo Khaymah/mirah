@@ -8,7 +8,7 @@
 [![Release](https://img.shields.io/github/v/release/Khaymah/mirah)](https://github.com/Khaymah/mirah/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**مرآة** بتشغّل Claude Code وOpenCode وCodex وGemini، وأي برنامج terminal تاني، وبتصلّح العربي قبل ما يوصل لشاشتك:
+**مرآة** أداة مفتوحة المصدر من [خيمة (Khaymah)](https://github.com/Khaymah). بتشغّل Claude Code وOpenCode وCodex وGemini، وأي برنامج terminal تاني، وبتصلّح العربي قبل ما يوصل لشاشتك:
 - الكلام بيتقري من اليمين، والحروف موصولة.
 - الفقرات والجداول بتتحاذى يمين.
 - وفوق البرنامج شريط بالعربي فيه التابات والإعدادات.
@@ -344,6 +344,14 @@ flowchart LR
 | [`mirah`](crates/mirah) | البرنامج نفسه: التابات، والشريط، والإعدادات، والجلسات، والتحديث، والـ pty |
 
 القرارات وأسبابها في [`Plan/ADR`](Plan/ADR)، والمعمارية في [`Plan/Architecture.md`](Plan/Architecture.md).
+
+## المجتمع
+
+مرآة من [خيمة (Khaymah)](https://github.com/Khaymah). تعالى اتكلم معانا، وقولنا رأيك، أو اسأل:
+
+- **GitHub:** https://github.com/Khaymah
+- **النقاشات على قبيلة:** https://qabilah.com/communities/Khaymah
+- **جروب الواتساب:** https://chat.whatsapp.com/GIixmbibIix8PyUzFBbNoq
 
 ## المساهمة
 

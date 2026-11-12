@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/Khaymah/mirah)](https://github.com/Khaymah/mirah/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**mirah** runs Claude Code, OpenCode, Codex, Gemini, or any other terminal program, and fixes Arabic before it reaches your screen:
+**mirah** is an open-source tool from [Khaymah (خيمة)](https://github.com/Khaymah). It runs Claude Code, OpenCode, Codex, Gemini, or any other terminal program, and fixes Arabic before it reaches your screen:
 - Text reads right to left, with joined letters.
 - Paragraphs and tables are aligned to the right.
 - An Arabic bar above the program holds tabs and settings.
@@ -342,6 +342,14 @@ flowchart LR
 | [`mirah`](crates/mirah) | The program itself: tabs, the bar, settings, sessions, updates, the pty |
 
 Decisions and their reasons are in [`Plan/ADR`](Plan/ADR), and the architecture in [`Plan/Architecture.md`](Plan/Architecture.md).
+
+## Community
+
+mirah is made by [Khaymah (خيمة)](https://github.com/Khaymah). Come talk to us, share feedback, or ask:
+
+- **GitHub:** https://github.com/Khaymah
+- **Discussions on Qabilah:** https://qabilah.com/communities/Khaymah
+- **WhatsApp group:** https://chat.whatsapp.com/GIixmbibIix8PyUzFBbNoq
 
 ## Contributing
 
