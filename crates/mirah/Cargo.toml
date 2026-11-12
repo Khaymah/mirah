@@ -24,6 +24,7 @@ tracing-subscriber.workspace = true
 unicode-width.workspace = true
 
 [target.'cfg(unix)'.dependencies]
+libc.workspace = true
 signal-hook.workspace = true
 
 [target.'cfg(windows)'.dependencies]

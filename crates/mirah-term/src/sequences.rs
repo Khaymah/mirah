@@ -14,7 +14,8 @@ pub const ALT_SCREEN_LEAVE: &str = "\x1b[?1049l";
 pub const BDSM_EXPLICIT: &str = "\x1b[8l";
 pub const BDSM_IMPLICIT: &str = "\x1b[8h";
 pub const MOUSE_TRACKING_OFF: &str =
-    "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l";
+    "\x1b[?9l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l";
+pub const CURSOR_STYLE_DEFAULT: &str = "\x1b[0 q";
 pub const FOCUS_EVENTS_OFF: &str = "\x1b[?1004l";
 pub const FOCUS_EVENTS_ON: &str = "\x1b[?1004h";
 pub const MODE_FOCUS_EVENTS: u16 = 1004;
@@ -22,8 +23,7 @@ pub const BRACKETED_PASTE_OFF: &str = "\x1b[?2004l";
 pub const CURSOR_KEYS_NORMAL: &str = "\x1b[?1l";
 pub const KEYPAD_NUMERIC: &str = "\x1b>";
 pub const KITTY_KEYBOARD_POP: &str = "\x1b[<u";
-pub const WIN32_INPUT_OFF: &str = "\x1b[?9001l";
-pub const RESET_INPUT_MODES: &str = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>";
+pub const RESET_INPUT_MODES: &str = "\x1b[0 q\x1b[?9l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b>";
 
 pub const MODE_SYNCHRONIZED_OUTPUT: u16 = 2026;
 
@@ -45,7 +45,7 @@ const LEAVE: [&str; 14] = [
     CURSOR_KEYS_NORMAL,
     KEYPAD_NUMERIC,
     KITTY_KEYBOARD_POP,
-    WIN32_INPUT_OFF,
+    CURSOR_STYLE_DEFAULT,
     ALT_SCREEN_LEAVE,
     MOUSE_TRACKING_OFF,
     FOCUS_EVENTS_OFF,
@@ -80,7 +80,18 @@ mod tests {
         assert!(leave.starts_with("\x1b[?2026l\x1b[0m\x1b[?25h"));
         assert!(leave.ends_with(BDSM_IMPLICIT));
         let alt = leave.find(ALT_SCREEN_LEAVE).unwrap_or(0);
-        for mode in ["\x1b[?1003l", "\x1b[?1006l", "\x1b[?1015l", "\x1b[?1004l"] {
+        assert!(
+            !leave.contains("9001"),
+            "the shell's own key encoding is left alone"
+        );
+        assert!(leave.contains(CURSOR_STYLE_DEFAULT));
+        for mode in [
+            "\x1b[?1003l",
+            "\x1b[?1006l",
+            "\x1b[?1015l",
+            "\x1b[?1004l",
+            "\x1b[?9l",
+        ] {
             let first = leave.find(mode).unwrap_or(usize::MAX);
             let last = leave.rfind(mode).unwrap_or(0);
             assert!(first < alt && last > alt, "{mode} is reset on both screens");

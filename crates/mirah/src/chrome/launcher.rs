@@ -111,7 +111,7 @@ impl Launcher {
             Key::Up => self.row = (self.row + len - 1) % len,
             Key::Down | Key::Tab => self.row = (self.row + 1) % len,
             Key::Enter => return self.chosen(),
-            Key::Escape | Key::Toggle => return Some(Pick::Cancel),
+            Key::Escape => return Some(Pick::Cancel),
             Key::Char(c) => {
                 let n = super::keys::latin(c)
                     .to_digit(10)

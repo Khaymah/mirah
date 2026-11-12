@@ -73,6 +73,49 @@ pub(crate) fn keep_clipboard(text: String) {
     let _ = CLIPBOARD_RETRIES;
 }
 
+#[cfg(windows)]
+pub(crate) struct ProcessGroup(Option<windows::Job>);
+
+#[cfg(windows)]
+impl ProcessGroup {
+    pub(crate) fn contain(child: &dyn portable_pty::Child) -> Self {
+        let job = child.as_raw_handle().and_then(windows::Job::contain);
+        if job.is_none() {
+            tracing::warn!(
+                "could not put the program in a job; closing may leave children running"
+            );
+        }
+        Self(job)
+    }
+
+    pub(crate) fn end(&mut self) {
+        if let Some(job) = self.0.as_mut() {
+            job.end();
+        }
+    }
+}
+
+#[cfg(unix)]
+pub(crate) struct ProcessGroup(Option<i32>);
+
+#[cfg(unix)]
+impl ProcessGroup {
+    pub(crate) fn contain(child: &dyn portable_pty::Child) -> Self {
+        Self(child.process_id().and_then(|pid| i32::try_from(pid).ok()))
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "killpg has no safe wrapper; the group id is the pty session leader we spawned"
+    )]
+    pub(crate) fn end(&mut self) {
+        if let Some(group) = self.0.take() {
+            let sent = unsafe { libc::killpg(group, libc::SIGKILL) } == 0;
+            tracing::debug!(group, sent, "process group ended");
+        }
+    }
+}
+
 pub(crate) fn prepare_pty() {
     #[cfg(windows)]
     windows::install_conpty();

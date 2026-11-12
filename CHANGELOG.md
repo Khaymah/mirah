@@ -2,6 +2,23 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.8 - 2026-11-12
+
+**تصليحات من فحص شامل: إغلاق التابات، وشاشة الاختيار، والترمنال بعد الخروج.**
+
+- **التاب بقى بيتقفل دايماً بعد ما تأكد الإغلاق.** قبل كده، Codex (المتسطّب بـ npm) كان بيفضل شغال بعد الإغلاق. السبب إن مرآة كانت بتقفل `cmd.exe` بس، وCodex بيكمّل يرسم، فالتاب مابيتقفلش أبداً.
+  - **على ويندوز:** كل برنامج بقى في Job Object، فلما التاب يتقفل، البرنامج وكل اللي شغّله بيتقفلوا معاه. ولما مرآة نفسها تخرج، مفيش حاجة بتفضل شغالة في الخلفية.
+  - **على لينكس وماك:** مرآة بتقفل مجموعة العمليات كلها.
+  - **التاب بيتقفل بعد ثانية ونص** من التأكيد حتى لو البرنامج لسه بيطبع، وبعد ثانية من خروج البرنامج حتى لو حاجة شغّلها لسه بتطبع.
+  - **وقفل آخر تاب بإيدك** بيخرّج مرآة بـ 0.
+- **`Ctrl+]` في شاشة الاختيار بقى بيفتح الشريط**، بعد ما كان بيقفل مرآة كلها. وده كان السبب في إن مرآة كانت بتقفل لما تحاول توصل للإعدادات من شاشة البداية، والزراير اللي بعدها بتروح لـ PowerShell.
+- **مرآة مابقتش بتقفل وانت جوه شاشة الاختيار أو القايمة** لو آخر تاب خلص في نفس الوقت.
+- **مرآة مابقتش بتبعت `?9001l` وهي خارجة.** ده كان بيقفل وضع الكيبورد اللي Windows Terminal بيستخدمه للـ PowerShell نفسه، فالزراير بتبوظ في التشغيل اللي بعده.
+- **شكل المؤشر بيرجع للشكل الافتراضي** وهي خارجة، ولما تتنقل بين التابات.
+- **زرار Esc المتقسم:** لو `\x1b[A` (سهم) وصل على قرايتين، مرآة بقت بتستنى 30ms قبل ما تعتبره Esc، فمابقاش بيقفل شاشة الاختيار ولا القوايم بالغلط.
+
+**English:** Fixes from a full audit. Closing a tab now always works: before, Codex installed through npm kept running because only `cmd.exe` was killed while Codex kept drawing, so the tab never closed. On Windows each program runs in a job object that ends it and everything it started; on Unix the whole process group is ended. A tab closes 1.5 s after you confirm even if output keeps coming, and 1 s after its program exits even if something it started is still printing; closing the last tab yourself exits with 0. `Ctrl+]` in the picker opens the bar instead of quitting mirah, which is what made mirah quit when reaching for the settings from the start screen. mirah no longer exits while the picker or a menu is open if the last tab ends. mirah no longer sends `?9001l` on exit, which turned off the key encoding Windows Terminal uses for PowerShell itself. The cursor shape returns to the default on exit and when switching tabs. A key sequence split across two reads, such as an arrow, is held 30 ms before it counts as Esc.
+
 ## 0.4.0-alpha.7 - 2026-11-07
 
 **✕ والشريط بالماوس مع أي برنامج.**

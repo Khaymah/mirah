@@ -1,5 +1,6 @@
 mod actions;
 mod event;
+mod held;
 mod io;
 pub(crate) mod mouse;
 mod pacing;
@@ -59,6 +60,7 @@ struct Workspace {
     record: bool,
     reserved: Option<String>,
     notice_until: Option<Instant>,
+    held: held::Held,
     exit: Option<u32>,
     sessions: Vec<String>,
 }
@@ -120,6 +122,7 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
         record: start.record,
         reserved: start.reserved,
         notice_until: None,
+        held: held::Held::default(),
         exit: None,
         sessions: Vec::new(),
     };
@@ -234,6 +237,9 @@ impl Workspace {
         let mut deadline = Some(Instant::now());
         while let Some(events) = self.receive(deadline) {
             self.apply(events)?;
+            if let Some(late) = self.held.expired(Instant::now()) {
+                self.input(&late)?;
+            }
             for (i, tab) in self.tabs.iter_mut().enumerate() {
                 tab.forward(i == self.active)?;
                 if let Some(text) = tab.emulator.take_copy() {
@@ -251,7 +257,7 @@ impl Workspace {
             if self.tabs.is_empty() && self.chrome.is_idle() {
                 self.launcher();
             }
-            let tick = self.tick(now);
+            let tick = earliest(self.tick(now), self.held.deadline());
             deadline = earliest(self.paint(now, closed)?, tick);
         }
         Ok(())
@@ -269,7 +275,11 @@ impl Workspace {
             let code = tab.close(self.store.as_ref());
             closed = true;
             if self.tabs.is_empty() {
-                self.exit = Some(code);
+                if self.chrome.is_idle() {
+                    self.exit = Some(code);
+                } else {
+                    self.chrome.keep_open();
+                }
                 return true;
             }
             if index < self.active || self.active >= self.tabs.len() {
@@ -320,7 +330,12 @@ impl Workspace {
                         unread |= tab.unread != was;
                     }
                 }
-                Event::Input(bytes) => self.input(&bytes)?,
+                Event::Input(bytes) => {
+                    let ready = self.held.take_ready(&bytes, Instant::now());
+                    if !ready.is_empty() {
+                        self.input(&ready)?;
+                    }
+                }
                 event @ (Event::UpdateFound(_) | Event::UpdateDone(_)) => self.update_event(event),
                 Event::OutputClosed(id) => {
                     if let Some(i) = self.index_of(id) {
@@ -329,8 +344,7 @@ impl Workspace {
                 }
                 Event::ChildExited(id, code) => {
                     if let Some(i) = self.index_of(id) {
-                        self.tabs[i].life.code = Some(code);
-                        self.tabs[i].life.last_event = Some(Instant::now());
+                        self.tabs[i].life.exited(code, Instant::now());
                     }
                 }
                 Event::Resize => self.resize()?,
@@ -355,7 +369,7 @@ impl Workspace {
     }
 
     fn receive(&self, deadline: Option<Instant>) -> Option<Vec<Event>> {
-        let exit = self.tabs.iter().filter_map(|t| t.life.grace()).min();
+        let exit = self.tabs.iter().filter_map(|t| t.life.deadline()).min();
         let until = earliest(deadline, exit);
         let first = match until {
             None => self.inbox.recv().ok()?,

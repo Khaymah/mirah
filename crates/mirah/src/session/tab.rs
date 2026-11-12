@@ -15,6 +15,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const EXIT_GRACE: Duration = Duration::from_millis(100);
+const AFTER_EXIT: Duration = Duration::from_millis(1_000);
+const AFTER_CLOSE: Duration = Duration::from_millis(1_500);
 const UNREAD_AFTER: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,16 +33,35 @@ pub(super) struct Lifecycle {
     pub(super) code: Option<u32>,
     pub(super) output_closed: bool,
     pub(super) last_event: Option<Instant>,
+    pub(super) exited_at: Option<Instant>,
+    pub(super) closing_at: Option<Instant>,
 }
 
 impl Lifecycle {
-    pub(super) fn done(&self, now: Instant) -> bool {
-        self.code.is_some()
-            && (self.output_closed || self.last_event.is_some_and(|t| now >= t + EXIT_GRACE))
+    pub(super) fn exited(&mut self, code: u32, now: Instant) {
+        self.code = Some(code);
+        self.exited_at = Some(now);
+        self.last_event = Some(now);
     }
 
-    pub(super) fn grace(&self) -> Option<Instant> {
-        self.code.map(|_| Instant::now() + EXIT_GRACE)
+    pub(super) fn done(&self, now: Instant) -> bool {
+        let quiet = self.last_event.is_some_and(|t| now >= t + EXIT_GRACE);
+        let exited = self.code.is_some() && (self.output_closed || quiet);
+        let lingering = self.exited_at.is_some_and(|t| now >= t + AFTER_EXIT);
+        let forced = self.closing_at.is_some_and(|t| now >= t + AFTER_CLOSE);
+        exited || lingering || forced
+    }
+
+    pub(super) fn deadline(&self) -> Option<Instant> {
+        let quiet = self.code.and(self.last_event).map(|t| t + EXIT_GRACE);
+        [
+            quiet,
+            self.exited_at.map(|t| t + AFTER_EXIT),
+            self.closing_at.map(|t| t + AFTER_CLOSE),
+        ]
+        .into_iter()
+        .flatten()
+        .min()
     }
 }
 
@@ -52,6 +73,7 @@ pub(super) struct Tab {
     pty: Option<Pty>,
     writer: SharedWriter,
     killer: Box<dyn ChildKiller + Send + Sync>,
+    group: crate::host::ProcessGroup,
     pub(super) emulator: Emulator,
     pub(super) recorder: Recorder,
     pub(super) life: Lifecycle,
@@ -100,6 +122,7 @@ impl Tab {
         let cmd = crate::command::command(&open.spawn.argv, &open.spawn.cwd);
         let (pty, child) = Pty::spawn(cmd, open.size)?;
         let killer = child.clone_killer();
+        let group = crate::host::ProcessGroup::contain(&*child);
         io::spawn_pty_reader(pty.reader()?, open.id, open.events.clone());
         io::spawn_child_waiter(child, open.id, open.events.clone());
         let writer = Arc::new(Mutex::new(pty.writer()?));
@@ -136,6 +159,7 @@ impl Tab {
             pty: Some(pty),
             writer,
             killer,
+            group,
             emulator,
             recording_since: recorder.active().then(Instant::now),
             recorder,
@@ -182,6 +206,10 @@ impl Tab {
 
     pub(super) fn kill(&mut self) {
         tracing::info!(tab = self.id, "closing the tab");
+        self.life.closing_at.get_or_insert_with(Instant::now);
+        if self.life.code.is_some() {
+            return;
+        }
         if let Err(err) = self.killer.kill() {
             tracing::debug!(error = %err, "the program had already stopped");
         }
@@ -202,14 +230,62 @@ impl Tab {
             meta.ended = Some(crate::store::now());
             store.save(meta);
         }
+        let asked = self.life.closing_at.is_some();
+        if asked || self.life.code.is_none() {
+            self.group.end();
+        }
         if let Some(pty) = self.pty.take() {
             std::thread::spawn(move || {
                 drop(pty);
                 tracing::debug!("pty closed");
             });
         }
-        let code = self.life.code.unwrap_or(1);
+        let code = if asked {
+            0
+        } else {
+            self.life.code.unwrap_or(1)
+        };
         tracing::info!(tab = self.id, code, "tab closed");
         code
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_tab_whose_program_exited_closes_even_if_output_keeps_coming() {
+        let start = Instant::now();
+        let mut life = Lifecycle::default();
+        life.exited(0, start);
+        let mut now = start;
+        for _ in 0..30 {
+            now += Duration::from_millis(30);
+            life.last_event = Some(now);
+        }
+        assert!(life.done(start + AFTER_EXIT));
+        assert!(!life.done(start + Duration::from_millis(50)));
+    }
+
+    #[test]
+    fn a_tab_the_user_closed_ends_even_if_the_program_never_exits() {
+        let start = Instant::now();
+        let life = Lifecycle {
+            closing_at: Some(start),
+            last_event: Some(start + AFTER_CLOSE),
+            ..Lifecycle::default()
+        };
+        assert!(!life.done(start + Duration::from_millis(500)));
+        assert!(life.done(start + AFTER_CLOSE));
+        assert_eq!(life.deadline(), Some(start + AFTER_CLOSE));
+    }
+
+    #[test]
+    fn a_quiet_exit_still_closes_quickly() {
+        let start = Instant::now();
+        let mut life = Lifecycle::default();
+        life.exited(3, start);
+        assert!(life.done(start + EXIT_GRACE));
     }
 }

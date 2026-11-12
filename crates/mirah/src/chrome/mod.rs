@@ -89,6 +89,13 @@ impl Chrome {
         self.mode == Mode::Normal
     }
 
+    pub(crate) fn keep_open(&mut self) {
+        if let Mode::Launcher(launcher) = &mut self.mode {
+            launcher.can_cancel = false;
+            self.dirty = true;
+        }
+    }
+
     pub(crate) fn launch(&mut self, launcher: Launcher) {
         self.set_mode(Mode::Launcher(launcher));
     }
@@ -235,7 +242,9 @@ impl Chrome {
         let mut to_child = Vec::new();
         for (key, range) in keys::decode(bytes) {
             match (&self.mode, key) {
-                (Mode::Normal, Key::Toggle) if self.settings.bar => self.set_mode(Mode::Bar),
+                (Mode::Normal | Mode::Launcher(_), Key::Toggle) if self.settings.bar => {
+                    self.set_mode(Mode::Bar);
+                }
                 (Mode::Normal, _) => to_child.extend_from_slice(&bytes[range]),
                 (_, Key::Release) => {}
                 (Mode::Bar, Key::Toggle) => {
@@ -565,6 +574,24 @@ mod tests {
         let overlay = c.overlay(80, 24);
         assert!(overlay.rows.len() > 8);
         assert!(overlay.hide_cursor);
+    }
+
+    #[test]
+    fn ctrl_bracket_in_the_launcher_opens_the_bar_instead_of_quitting() {
+        let mut c = Chrome::new(Settings::default(), Shaping::Plain);
+        c.launch(Launcher::new(
+            vec![Entry::Start(agent("claude"))],
+            None,
+            false,
+            0,
+        ));
+        let mut actions = Vec::new();
+        c.input(b"\x1d", &mut actions);
+        assert!(actions.is_empty());
+        assert_eq!(c.mode, Mode::Bar);
+        c.input(b"\x1b", &mut actions);
+        assert!(actions.is_empty());
+        assert!(c.is_idle());
     }
 
     #[test]
