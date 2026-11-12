@@ -2,6 +2,33 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.9 - 2026-11-12
+
+**المرحلة التانية من الفحص الشامل.**
+
+- **برامج npm بتشتغل مباشرة على ويندوز.** لما البرنامج يبقى `.cmd` متعمل بـ npm (زي Codex وClaude وOpenCode وGemini)، مرآة بتقرا الملف وبتشغّل `node` أو الـ `.exe` اللي جواه على طول، من غير `cmd.exe`.
+  - فالمسافات في المسارات بقت مابتبوظش التشغيل.
+  - والرموز زي `&` في الكلام اللي بتبعته للبرنامج مابقتش بتتنفّذ كأوامر.
+  - وأي `.cmd` تاني بيفضل يشتغل بـ `cmd.exe`، والرموز الخاصة بتتعمل لها escape.
+- **الماوس والمؤشر في الجداول العربي:** لما مرآة بتقلب الجدول أو بتنقله لليمين، الضغطة بقت بتروح للخانة الصح.
+- **التلوين بقى أهدى:**
+  - بيشتغل في الشاشات اللي فيها عربي بس.
+  - وعلى الجداول الحقيقية بس، مش على صندوق الكتابة وشجرة الملفات وأشرطة التقدّم.
+  - وسطور الـ diff المترقّمة مابقتش بتتحسب كلام عادي.
+- **لو مرآة اتقفلت بـ `SIGTERM` أو `SIGHUP`** (على لينكس وماك)، بترجّع الترمنال لحالته وبتقفل كل البرامج اللي جواها.
+- **قراءة الكيبورد بتبدأ بعد ما الترمنال يتجهّز**، عشان أول زرار مايتقريش في الوضع العادي.
+- **`config.toml`:**
+  - لو مرآة مقدرتش تقراه (مش لأنه مش موجود)، مابقتش بتكتب عليه.
+  - والحفظ بقى بيكتب ملف جديد ويبدّله، فالملف مابيتقطعش في النص.
+- **فولدر الجلسات:** لو مرآة متسطّبة في `~/.mirah/bin`، الجلسات بتتحفظ في `~/.mirah/sessions`. وفي الفولدر `.gitignore`.
+- **`ESC c` و`CSI ! p` (reset)** بيلغوا التحديث المتزامن وتقارير الـ focus.
+- **حاجات صغيرة:**
+  - الضغط جنب صندوق الاختيار مابقاش بيختار حاجة.
+  - القايمة من غير تاب مابقتش بتعرض "للبرنامج ده".
+  - ولو التاب فشل بعد ما البرنامج اشتغل، البرنامج بيتقفل.
+
+**English:** Phase two of the audit. On Windows an npm `.cmd` shim (Codex, Claude, OpenCode, Gemini) is read and its `node` script or `.exe` is run directly without `cmd.exe`, so spaces in paths work and characters such as `&` in arguments are not run as commands; any other `.cmd` still goes through `cmd.exe`, with its special characters escaped. Mouse clicks and the cursor follow Arabic tables that mirah mirrors or moves right. Highlighting applies only to screens with Arabic and only to real tables, not input boxes, file trees or progress bars, and numbered diff lines are no longer taken for prose. On Linux and macOS, `SIGTERM` and `SIGHUP` restore the terminal and end every program. Keys are read only after the terminal is set up. A `config.toml` that cannot be read (other than missing) is never overwritten, and saving replaces the file whole. Installed in `~/.mirah/bin`, sessions go to `~/.mirah/sessions`, and the folder gets a `.gitignore`. `ESC c` and `CSI ! p` end synchronized output and focus reports. A click beside the picker box chooses nothing, the menu without a tab has no per-program row, and a tab that fails after its program started ends that program.
+
 ## 0.4.0-alpha.8 - 2026-11-12
 
 **تصليحات من فحص شامل: إغلاق التابات، وشاشة الاختيار، والترمنال بعد الخروج.**

@@ -73,6 +73,9 @@ impl vt100::Callbacks for Bridge {
         if let Some(on) = synchronized_output(i1, i2, params, c) {
             self.synchronized = on;
         }
+        if (i1, i2, c) == (Some(b'!'), None, 'p') {
+            self.synchronized = false;
+        }
         if i1 == Some(b'?')
             && i2.is_none()
             && matches!(c, 'h' | 'l')
@@ -140,6 +143,11 @@ mod tests {
             p.callbacks().to_host
         );
         assert!(p.callbacks().focus_events);
+    }
+
+    #[test]
+    fn a_soft_reset_ends_synchronized_output() {
+        assert!(!feed(b"\x1b[?2026h\x1b[!p").callbacks().synchronized);
     }
 
     #[test]

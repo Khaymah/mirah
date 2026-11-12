@@ -7,6 +7,8 @@ use crate::sequences::{FOCUS_EVENTS_OFF, FOCUS_EVENTS_ON, SYNC_END};
 use std::num::NonZeroU16;
 
 const SCROLLBACK_ROWS: usize = 0;
+const ESC: u8 = 0x1b;
+const FULL_RESET: u8 = b'c';
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Output {
@@ -20,6 +22,7 @@ pub struct Emulator {
     changed: bool,
     restore_focus: bool,
     focus_sent: bool,
+    after_esc: bool,
 }
 
 fn non_zero(rows: u16, cols: u16) -> Result<(NonZeroU16, NonZeroU16), TermError> {
@@ -44,11 +47,23 @@ impl Emulator {
             changed: true,
             restore_focus: false,
             focus_sent: false,
+            after_esc: false,
         })
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
-        self.parser.process(bytes);
+        let mut start = 0;
+        for (i, &byte) in bytes.iter().enumerate() {
+            if self.after_esc && byte == FULL_RESET {
+                self.parser.process(&bytes[start..=i]);
+                start = i + 1;
+                let bridge = self.parser.callbacks_mut();
+                bridge.synchronized = false;
+                bridge.focus_events = false;
+            }
+            self.after_esc = byte == ESC;
+        }
+        self.parser.process(&bytes[start..]);
         self.changed |= !bytes.is_empty();
     }
 
@@ -159,6 +174,18 @@ impl Emulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_full_reset_ends_synchronized_output_and_focus_reports_even_when_split() {
+        let mut e = Emulator::new(24, 80).expect("valid size");
+        e.feed(b"\x1b[?2026h\x1b[?1004h\x1b");
+        assert!(e.is_synchronizing());
+        e.feed(b"c");
+        assert!(!e.is_synchronizing());
+        assert!(!e.wants_focus());
+        e.feed(b"\x1bc\x1b[?1004h");
+        assert!(e.wants_focus());
+    }
 
     #[test]
     fn rejects_zero_sizes() {

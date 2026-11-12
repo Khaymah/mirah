@@ -119,7 +119,9 @@ impl Menu {
         if self.advanced {
             rows.extend(pick(true));
         }
-        rows.push(Row::Scope);
+        if !self.program.is_empty() {
+            rows.push(Row::Scope);
+        }
         rows
     }
 
@@ -357,6 +359,13 @@ mod tests {
         assert!(first.starts_with("│▌"), "{first}");
         assert!(first.contains("[صنلا لك]"), "{first}");
         assert!(first.contains("طقف يبرعلا"), "{first}");
+    }
+
+    #[test]
+    fn without_a_program_there_is_no_scope_to_switch_to() {
+        let menu = Menu::new("");
+        assert!(!menu.rows().contains(&Row::Scope));
+        assert!(Menu::new("claude").rows().contains(&Row::Scope));
     }
 
     #[test]

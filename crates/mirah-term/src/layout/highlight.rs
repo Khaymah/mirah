@@ -1,5 +1,5 @@
 use super::align::marker_len;
-use super::classify::{Kind, Palette, base, is_blank, is_frame};
+use super::classify::{Kind, Palette, base, has_rtl, is_blank};
 use mirah_bidi::{Cell, Color, VisualRow};
 
 const ACCENT: Color = Color::Rgb(217, 145, 104);
@@ -8,6 +8,18 @@ const MIN_LETTERS: usize = 2;
 const TOP_LEFT: [char; 2] = ['┌', '╭'];
 const RULE_CHARS: [char; 4] = ['-', '─', '—', '━'];
 const MIN_RULE: usize = 3;
+const JOINS: [char; 9] = ['┬', '┼', '┴', '╤', '╪', '╧', '╦', '╬', '╩'];
+const BARS: [char; 3] = ['│', '┃', '║'];
+const MIN_BARS: usize = 3;
+
+fn is_line(c: char) -> bool {
+    ('\u{2500}'..='\u{257F}').contains(&c)
+}
+
+fn is_table_row(row: &[Cell]) -> bool {
+    row.iter().any(|c| JOINS.contains(&base(c)))
+        || row.iter().filter(|c| BARS.contains(&base(c))).count() >= MIN_BARS
+}
 
 fn plain(cell: &Cell, text: Palette) -> bool {
     cell.style.fg == text.fg || cell.style.fg == Color::Default
@@ -17,7 +29,7 @@ fn is_heading(row: &[Cell]) -> bool {
     let letters: Vec<&Cell> = row.iter().filter(|c| base(c).is_alphabetic()).collect();
     letters.len() >= MIN_LETTERS
         && letters.iter().all(|c| c.style.bold)
-        && !row.iter().any(|c| is_frame(base(c)))
+        && !row.iter().any(|c| is_line(base(c)))
 }
 
 fn paint_heading(visual: &mut VisualRow, text: Palette) {
@@ -49,7 +61,7 @@ fn paint_table(visual: &mut VisualRow, header: bool, text: Palette) {
         if is_blank(cell) || !plain(cell, text) {
             continue;
         }
-        if is_frame(base(cell)) {
+        if is_line(base(cell)) {
             cell.style.fg = BORDER;
         } else if header {
             cell.style.bold = true;
@@ -85,24 +97,31 @@ pub(super) fn paint(
     kinds: &[Kind],
     text: Palette,
 ) {
+    if !logical.iter().any(|row| has_rtl(row)) {
+        return;
+    }
     let mut header_next = false;
     for (i, row) in logical.iter().enumerate() {
         let Some(out) = visual.get_mut(i) else {
             continue;
         };
-        let framed = row.iter().any(|c| is_frame(base(c)));
-        let top = row.iter().any(|c| TOP_LEFT.contains(&base(c)));
-        if framed {
-            let has_text = row.iter().any(|c| !is_blank(c) && !is_frame(base(c)));
-            paint_table(out, header_next && has_text, text);
-            header_next = top || (header_next && !has_text);
-            continue;
-        }
-        header_next = false;
         if is_rule(row) {
+            header_next = false;
             paint_rule(out, text);
             continue;
         }
+        if row.iter().any(|c| is_line(base(c))) {
+            if is_table_row(row) {
+                let top = row.iter().any(|c| TOP_LEFT.contains(&base(c)));
+                let has_text = row.iter().any(|c| !is_blank(c) && !is_line(base(c)));
+                paint_table(out, header_next && has_text, text);
+                header_next = top || (header_next && !has_text);
+            } else {
+                header_next = false;
+            }
+            continue;
+        }
+        header_next = false;
         if kinds.get(i) != Some(&Kind::Prose) {
             continue;
         }
@@ -180,6 +199,43 @@ mod tests {
         assert!(out[3].cells[2].style.bold);
         assert_eq!(out[3].cells[2].style.fg, ACCENT);
         assert!(!out[5].cells[2].style.bold);
+    }
+
+    #[test]
+    fn screens_without_arabic_and_boxes_that_are_not_tables_keep_their_colours() {
+        let english = vec![row("Title", true), row("┌──┬──┐", false)];
+        let mut out: Vec<VisualRow> = english.iter().map(|r| visual(r)).collect();
+        paint(&english, &mut out, &[Kind::Prose, Kind::Framed], palette());
+        assert!(
+            out.iter()
+                .flat_map(|r| &r.cells)
+                .all(|c| c.style.fg == Color::Default)
+        );
+        let mixed = vec![
+            row("مرحبا", false),
+            row("╭──────╮", false),
+            row("│ > hi │", false),
+            row("├── src", false),
+            row("████░░", false),
+        ];
+        let mut out: Vec<VisualRow> = mixed.iter().map(|r| visual(r)).collect();
+        paint(
+            &mixed,
+            &mut out,
+            &[
+                Kind::Prose,
+                Kind::Framed,
+                Kind::Framed,
+                Kind::Framed,
+                Kind::Fixed,
+            ],
+            palette(),
+        );
+        assert!(
+            out.iter()
+                .flat_map(|r| &r.cells)
+                .all(|c| c.style.fg == Color::Default)
+        );
     }
 
     #[test]

@@ -49,6 +49,7 @@ pub(crate) struct Chrome {
     shaping: Shaping,
     hits: Vec<(Item, std::ops::Range<usize>)>,
     boxed_at: Option<(usize, usize)>,
+    boxed_width: usize,
     menu: Option<menu::Drawn>,
     dialog: Option<Dialog>,
 }
@@ -63,6 +64,7 @@ impl Chrome {
             shaping,
             hits: Vec::new(),
             boxed_at: None,
+            boxed_width: 0,
             menu: None,
             dialog: None,
         }
@@ -289,6 +291,9 @@ impl Chrome {
                 }
             }
             Mode::Launcher(mut launcher) => {
+                if column >= self.boxed_width {
+                    return false;
+                }
                 let pick = launcher.click(row);
                 let can_cancel = launcher.can_cancel;
                 self.mode = Mode::Launcher(launcher);
@@ -343,6 +348,7 @@ impl Chrome {
         left: usize,
     ) {
         self.boxed_at = Some((top, left));
+        self.boxed_width = cells.first().map_or(0, Vec::len);
         for (i, row) in cells.into_iter().enumerate() {
             rows.push(OverlayRow {
                 row: u16::try_from(top + i).unwrap_or(u16::MAX),
@@ -592,6 +598,40 @@ mod tests {
         c.input(b"\x1b", &mut actions);
         assert!(actions.is_empty());
         assert!(c.is_idle());
+    }
+
+    #[test]
+    fn a_click_beside_the_launcher_box_chooses_nothing() {
+        let mut c = Chrome::new(Settings::default(), Shaping::Plain);
+        c.launch(Launcher::new(
+            vec![Entry::Start(agent("claude"))],
+            None,
+            false,
+            0,
+        ));
+        c.overlay(120, 30);
+        let (top, left) = c.boxed_at.expect("the launcher is placed");
+        let outside = u16::try_from(left + c.boxed_width).unwrap_or(0);
+        let mut actions = Vec::new();
+        for row in top..top + 12 {
+            click(
+                &mut c,
+                u16::try_from(row).unwrap_or(0),
+                outside,
+                &mut actions,
+            );
+        }
+        assert!(actions.is_empty());
+        let inside = u16::try_from(left + 2).unwrap_or(0);
+        for row in top..top + 12 {
+            click(
+                &mut c,
+                u16::try_from(row).unwrap_or(0),
+                inside,
+                &mut actions,
+            );
+        }
+        assert!(!actions.is_empty());
     }
 
     #[test]

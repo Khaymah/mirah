@@ -53,14 +53,13 @@ pub(super) fn palette(logical: &[Vec<Cell>]) -> Palette {
     Palette { fg, bg }
 }
 
-fn is_diff_line(content: &[&Cell]) -> bool {
-    let digits = content
-        .iter()
-        .take_while(|c| base(c).is_ascii_digit())
-        .count();
+fn is_diff_line(row: &[Cell]) -> bool {
+    let start = row.iter().take_while(|c| is_blank(c)).count();
+    let line = &row[start..];
+    let digits = line.iter().take_while(|c| base(c).is_ascii_digit()).count();
     digits > 0
-        && content.get(digits).is_some_and(|c| is_blank(c))
-        && content
+        && line.get(digits).is_some_and(is_blank)
+        && line
             .iter()
             .skip(digits)
             .find(|c| !is_blank(c))
@@ -168,7 +167,7 @@ fn looks_like_code(row: &[Cell], text: Palette) -> bool {
     } else {
         CODE_CHAR_RATIO
     };
-    is_diff_line(&content)
+    is_diff_line(row)
         || (!heading
             && !arabic_prose
             && plain_bg * 2.0 >= total
@@ -305,6 +304,20 @@ mod tests {
     fn screen(line: Vec<Cell>) -> Vec<Vec<Cell>> {
         let prose = row(&[("هذا سطر عادي من الكلام العربي الطويل نسبيًا", Color::Default)]);
         vec![prose.clone(), prose, line]
+    }
+
+    #[test]
+    fn a_numbered_diff_line_keeps_its_place_even_with_arabic() {
+        let line = row(&[
+            ("  12 + ", Color::Default),
+            ("// تعليق عن الدالة هنا", Color::Default),
+        ]);
+        assert_ne!(kinds(&screen(line))[2], Kind::Prose);
+        let list = row(&[
+            ("1. ", Color::Default),
+            ("هذا بند في قائمة عادية", Color::Default),
+        ]);
+        assert_eq!(kinds(&screen(list))[2], Kind::Prose);
     }
 
     #[test]

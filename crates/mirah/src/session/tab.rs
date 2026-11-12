@@ -119,13 +119,22 @@ impl Tab {
         let program = open.spawn.argv.first().cloned().unwrap_or_default();
         let settings = open.config.settings(&program);
         let options = settings.render_options(&program);
+        let mut emulator = Emulator::with_options(open.size.rows, open.size.cols, options)?;
         let cmd = crate::command::command(&open.spawn.argv, &open.spawn.cwd);
         let (pty, child) = Pty::spawn(cmd, open.size)?;
-        let killer = child.clone_killer();
-        let group = crate::host::ProcessGroup::contain(&*child);
-        io::spawn_pty_reader(pty.reader()?, open.id, open.events.clone());
+        let mut killer = child.clone_killer();
+        let mut group = crate::host::ProcessGroup::contain(&*child);
+        let (reader, writer) = match pty.reader().and_then(|r| Ok((r, pty.writer()?))) {
+            Ok(pipes) => pipes,
+            Err(err) => {
+                let _ = killer.kill();
+                group.end();
+                return Err(err);
+            }
+        };
+        io::spawn_pty_reader(reader, open.id, open.events.clone());
         io::spawn_child_waiter(child, open.id, open.events.clone());
-        let writer = Arc::new(Mutex::new(pty.writer()?));
+        let writer = Arc::new(Mutex::new(writer));
         let resuming = open.spawn.meta.is_some();
         let meta = session(&mut open);
         let output = meta
@@ -141,7 +150,6 @@ impl Tab {
             }
         };
         let recorder = Recorder::new(path);
-        let mut emulator = Emulator::with_options(open.size.rows, open.size.cols, options)?;
         emulator.allow_clipboard(settings.clipboard);
         emulator.keep_mouse_on(settings.bar && settings.bar_mouse);
         tracing::info!(

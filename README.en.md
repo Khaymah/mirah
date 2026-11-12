@@ -49,13 +49,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -68,8 +68,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -209,7 +209,7 @@ The first row belongs to mirah, and the program runs below it:
 | Setting | Choices | Does |
 |---|---|---|
 | Alignment | all text · Arabic only · off | Aligns prose right, Arabic and English, or Arabic only |
-| Highlight Markdown | on · off | Headings, list markers, bold words and table header rows in an accent colour, with quieter table borders and `---` rules, like opencode. Only text in the normal text colour is changed |
+| Highlight Markdown | on · off | Headings, list markers, bold words and table header rows in an accent colour, with quieter table borders and `---` rules, like opencode. Only text in the normal text colour is changed, and only on screens with Arabic. Boxes, file trees and progress bars keep their colours |
 | Mirror tables | on · off | First column on the right, and Arabic tables move to the right of the screen |
 | Record every session | on · off | Every new tab is recorded into its session folder |
 | Copy on select | on · off | Claude Code copies anything you select; mirah restores the Arabic order (and on Windows puts the corrected text on the clipboard itself). Off keeps selection from changing the clipboard |
@@ -257,7 +257,7 @@ resume = ["--continue"]
 
 ## Sessions and recording
 
-Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder inside a `sessions` folder **next to `mirah.exe`**. If mirah cannot write there, it uses `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere. `sessions_dir = "D:/mirah/sessions"` in `config.toml` picks another place, and mirah prints the folder when it exits. Each session folder holds:
+Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder inside a `sessions` folder **next to `mirah.exe`**. When the installer put mirah in `~/.mirah/bin`, the folder is `~/.mirah/sessions`. The folder has a `.gitignore`, so recordings (which can hold paths or keys) are not added to git by mistake. If mirah cannot write there, it uses `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere. `sessions_dir = "D:/mirah/sessions"` in `config.toml` picks another place, and mirah prints the folder when it exits. Each session folder holds:
 
 - **`session.toml`:** the program, the command, the folder, and when it started and ended.
 - **`output.vt`:** the recording, when recording was on.

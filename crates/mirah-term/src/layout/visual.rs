@@ -1,4 +1,6 @@
-use super::{Align, Caches, Cursor, RenderOptions, arrange, table, unchanged};
+use super::{
+    Align, Caches, Cursor, RenderOptions, arrange, compose, moved_column, table, unchanged,
+};
 use mirah_bidi::{Cell, VisualRow, logical_row, mirror_reversed_brackets};
 
 struct Undone {
@@ -59,17 +61,18 @@ pub(super) fn layout(
             .unwrap_or(cursor.col),
         ..*cursor
     };
-    let logical = if options.tables {
-        table::mirror_rtl_tables(logical, &settled)
-    } else {
-        logical
-    };
-    let mut visual = arrange(logical, &logical_cursor, options, &settled, caches);
-    for (row, first) in visual.iter_mut().zip(&from_visual) {
-        row.logical_to_visual = first
-            .iter()
-            .map(|&middle| row.logical_to_visual.get(middle).copied().unwrap_or(middle))
-            .collect();
+    if !options.tables {
+        let mut visual = arrange(logical, &logical_cursor, options, &settled, caches);
+        compose(&mut visual, &from_visual);
+        return visual;
     }
+    let mirrored = table::mirror_tables(logical, &settled);
+    let cursor = Cursor {
+        col: moved_column(&mirrored.moved, cursor.row, logical_cursor.col),
+        ..logical_cursor
+    };
+    let mut visual = arrange(mirrored.rows, &cursor, options, &settled, caches);
+    compose(&mut visual, &mirrored.moved);
+    compose(&mut visual, &from_visual);
     visual
 }

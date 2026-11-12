@@ -192,10 +192,19 @@ impl Config {
     }
 
     pub(crate) fn from_path(path: Option<PathBuf>) -> Self {
-        let text = path
-            .as_ref()
-            .and_then(|p| std::fs::read_to_string(p).ok())
-            .unwrap_or_default();
+        let text = match path.as_ref().map(std::fs::read_to_string) {
+            None => String::new(),
+            Some(Ok(text)) => text,
+            Some(Err(err)) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Some(Err(err)) => {
+                tracing::warn!(error = %err, "config.toml could not be read, using defaults and not saving");
+                return Self {
+                    path,
+                    doc: DocumentMut::new(),
+                    writable: false,
+                };
+            }
+        };
         match text.parse::<DocumentMut>() {
             Ok(doc) => Self {
                 path,
@@ -301,7 +310,11 @@ impl Config {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        std::fs::write(path, self.doc.to_string())
+        let staged = path.with_extension("toml.new");
+        std::fs::write(&staged, self.doc.to_string())?;
+        std::fs::rename(&staged, path).inspect_err(|_| {
+            let _ = std::fs::remove_file(&staged);
+        })
     }
 
     #[cfg(test)]
@@ -396,6 +409,33 @@ mod tests {
             std::fs::read_to_string(&path).expect("read"),
             "align = [broken"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_is_never_overwritten() {
+        let dir = std::env::temp_dir().join(format!("mirah-config-dir-{}", std::process::id()));
+        let path = dir.join("config.toml");
+        std::fs::create_dir_all(&path).expect("a folder where the file should be");
+        let mut c = Config::from_path(Some(path.clone()));
+        c.set(&Scope::Global, Key::Align, "off");
+        c.save().expect("save is a no-op");
+        assert!(path.is_dir());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn saving_replaces_the_file_whole() {
+        let dir = std::env::temp_dir().join(format!("mirah-config-save-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let path = dir.join("config.toml");
+        std::fs::write(&path, "# mine\n").expect("write");
+        let mut c = Config::from_path(Some(path.clone()));
+        c.set(&Scope::Global, Key::Align, "off");
+        c.save().expect("save");
+        let text = std::fs::read_to_string(&path).expect("read");
+        assert!(text.contains("# mine") && text.contains("align = \"off\""));
+        assert!(!path.with_extension("toml.new").exists());
         let _ = std::fs::remove_dir_all(dir);
     }
 }

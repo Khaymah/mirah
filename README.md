@@ -51,13 +51,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -70,8 +70,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.8/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.9/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -211,7 +211,7 @@ mirah play 1106-0457-k3f2
 | الإعداد | الاختيارات | بيعمل إيه |
 |---|---|---|
 | المحاذاة | كل النص · العربي فقط · إيقاف | يحاذي الكلام يمين، عربي وإنجليزي، أو العربي بس |
-| تلوين Markdown | تشغيل · إيقاف | العناوين، وعلامات القوايم، والكلمات العريضة، وصف عناوين الجدول بلون مميز، وإطار الجداول وخطوط `---` أهدى، زي opencode. بيلوّن الكلام اللي بلون الكلام العادي بس |
+| تلوين Markdown | تشغيل · إيقاف | العناوين، وعلامات القوايم، والكلمات العريضة، وصف عناوين الجدول بلون مميز، وإطار الجداول وخطوط `---` أهدى، زي opencode. بيلوّن الكلام اللي بلون الكلام العادي بس، وفي الشاشات اللي فيها عربي بس. والصناديق وشجرة الملفات وأشرطة التقدّم مابتتلوّنش |
 | عكس الجداول | تشغيل · إيقاف | أول عمود على اليمين، والجدول العربي بيروح على يمين الشاشة |
 | تسجيل كل جلسة | تشغيل · إيقاف | كل تاب جديد بيتسجّل في فولدر الجلسة بتاعته |
 | النسخ عند التحديد | تشغيل · إيقاف | Claude Code بينسخ أي حاجة تحددها لوحده، ومرآة بترجّع ترتيب العربي في النسخ (وعلى ويندوز بتحط النص الصح في الحافظة بنفسها). لو قفلته، التحديد مابيغيّرش الحافظة |
@@ -259,7 +259,7 @@ resume = ["--continue"]
 
 ## الجلسات والتسجيل
 
-كل تاب جلسة ليها ID قصير، زي `1106-0457-k3f2`، وفولدر جوه فولدر `sessions` **جنب `mirah.exe`**. لو مرآة مش قادرة تكتب جنبه، بتستخدم `%LOCALAPPDATA%\mirah\sessions\` على ويندوز، و`~/.local/state/mirah/sessions/` على الباقي. وتقدر تختار مكان تاني بـ `sessions_dir = "D:/mirah/sessions"` في `config.toml`. ومرآة بتكتب مكان الفولدر وهي خارجة. وفي كل فولدر جلسة:
+كل تاب جلسة ليها ID قصير، زي `1106-0457-k3f2`، وفولدر جوه فولدر `sessions` **جنب `mirah.exe`**. ولو مرآة متسطّبة بالـ installer في `~/.mirah/bin`، الفولدر بيبقى `~/.mirah/sessions`. وفي الفولدر `.gitignore` عشان التسجيلات (وممكن يكون فيها مسارات أو مفاتيح) ماتتضافش لـ git بالغلط. لو مرآة مش قادرة تكتب جنبه، بتستخدم `%LOCALAPPDATA%\mirah\sessions\` على ويندوز، و`~/.local/state/mirah/sessions/` على الباقي. وتقدر تختار مكان تاني بـ `sessions_dir = "D:/mirah/sessions"` في `config.toml`. ومرآة بتكتب مكان الفولدر وهي خارجة. وفي كل فولدر جلسة:
 
 - **`session.toml`:** البرنامج، والأمر، والفولدر، وإمتى بدأ وإمتى خلص.
 - **`output.vt`:** التسجيل، لو التسجيل كان شغال.

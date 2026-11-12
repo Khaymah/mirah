@@ -3,6 +3,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use toml_edit::{DocumentMut, value};
 
 const SESSIONS_DIR: &str = "sessions";
+const INSTALL_ROOT: &str = ".mirah";
+const INSTALL_BIN: &str = "bin";
+const GIT_IGNORE: &str = ".gitignore";
+const GIT_IGNORE_ALL: &str = "*\n";
 const META_FILE: &str = "session.toml";
 const OUTPUT_FILE: &str = "output.vt";
 const LOG_FILE: &str = "mirah.log";
@@ -78,14 +82,23 @@ impl Store {
         let custom = crate::config::Config::load().sessions_dir();
         let beside_app = std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|dir| dir.join(SESSIONS_DIR)));
+            .and_then(|exe| exe.parent().map(beside));
         let fallback = crate::paths::state_dir().map(|dir| dir.join(SESSIONS_DIR));
-        custom
+        let store = custom
             .into_iter()
             .chain(beside_app)
             .find(|dir| writable(dir))
             .or(fallback)
-            .map(Self::at)
+            .map(Self::at)?;
+        store.keep_out_of_git();
+        Some(store)
+    }
+
+    fn keep_out_of_git(&self) {
+        let ignore = self.root.join(GIT_IGNORE);
+        if self.root.is_dir() && !ignore.exists() {
+            let _ = std::fs::write(ignore, GIT_IGNORE_ALL);
+        }
     }
 
     pub(crate) fn at(root: PathBuf) -> Self {
@@ -228,6 +241,18 @@ impl Store {
     }
 }
 
+fn beside(app_dir: &Path) -> PathBuf {
+    let installed = app_dir.file_name().is_some_and(|n| n == INSTALL_BIN)
+        && app_dir
+            .parent()
+            .and_then(Path::file_name)
+            .is_some_and(|n| n == INSTALL_ROOT);
+    match (installed, app_dir.parent()) {
+        (true, Some(root)) => root.join(SESSIONS_DIR),
+        _ => app_dir.join(SESSIONS_DIR),
+    }
+}
+
 fn writable(dir: &Path) -> bool {
     if std::fs::create_dir_all(dir).is_err() {
         return false;
@@ -296,6 +321,20 @@ pub(crate) fn size_of(path: &Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sessions_sit_beside_the_app_but_not_inside_the_install_bin_folder() {
+        let home = Path::new("/home/me");
+        assert_eq!(
+            beside(&home.join(".mirah").join("bin")),
+            home.join(".mirah").join("sessions")
+        );
+        assert_eq!(
+            beside(&home.join("tools")),
+            home.join("tools").join("sessions")
+        );
+        assert_eq!(beside(&home.join("bin")), home.join("bin").join("sessions"));
+    }
 
     fn temp(name: &str) -> Store {
         let root = std::env::temp_dir().join(format!("mirah-store-{name}-{}", std::process::id()));

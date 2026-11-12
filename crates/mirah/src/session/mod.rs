@@ -130,10 +130,10 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
         Some(spawn) => workspace.open(spawn)?,
         None => workspace.launcher(),
     }
-    io::spawn_stdin_reader(workspace.events.clone());
     resize::spawn_watcher(workspace.events.clone())?;
     check_updates(&workspace.chrome, &workspace.events);
     let _guard = TerminalGuard::enter()?;
+    io::spawn_stdin_reader(workspace.events.clone());
     tracing::info!(
         rows = size.rows,
         cols = size.cols,
@@ -348,6 +348,7 @@ impl Workspace {
                     }
                 }
                 Event::Resize => self.resize()?,
+                Event::Stop(code) => self.exit = Some(code),
             }
         }
         if unread {

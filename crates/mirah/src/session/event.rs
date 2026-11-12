@@ -6,6 +6,11 @@ pub(crate) enum Event {
     OutputClosed(TabId),
     ChildExited(TabId, u32),
     Resize,
+    #[cfg_attr(
+        windows,
+        allow(dead_code, reason = "only Unix signals stop mirah from outside")
+    )]
+    Stop(u32),
     UpdateFound(String),
     UpdateDone(Result<String, String>),
 }

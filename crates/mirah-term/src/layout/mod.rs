@@ -89,14 +89,36 @@ fn pane(
 ) -> Vec<VisualRow> {
     match options.input {
         InputOrder::Logical => {
-            let logical = if options.align == Align::Off || !options.tables {
-                rows
-            } else {
-                table::mirror_rtl_tables(rows, &[])
+            if options.align == Align::Off || !options.tables {
+                return arrange(rows, cursor, options, &[], caches);
+            }
+            let mirrored = table::mirror_tables(rows, &[]);
+            let cursor = Cursor {
+                col: moved_column(&mirrored.moved, cursor.row, cursor.col),
+                ..*cursor
             };
-            arrange(logical, cursor, options, &[], caches)
+            let mut visual = arrange(mirrored.rows, &cursor, options, &[], caches);
+            compose(&mut visual, &mirrored.moved);
+            visual
         }
         InputOrder::Visual => visual::layout(rows, cursor, options, caches),
+    }
+}
+
+fn moved_column(moved: &[Vec<usize>], row: usize, col: usize) -> usize {
+    moved
+        .get(row)
+        .and_then(|map| map.get(col))
+        .copied()
+        .unwrap_or(col)
+}
+
+fn compose(visual: &mut [VisualRow], first: &[Vec<usize>]) {
+    for (row, first) in visual.iter_mut().zip(first) {
+        row.logical_to_visual = first
+            .iter()
+            .map(|&middle| row.logical_to_visual.get(middle).copied().unwrap_or(middle))
+            .collect();
     }
 }
 

@@ -141,46 +141,75 @@ fn has_rtl(rows: &[Vec<Cell>], table: &Table) -> bool {
         .any(|row| row[left..=right].iter().any(|c| c.text.chars().any(is_rtl)))
 }
 
-fn right_aligned(cells: &[Cell]) -> Vec<Cell> {
+struct Shift {
+    first: usize,
+    last: usize,
+    pad: usize,
+}
+
+fn right_shift(cells: &[Cell]) -> Option<Shift> {
     let width = cells.len();
-    let first = cells.iter().position(|c| !is_blank(c));
-    let last = cells.iter().rposition(|c| !is_blank(c));
-    let (Some(first), Some(last)) = (first, last) else {
-        return cells.to_vec();
-    };
+    let first = cells.iter().position(|c| !is_blank(c))?;
+    let last = cells.iter().rposition(|c| !is_blank(c))?;
     let content = &cells[first..=last];
     if content.len() + CELL_PADDING > width || content.iter().all(|c| base(c) == '─') {
-        return cells.to_vec();
+        return None;
     }
-    let pad = width - CELL_PADDING - content.len();
-    let blank = blank_like(cells.first());
-    std::iter::repeat_n(blank.clone(), pad)
-        .chain(content.iter().cloned())
-        .chain(std::iter::repeat_n(blank, CELL_PADDING))
+    Some(Shift {
+        first,
+        last,
+        pad: width - CELL_PADDING - content.len(),
+    })
+}
+
+fn shifted<T: Clone>(items: &[T], shift: &Shift, blanks: Vec<T>) -> Vec<T> {
+    blanks[..shift.pad]
+        .iter()
+        .cloned()
+        .chain(items[shift.first..=shift.last].iter().cloned())
+        .chain(blanks[shift.pad..].iter().cloned())
         .collect()
 }
 
-fn mirror_row(row: &mut [Cell], columns: &[usize]) {
+fn mirror_row(row: &mut [Cell], source: &mut [usize], columns: &[usize]) {
     let (left, right) = (columns[0], columns[columns.len() - 1]);
     let original = row[left..=right].to_vec();
-    let at = |abs: usize| &original[abs - left];
+    let from = source[left..=right].to_vec();
     for &c in columns {
-        let mut cell = at(c).clone();
+        let mut cell = original[c - left].clone();
         cell.text = std::iter::once(mirrored(base(&cell))).collect();
         row[left + right - c] = cell;
+        source[left + right - c] = from[c - left];
     }
     for pair in columns.windows(2) {
-        let (start, end) = (pair[0] + 1, pair[1]);
-        let content: Vec<Cell> = (start..end).map(|abs| at(abs).clone()).collect();
-        let aligned = right_aligned(&content);
-        let target = left + right - end + 1;
-        for (offset, cell) in aligned.into_iter().enumerate() {
+        let (start, end) = (pair[0] + 1 - left, pair[1] - left);
+        let cells = &original[start..end];
+        let sources = &from[start..end];
+        let (cells, sources) = match right_shift(cells) {
+            Some(shift) => {
+                let blank = blank_like(cells.first());
+                let blank_cells = vec![blank; cells.len() - (shift.last + 1 - shift.first)];
+                let blank_sources: Vec<usize> = sources[..shift.first]
+                    .iter()
+                    .chain(&sources[shift.last + 1..])
+                    .copied()
+                    .collect();
+                (
+                    shifted(cells, &shift, blank_cells),
+                    shifted(sources, &shift, blank_sources),
+                )
+            }
+            None => (cells.to_vec(), sources.to_vec()),
+        };
+        let target = left + right - pair[1] + 1;
+        for (offset, (cell, from)) in cells.into_iter().zip(sources).enumerate() {
             row[target + offset] = cell;
+            source[target + offset] = from;
         }
     }
 }
 
-fn move_right(rows: &mut [Vec<Cell>], table: &Table) {
+fn move_right(rows: &mut [Vec<Cell>], sources: &mut [Vec<usize>], table: &Table) {
     let (left, right) = (table.columns[0], table.columns[table.columns.len() - 1]);
     let width = rows[table.top..=table.bottom]
         .iter()
@@ -200,26 +229,57 @@ fn move_right(rows: &mut [Vec<Cell>], table: &Table) {
     if !free {
         return;
     }
-    for row in &mut rows[table.top..=table.bottom] {
+    for (row, source) in rows[table.top..=table.bottom]
+        .iter_mut()
+        .zip(&mut sources[table.top..=table.bottom])
+    {
         row[left..=target].rotate_right(shift);
+        source[left..=target].rotate_right(shift);
     }
 }
 
-pub(super) fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
+fn placed(source: &[usize]) -> Vec<usize> {
+    let mut place: Vec<usize> = (0..source.len()).collect();
+    for (at, &from) in source.iter().enumerate() {
+        if let Some(slot) = place.get_mut(from) {
+            *slot = at;
+        }
+    }
+    place
+}
+
+pub(super) struct Mirrored {
+    pub(super) rows: Vec<Vec<Cell>>,
+    pub(super) moved: Vec<Vec<usize>>,
+}
+
+pub(super) fn mirror_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Mirrored {
     let mut rows = rows;
+    let mut sources: Vec<Vec<usize>> = rows.iter().map(|r| (0..r.len()).collect()).collect();
     for table in find_tables(&rows) {
         if !has_rtl(&rows, &table) {
             continue;
         }
         let unsettled = !(table.top..=table.bottom).any(|r| settled.get(r) == Some(&true));
         if unsettled {
-            for row in &mut rows[table.top..=table.bottom] {
-                mirror_row(row, &table.columns);
+            for (row, source) in rows[table.top..=table.bottom]
+                .iter_mut()
+                .zip(&mut sources[table.top..=table.bottom])
+            {
+                mirror_row(row, source, &table.columns);
             }
         }
-        move_right(&mut rows, &table);
+        move_right(&mut rows, &mut sources, &table);
     }
-    rows
+    Mirrored {
+        rows,
+        moved: sources.iter().map(|s| placed(s)).collect(),
+    }
+}
+
+#[cfg(test)]
+fn mirror_rtl_tables(rows: Vec<Vec<Cell>>, settled: &[bool]) -> Vec<Vec<Cell>> {
+    mirror_tables(rows, settled).rows
 }
 
 #[cfg(test)]
@@ -237,6 +297,26 @@ mod tests {
         rows.iter()
             .map(|r| r.iter().map(|c| c.text.as_str()).collect())
             .collect()
+    }
+
+    #[test]
+    fn every_cell_of_a_mirrored_table_knows_where_it_went() {
+        let input = rows(&[
+            "  ┌───────┬────┐      ",
+            "  │ الاسم │ id │      ",
+            "  └───────┴────┘      ",
+        ]);
+        let out = mirror_tables(input.clone(), &[]);
+        for (row, (before, after)) in input.iter().zip(&out.rows).enumerate() {
+            let mut seen = out.moved[row].clone();
+            seen.sort_unstable();
+            assert_eq!(seen, (0..before.len()).collect::<Vec<_>>());
+            for (col, cell) in before.iter().enumerate() {
+                if base(cell).is_alphabetic() {
+                    assert_eq!(after[out.moved[row][col]].text, cell.text);
+                }
+            }
+        }
     }
 
     #[test]

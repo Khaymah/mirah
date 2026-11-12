@@ -3,11 +3,20 @@ use anyhow::Result;
 use std::sync::mpsc::Sender;
 
 #[cfg(unix)]
+const SIGNAL_EXIT_BASE: u32 = 128;
+
+#[cfg(unix)]
 pub(crate) fn spawn_watcher(events: Sender<Event>) -> Result<()> {
-    let mut signals = signal_hook::iterator::Signals::new([signal_hook::consts::SIGWINCH])?;
+    use signal_hook::consts::{SIGHUP, SIGTERM, SIGWINCH};
+    let mut signals = signal_hook::iterator::Signals::new([SIGWINCH, SIGTERM, SIGHUP])?;
     std::thread::spawn(move || {
-        for _ in signals.forever() {
-            if events.send(Event::Resize).is_err() {
+        for signal in signals.forever() {
+            let event = if signal == SIGWINCH {
+                Event::Resize
+            } else {
+                Event::Stop(SIGNAL_EXIT_BASE + u32::try_from(signal).unwrap_or(0))
+            };
+            if events.send(event).is_err() {
                 break;
             }
         }
