@@ -1,6 +1,6 @@
 # ADR-0003: ويندوز أولوية، والتوزيع بـ dist على GitHub Releases، والتحديث بإذن المستخدم
 
-- **Status:** Accepted (2026-11-05)
+- **Status:** Accepted (2026-11-05). اتكتب وقت ما الريبو كان private، والريبو بقى public في 2026-11-06، فكل كلام عن الـ token مابقاش ليه لازمة.
 - **Date:** 2026-11-05
 - **Deciders:** المالك (Sabry Dawood)
 - **Project:** mirah

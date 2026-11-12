@@ -1,0 +1,59 @@
+name: مشكلة · Bug
+description: حاجة بتظهر غلط أو مش شغالة · Something shows wrong or does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        شكراً إنك بتبلّغ. ثغرة أمنية؟ ماتكتبهاش هنا، واتبع SECURITY.md.
+        Thanks for reporting. A security issue? Do not post it here; follow SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: إيه اللي حصل · What happened
+      description: إيه اللي شفته، وإيه اللي كنت مستنيه · What you saw, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: إزاي توصلها · Steps to reproduce
+      placeholder: |
+        1. mirah claude
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: النسخة · Version
+      description: ناتج `mirah --version` · Output of `mirah --version`
+      placeholder: mirah 0.4.0
+    validations:
+      required: true
+  - type: input
+    id: program
+    attributes:
+      label: البرنامج اللي جوه مرآة · Program inside mirah
+      placeholder: Claude Code 2.x, Codex 0.167, ...
+  - type: dropdown
+    id: os
+    attributes:
+      label: النظام · OS
+      options: [Windows 11, Windows 10, macOS, Linux, أخرى · Other]
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: الترمنال والخط · Terminal and font
+      placeholder: Windows Terminal 1.23, Cascadia Mono
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: screenshot أو تسجيل أو log · Screenshot, recording or log
+      description: |
+        `mirah --record <program>` بيسجّل الجلسة، ومرآة بتكتب الـ ID وهي خارجة. راجع الملف وشيل منه أي مسارات أو مفاتيح قبل ما ترفعه.
+        `mirah --record <program>` records the session and prints its ID on exit. Review the file and remove paths or keys before uploading it.

@@ -34,7 +34,7 @@ fn cache_path() -> Option<PathBuf> {
 
 fn latest(timeout: Duration) -> anyhow::Result<Option<Version>> {
     let json = source::fetch_text(&source::releases_url(), timeout)?;
-    Ok(version::newest(&json))
+    Ok(version::newest(&json, &current()))
 }
 
 fn tag(v: &Version) -> String {

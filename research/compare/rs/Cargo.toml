@@ -1,8 +1,0 @@
-[package]
-name = "conf"
-version = "0.0.1"
-edition = "2024"
-[dependencies]
-unicode-bidi = "0.3.18"
-vt100 = "0.18"
-mirah-bidi = { path = "../../../crates/mirah-bidi" }

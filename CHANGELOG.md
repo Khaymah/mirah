@@ -2,6 +2,43 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0 - 2026-11-12
+
+**أول إصدار مستقر من مرآة.** مرآة بتشغّل Claude Code وOpenCode وCodex وGemini، وأي برنامج terminal تاني، وبتصلّح العربي قبل ما يوصل لشاشتك.
+
+**العربي:**
+- **ترتيب كل سطر** بـ UAX #9، والإنجليزي والأرقام والمسارات بيفضلوا مكانهم جوه الكلام العربي.
+- **توصيل الحروف** في مرآة، أو تسيبه للترمنال زي Windows Terminal.
+- **محاذاة يمين** للفقرات، والعناوين، والقوايم، والكلام جوه الصناديق، والكود بيفضل مكانه.
+- **الجداول بتتعكس** وبتروح على يمين الشاشة.
+- **تلوين الماركداون** في الشاشات اللي فيها عربي.
+- **ترتيب البرامج اللي بتقلب العربي بنفسها بيرجع**، زي Claude Code على ويندوز.
+- **الماوس والنسخ:** الضغطة بتوصل للكلمة اللي انت شايفها، والنسخ بيوصل للحافظة بالترتيب الصح.
+
+**الشغل:**
+- **شاشة اختيار** بتلاقي البرامج المتسطّبة عندك، وآخر الجلسات، وآخر ملفات Markdown والتسجيلات.
+- **تابات**، و**شريط بالعربي** فيه إعدادات بتتغير وانت شغال.
+- **جلسات ليها ID:** `mirah sessions` و`mirah resume`.
+- **عارض ملفات Markdown:** `mirah view`.
+- **تشغيل التسجيلات:** `mirah play`.
+- **`mirah update`**:
+  - بيتأكد من الـ SHA-256 قبل ما يبدّل حاجة.
+  - ولو انت على نسخة مستقرة، بيجيبلك نسخ مستقرة بس.
+
+**ويندوز:**
+- **مرآة بتشيل جواها ConPTY أحدث.**
+- **برامج npm بتشتغل مباشرة**، من غير `cmd.exe`.
+- **كل برنامج في Job Object**، فقفل التاب بيقفل البرنامج وكل اللي شغّله.
+
+**التثبيت:** الأوامر في الـ README بقت بتشاور على آخر نسخة مستقرة على طول، فمش محتاجة رقم نسخة.
+
+**بعد alpha.11:**
+- `mirah update` على نسخة مستقرة بقى بيتجاهل الـ alpha.
+- الـ README والـ CONTRIBUTING والـ SECURITY اتكتبوا من جديد، ومعاهم صور وGIF من تشغيل حقيقي.
+- قوالب للـ issues والـ PRs.
+
+**English:** The first stable release of mirah. It runs Claude Code, OpenCode, Codex, Gemini or any other terminal program, and fixes Arabic before it reaches your screen. Every line is ordered with UAX #9, with English, numbers and paths kept in place. Letters are joined by mirah, or left to the terminal as on Windows Terminal. Paragraphs, headings, lists and boxed text align right while code stays put. Tables are mirrored to the right edge, Markdown is highlighted on screens with Arabic, and programs that reverse Arabic themselves (such as Claude Code on Windows) are undone. Clicks land on the word you see, and copies reach the clipboard in reading order. A picker finds installed programs, recent sessions, Markdown files and recordings; tabs and an Arabic bar hold live settings; sessions have IDs (`mirah sessions`, `mirah resume`); `mirah view` reads Markdown and `mirah play` plays recordings. `mirah update` checks SHA-256 before replacing anything, and a stable install is only offered stable releases. On Windows, mirah bundles a newer ConPTY, runs npm programs directly without `cmd.exe`, and puts every program in a job object so closing a tab ends everything it started. Install commands in the README now point at the latest stable release. Since alpha.11: stable installs ignore alphas when updating, the README, CONTRIBUTING and SECURITY were rewritten with images and a GIF from a real run, and issue and PR templates were added.
+
 ## 0.4.0-alpha.11 - 2026-11-12
 
 **تصليحات مراجعة الفريق (sabry-kit team-review) لـ alpha.8 لحد alpha.10.**

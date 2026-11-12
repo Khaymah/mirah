@@ -1,6 +1,8 @@
 # خطة: ويندوز والـ Releases والتحديث
 
-> القرار وأسبابه في `Plan/ADR/0003-windows-first-releases-and-updates.md`. الحالة: **اتقبلت. W1 اتنفّذ.**
+> **للتاريخ:** الخطة دي اتنفّذت، واتكتبت وقت ما الريبو كان private. الريبو بقى public، والتحديث اتعمل بـ `curl` و`tar` من غير token (`crates/mirah/src/update`).
+>
+> القرار وأسبابه في `Plan/ADR/0003-windows-first-releases-and-updates.md`.
 >
 > **قرارات المالك:** الريبو يفضل private دلوقتي. والتحديث: تنبيه، و`mirah update`، و**فحص أول ما مرآة تشتغل وزرار تثبيت**.
 

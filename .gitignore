@@ -3,8 +3,5 @@
 node_modules/
 .agents/scratch/
 .agents/sessions/
-research/compare/data/
-research/compare/rec/
-research/compare/out.*.txt
-research/spike-python/v/
+.agents/usage.jsonl
 *.bin

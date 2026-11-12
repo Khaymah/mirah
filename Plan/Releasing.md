@@ -1,6 +1,6 @@
 # إزاي بنطلّع release
 
-> نفس فكرة `Khaymah/internet-monitor`: **مفيش حد بيعمل tag بإيده.** الـ workflow هو اللي بيعمله، وبيعمله بس لو كل حاجة نجحت.
+> **مفيش حد بيعمل tag بإيده.** الـ workflow هو اللي بيعمله، وبيعمله بس لو كل حاجة نجحت.
 
 ## الخطوات
 
@@ -27,5 +27,5 @@ flowchart LR
 - **مفيش رجوع لورا.** النسخة لازم تبقى أكبر من آخر tag أو زيه، والمقارنة على الأرقام الأساسية بس. يعني `0.1.0-alpha.2` بعد `alpha.1` مسموحة، و`0.1.0` بعد `0.1.0-alpha.2` مسموحة.
 - **لازم يكون فيه CHANGELOG.** لو مفيش قسم للنسخة، الـ job بيفشل.
 - **بيتنشر الـ commit اللي نجح في الـ CI بس.** لو `main` اتحرك في النص، الـ push الأحدث هو اللي هيطلّع الـ release.
-- **ليه dispatch ومش tag push؟** أي tag بيعمله `GITHUB_TOKEN` مابيشغّلش workflows تانية، وده نفس الكلام اللي internet-monitor كاتبه في الـ workflow بتاعه. لكن `workflow_dispatch` مسموح بيه. وده متظبط في dist بـ `dispatch-releases = true`.
+- **ليه dispatch ومش tag push؟** أي tag بيعمله `GITHUB_TOKEN` مابيشغّلش workflows تانية. لكن `workflow_dispatch` مسموح بيه. وده متظبط في dist بـ `dispatch-releases = true`.
 - **النسخة prerelease (فيها `-`):** dist بيعلّم الـ release إنه prerelease لوحده.

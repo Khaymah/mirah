@@ -1,0 +1,21 @@
+name: اقتراح · Idea
+description: حاجة عايزها في مرآة · Something you want in mirah
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: المشكلة · The problem
+      description: إيه اللي مضايقك أو ناقصك النهارده · What bothers you or is missing today
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: الاقتراح · The idea
+      description: إزاي شايف الحل · How you see it working
+  - type: input
+    id: program
+    attributes:
+      label: البرنامج والترمنال · Program and terminal
+      placeholder: OpenCode in Windows Terminal

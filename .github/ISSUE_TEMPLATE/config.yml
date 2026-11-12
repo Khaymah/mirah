@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ثغرة أمنية · Security vulnerability
+    url: https://github.com/Khaymah/mirah/security/advisories/new
+    about: بلّغ بشكل خاص، مش في issue عام · Report privately, not in a public issue
