@@ -55,13 +55,12 @@ fn is_diff_line(row: &[Cell]) -> bool {
     let start = row.iter().take_while(|c| is_blank(c)).count();
     let line = &row[start..];
     let digits = line.iter().take_while(|c| base(c).is_ascii_digit()).count();
-    digits > 0
-        && line.get(digits).is_some_and(is_blank)
-        && line
-            .iter()
-            .skip(digits)
-            .find(|c| !is_blank(c))
-            .is_some_and(|c| matches!(base(c), '+' | '-'))
+    if digits == 0 || !line.get(digits).is_some_and(is_blank) {
+        return false;
+    }
+    let mut rest = line[digits..].iter().filter(|c| !is_blank(c));
+    rest.next().is_some_and(|c| matches!(base(c), '+' | '-'))
+        && !rest.next().is_some_and(|c| c.text.chars().any(is_rtl))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -316,6 +315,11 @@ mod tests {
             ("هذا بند في قائمة عادية", Color::Default),
         ]);
         assert_eq!(kinds(&screen(list))[2], Kind::Prose);
+        let dashed = row(&[
+            ("2 - ", Color::Default),
+            ("بند في القائمة العادية", Color::Default),
+        ]);
+        assert_eq!(kinds(&screen(dashed))[2], Kind::Prose);
     }
 
     #[test]

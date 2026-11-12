@@ -63,16 +63,27 @@ fn build(program: String, args: Vec<String>) -> CommandBuilder {
                 cmd.args(args);
                 return cmd;
             }
-            let shell = std::env::var(SHELL_ENV).unwrap_or_else(|_| FALLBACK_SHELL.into());
-            let mut cmd = CommandBuilder::new(shell);
-            cmd.args(["/d", "/c"]);
-            cmd.arg(script);
-            cmd.args(args.iter().map(|a| shim::escape_for_cmd(a)));
-            return cmd;
+            return through_cmd(&script, &args);
         }
         None => CommandBuilder::new(&program),
     };
     cmd.args(args);
+    cmd
+}
+
+#[cfg(windows)]
+const BATCH_LINE_ENV: &str = "MIRAH_BATCH_LINE";
+
+#[cfg(windows)]
+fn through_cmd(script: &std::path::Path, args: &[String]) -> CommandBuilder {
+    let shell = std::env::var(SHELL_ENV).unwrap_or_else(|_| FALLBACK_SHELL.into());
+    let mut cmd = CommandBuilder::new(shell);
+    cmd.args(["/d", "/v:off", "/c"]);
+    cmd.arg(format!("%{BATCH_LINE_ENV}%"));
+    cmd.env(
+        BATCH_LINE_ENV,
+        shim::batch_line(&script.to_string_lossy(), args),
+    );
     cmd
 }
 
@@ -122,6 +133,69 @@ mod tests {
     #[test]
     fn passes_the_program_and_its_arguments_through() {
         assert_eq!(argv(&["claude", "--resume"]), ["claude", "--resume"]);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_batch_file_in_a_folder_with_spaces_gets_its_arguments_intact() {
+        let dir = std::env::temp_dir().join(format!("mirah cmd test {}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let script = dir.join("show.cmd");
+        std::fs::write(&script, "@echo off\r\necho ARGS=%*\r\n").expect("write");
+        let marker = dir.join("ran");
+        let args = vec![
+            "a b".to_string(),
+            format!("x&echo hit>\"{}\"", marker.display()),
+            "100%PATH%".to_string(),
+        ];
+        let built = through_cmd(&script, &args);
+        let argv: Vec<String> = built
+            .get_argv()
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        let line = built
+            .get_env(BATCH_LINE_ENV)
+            .map(|v| v.to_string_lossy().into_owned())
+            .expect("line");
+        let out = std::process::Command::new(&argv[0])
+            .args(&argv[1..])
+            .env(BATCH_LINE_ENV, line)
+            .output()
+            .expect("run cmd");
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(text.contains("ARGS=\"a b\""), "{text}");
+        assert!(text.contains("100%PATH%"), "{text}");
+        assert!(!marker.exists(), "cmd ran part of an argument");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn an_npm_shim_runs_the_node_beside_it_with_its_script() {
+        let dir = std::env::temp_dir().join(format!("mirah shim test {}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let script = dir.join("codex.cmd");
+        std::fs::write(
+            &script,
+            "@ECHO off\r\nSETLOCAL\r\nIF EXIST \"%dp0%\\node.exe\" (\r\n  SET \"_prog=%dp0%\\node.exe\"\r\n) ELSE (\r\n  SET \"_prog=node\"\r\n)\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\node_modules\\codex\\bin\\codex.js\" %*\r\n",
+        )
+        .expect("write shim");
+        std::fs::write(dir.join("node.exe"), b"").expect("write node");
+        let built = through_shim(&script, Some(""), None).expect("a shim");
+        let argv: Vec<String> = built
+            .get_argv()
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            argv,
+            [
+                dir.join("node.exe").to_string_lossy().into_owned(),
+                format!("{}\\node_modules\\codex\\bin\\codex.js", dir.display()),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

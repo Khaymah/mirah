@@ -22,12 +22,16 @@ const TOGGLE: &[u8] = b"\x1d";
 const ESC: &[u8] = b"\x1b";
 const SIGNAL_EXIT_BASE: u32 = 128;
 const SIGTERM: i32 = 15;
+const READY_DEADLINE: Duration = Duration::from_secs(20);
+const ALT_SCREEN_ENTER: &[u8] = b"\x1b[?1049h";
+const ALT_SCREEN_LEAVE: &[u8] = b"\x1b[?1049l";
 
 struct Mirah {
     child: Box<dyn Child + Send + Sync>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     output: Arc<Mutex<Vec<u8>>>,
     home: PathBuf,
+    marker: Option<String>,
     _master: Box<dyn portable_pty::MasterPty + Send>,
 }
 
@@ -98,10 +102,30 @@ impl Mirah {
             writer,
             output,
             home,
+            marker: None,
             _master: master,
         };
+        assert!(
+            mirah.saw(ALT_SCREEN_ENTER, 0, READY_DEADLINE),
+            "mirah never took over the screen"
+        );
         mirah.wait(SETTLE);
         mirah
+    }
+
+    fn saw(&self, needle: &[u8], from: usize, deadline: Duration) -> bool {
+        let started = Instant::now();
+        loop {
+            let output = self.output();
+            let tail = &output[from.min(output.len())..];
+            if tail.windows(needle.len()).any(|w| w == needle) {
+                return true;
+            }
+            if started.elapsed() >= deadline {
+                return false;
+            }
+            std::thread::sleep(STEP);
+        }
     }
 
     fn send(&mut self, bytes: &[u8]) {
@@ -145,6 +169,11 @@ impl Mirah {
 impl Drop for Mirah {
     fn drop(&mut self) {
         let _ = self.child.kill();
+        if let Some(marker) = &self.marker {
+            let _ = std::process::Command::new("pkill")
+                .args(["-9", "-f", marker])
+                .status();
+        }
         let _ = std::fs::remove_dir_all(&self.home);
     }
 }
@@ -168,12 +197,34 @@ fn quitting_ends_a_program_whose_child_ignores_hangups_and_keeps_printing() {
         ),
     );
     let mut mirah = Mirah::start(home, &["stubborn"]);
+    mirah.marker = Some(marker.clone());
     assert!(still_running(&marker));
     mirah.send(TOGGLE);
     mirah.send(b"q");
     assert!(mirah.exit(EXIT_DEADLINE).is_some(), "mirah did not exit");
     std::thread::sleep(SETTLE);
     assert!(!still_running(&marker), "the grandchild outlived mirah");
+}
+
+#[test]
+fn a_child_left_behind_by_a_program_that_exited_ends_with_its_tab() {
+    let home = home("orphan");
+    let marker = format!("mirah-orphan-{}", std::process::id());
+    program(
+        &home,
+        "leaver",
+        &format!(
+            "sh -c 'trap \"\" HUP TERM; while :; do printf \"\\rframe\"; sleep 0.03; done # {marker}' &\nsleep 0.5\nexit 0"
+        ),
+    );
+    let mut mirah = Mirah::start(home, &["leaver"]);
+    mirah.marker = Some(marker.clone());
+    assert!(mirah.exit(EXIT_DEADLINE).is_some(), "the tab never closed");
+    std::thread::sleep(SETTLE);
+    assert!(
+        !still_running(&marker),
+        "the left-behind child outlived its tab"
+    );
 }
 
 #[test]
@@ -190,11 +241,17 @@ fn ctrl_bracket_in_the_picker_opens_the_bar_and_esc_still_leaves() {
 #[test]
 fn the_picker_stays_open_when_the_last_tab_ends_meanwhile() {
     let home = home("brief");
-    program(&home, "brief", "echo ready; sleep 1; exit 0");
+    program(&home, "brief", "echo ready; sleep 3; exit 0");
     let mut mirah = Mirah::start(home, &["brief"]);
     mirah.send(TOGGLE);
     mirah.send(b"t");
     assert_eq!(mirah.exit(STAY_OPEN), None, "mirah left while choosing");
+    mirah.send(ESC);
+    assert_eq!(
+        mirah.exit(EXIT_DEADLINE),
+        Some(0),
+        "Esc leaves once nothing runs"
+    );
 }
 
 #[test]
@@ -205,8 +262,8 @@ fn a_terminate_signal_restores_the_terminal() {
     let before = mirah.output().len();
     mirah.signal(SIGTERM);
     assert_eq!(mirah.exit(EXIT_DEADLINE), Some(SIGNAL_EXIT_BASE + 15));
-    let output = mirah.output();
-    let tail = &output[before.min(output.len())..];
-    let leaves = tail.windows(8).any(|w| w == b"\x1b[?1049l");
-    assert!(leaves, "the alternate screen was not left");
+    assert!(
+        mirah.saw(ALT_SCREEN_LEAVE, before, EXIT_DEADLINE),
+        "the alternate screen was not left"
+    );
 }

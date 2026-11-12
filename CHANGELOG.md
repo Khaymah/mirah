@@ -2,6 +2,37 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.0-alpha.11 - 2026-11-12
+
+**تصليحات مراجعة الفريق (sabry-kit team-review) لـ alpha.8 لحد alpha.10.**
+
+- **الجلسات القديمة رجعت:** لو مرآة متسطّبة في `~/.mirah/bin`، الجلسات اللي في `~/.mirah/bin/sessions` بتتنقل لوحدها لـ `~/.mirah/sessions`، فبتظهر تاني في `resume` وفي شاشة الاختيار.
+- **البرامج بتاخد وقت تحفظ فيه قبل ما مرآة تخرج:** مرآة بتبعت إشارة الإغلاق، وبتستنى لحد 0.8 ثانية لحد ما البرامج تخرج، وبعدين تقفل اللي فاضل.
+- **البرامج اللي في الخلفية بتتقفل مع التاب على كل الأنظمة:** على لينكس وماك، لو البرنامج خرج لوحده وسايب حاجة شغالة بتطبع، التاب بقى بيقفلها هي كمان، زي ويندوز.
+- **شاشة الاختيار:** لما القايمة يبقى فيها scroll، الضغط على السطر اللي تحتها أو على أي مكان تحت الصندوق مابقاش بيفتح عنصر مش باين.
+- **سطر عربي زي `2 - بند` رجع يتعرض كلام عادي**، بعد ما كان بيتحسب سطر diff.
+- **kitty:** `Shift+Enter` و`Shift+Tab` و`Shift+Esc` رجعوا يشتغلوا جوه القوايم.
+- **على ويندوز، ملفات `.cmd` اللي مش متعملة بـ npm:** السطر كله بيتقفل بين علامتين ويتبعت لـ `cmd` في متغيّر بيئة، فالمسافات في المسار وفي الكلام بقت بتشتغل، والرموز زي `&` و`%` مابقتش بتتنفّذ.
+- **الجلسات:**
+  - ID الجلسة لازم يبقى بالشكل الصح، ولازم يطابق اسم الفولدر، فـ `mirah resume ../x` مابقاش بيقرا أو يكتب برّه فولدر الجلسات.
+  - الفولدر اللي انت اخترته بـ `sessions_dir` مرآة مابتحطّش فيه `.gitignore`.
+  - وعلى لينكس وماك، صلاحيات فولدر الجلسات بقت `0700`.
+- **`config.toml` لو كان symlink:** الحفظ بقى بيكتب في الملف الحقيقي ومابيكسرش اللينك، واسم الملف المؤقت فيه رقم العملية.
+- **conpty:** مرآة بتمسح النسخ الأقدم بس، فلو عندك إصدارين من مرآة مابيمسحوش ملفات بعض.
+- **مرآة مابقتش بتبعت `CSI 20t`/`21t`** (طلب اسم الشباك) للترمنال، عشان رده مايتكتبش جوه البرنامج.
+- **التحديث:** `curl` بقى بيشتغل بـ `-q` فمابيقراش `.curlrc`، و`MIRAH_UPDATE_*` بقوا شغالين في نسخ الاختبار بس، ونسخة `.new` اللي بتفضل من تحديث اتقطع بتتمسح.
+- **حاجات صغيرة:**
+  - كود الخروج بقى أول سبب حصل.
+  - البرنامج مابقاش بيفضل zombie لو فتح التاب فشل.
+  - رد OSC اللي بيتقسم بين `ESC` و`\` بيتمسك كله.
+- **اختبارات جديدة:**
+  - `tests/lifecycle.rs` بقى بيستنى مرآة لحد ما تجهز بدل `sleep` ثابت، ومعاه اختبار للبرنامج اللي بيسيب حاجة شغالة.
+  - اختبارات على ويندوز: `cmd` الحقيقي بمسار فيه مسافات، والـ npm shim، والـ Job.
+  - اختبارات للخريطة الكاملة للجداول المقلوبة، و`keep_open`، و`--proto`، وID الجلسة، ونقل الجلسات القديمة.
+  - كل اختبار جديد اتأكد إنه بيفشل من غير التصليح بتاعه.
+
+**English:** Fixes from a sabry-kit team review of alpha.8 to alpha.10. Sessions in `~/.mirah/bin/sessions` move to `~/.mirah/sessions` by themselves, so resume finds them again. On exit mirah sends the hang-up, waits up to 0.8 s for programs to leave, then ends what is left. On Linux and macOS a child left printing by a program that exited is now ended with its tab, as on Windows. A click below a scrolled picker list no longer opens a hidden entry. An Arabic line such as `2 - item` is prose again, not a diff line. Kitty Shift+Enter, Shift+Tab and Shift+Esc work in menus again. On Windows a non-npm `.cmd` gets its whole line quoted and handed to `cmd` through an environment variable, so spaces work and `&` or `%` are not run. Session IDs must have the right shape and match their folder, so `mirah resume ../x` reads and writes nothing outside the store; a `sessions_dir` you chose gets no `.gitignore`; on Unix the sessions folder is `0700`. A symlinked `config.toml` keeps its link, and the staging file is named per process. Only older bundled conpty folders are removed. `CSI 20t`/`21t` are no longer forwarded. `curl` runs with `-q`, `MIRAH_UPDATE_*` only works in debug builds, and a leftover `.new` binary is removed. The first exit reason wins, a failed tab open no longer leaves a zombie, and an OSC reply split between `ESC` and `\` is held whole. New tests cover all of this, including Windows tests that run the real `cmd`, the npm shim and the job object, and each one was checked to fail without its fix.
+
 ## 0.4.0-alpha.10 - 2026-11-12
 
 **المرحلة التالتة والأخيرة من الفحص الشامل.**

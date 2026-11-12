@@ -51,13 +51,13 @@ mirah
 **ويندوز (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-installer.ps1 | iex"
 ```
 
 **macOS وLinux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-installer.sh | sh
 ```
 
 الأمر بيحط مرآة في `~/.mirah/bin` وبيضيفها للـ PATH، فافتح ترمنال جديد بعده. وبعد كده `mirah update` بيجيب أي نسخة أحدث.
@@ -70,8 +70,8 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/
 installer الـ PowerShell مابيتأكدش من الـ SHA-256 بنفسه. لو عايز تتأكد بإيدك:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -196,7 +196,7 @@ mirah play 1106-0457-k3f2
 | `Ctrl+]` | يفتح الشريط: الأسهم بتتنقل، والوصول لتاب بيفتحه، وEnter بيختار، وEsc بيرجعك للبرنامج. وبيشتغل في شاشة الاختيار كمان، فتقدر توصل للإعدادات قبل ما تختار برنامج |
 | `Ctrl+]` وبعدين `1` لـ `9` | يروح للتاب رقم كذا |
 | `Ctrl+]` وبعدين `t` | تاب جديد |
-| `Ctrl+]` وبعدين `q` | يقفل مرآة وكل البرامج اللي جواها، حتى لو البرنامج مش بيرد على الزراير |
+| `Ctrl+]` وبعدين `q` | يقفل مرآة وكل البرامج اللي جواها، حتى لو البرنامج مش بيرد على الزراير. البرامج بتاخد لحد ثانية تقريباً عشان تحفظ شغلها قبل ما تتقفل |
 | `Ctrl+]` مرتين | يبعت `Ctrl+]` للبرنامج نفسه |
 
 **الماوس:** الشريط والتابات و✕ بيشتغلوا بالماوس مع أي برنامج، لأن مرآة بتطلب الماوس من الترمنال دايماً.
@@ -259,7 +259,7 @@ resume = ["--continue"]
 
 ## الجلسات والتسجيل
 
-كل تاب جلسة ليها ID قصير، زي `1106-0457-k3f2`، وفولدر جوه فولدر `sessions` **جنب `mirah.exe`**. ولو مرآة متسطّبة بالـ installer في `~/.mirah/bin`، الفولدر بيبقى `~/.mirah/sessions`. وفي الفولدر `.gitignore` عشان التسجيلات (وممكن يكون فيها مسارات أو مفاتيح) ماتتضافش لـ git بالغلط. لو مرآة مش قادرة تكتب جنبه، بتستخدم `%LOCALAPPDATA%\mirah\sessions\` على ويندوز، و`~/.local/state/mirah/sessions/` على الباقي. وتقدر تختار مكان تاني بـ `sessions_dir = "D:/mirah/sessions"` في `config.toml`. ومرآة بتكتب مكان الفولدر وهي خارجة. وفي كل فولدر جلسة:
+كل تاب جلسة ليها ID قصير، زي `1106-0457-k3f2`، وفولدر جوه فولدر `sessions` **جنب `mirah.exe`**. ولو مرآة متسطّبة بالـ installer في `~/.mirah/bin`، الفولدر بيبقى `~/.mirah/sessions`، والجلسات اللي كانت في `~/.mirah/bin/sessions` بتتنقل له لوحدها. وفي الفولدر `.gitignore` عشان التسجيلات (وممكن يكون فيها مسارات أو مفاتيح) ماتتضافش لـ git بالغلط، وعلى لينكس وماك محدش بيقدر يفتحه غيرك. لو اخترت فولدر بنفسك، مرآة مابتغيّرش فيه حاجة. لو مرآة مش قادرة تكتب جنبه، بتستخدم `%LOCALAPPDATA%\mirah\sessions\` على ويندوز، و`~/.local/state/mirah/sessions/` على الباقي. وتقدر تختار مكان تاني بـ `sessions_dir = "D:/mirah/sessions"` في `config.toml`. ومرآة بتكتب مكان الفولدر وهي خارجة. وفي كل فولدر جلسة:
 
 - **`session.toml`:** البرنامج، والأمر، والفولدر، وإمتى بدأ وإمتى خلص.
 - **`output.vt`:** التسجيل، لو التسجيل كان شغال.

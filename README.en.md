@@ -49,13 +49,13 @@ Existing fixes each cover one tool or one terminal. mirah sits between the progr
 **Windows (PowerShell):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-installer.ps1 | iex"
 ```
 
 **macOS and Linux:**
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-installer.sh | sh
 ```
 
 This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal afterwards. From then on, `mirah update` fetches any newer version.
@@ -68,8 +68,8 @@ This puts mirah in `~/.mirah/bin` and adds it to PATH; open a new terminal after
 The PowerShell installer does not verify the SHA-256 itself. To check it yourself:
 
 ```powershell
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip
-curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.10/mirah-x86_64-pc-windows-msvc.zip.sha256
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-x86_64-pc-windows-msvc.zip
+curl.exe -LO https://github.com/Khaymah/mirah/releases/download/v0.4.0-alpha.11/mirah-x86_64-pc-windows-msvc.zip.sha256
 (Get-FileHash mirah-x86_64-pc-windows-msvc.zip -Algorithm SHA256).Hash -eq (Get-Content mirah-x86_64-pc-windows-msvc.zip.sha256).Split(" ")[0]
 Expand-Archive mirah-x86_64-pc-windows-msvc.zip -DestinationPath "$HOME\.mirah\bin"
 ```
@@ -194,7 +194,7 @@ The first row belongs to mirah, and the program runs below it:
 | `Ctrl+]` | Opens the bar: arrows move (reaching a tab opens it), Enter chooses, Esc returns to the program. It works in the picker too, so the settings are reachable before you choose a program |
 | `Ctrl+]` then `1` to `9` | Goes to that tab |
 | `Ctrl+]` then `t` | A new tab |
-| `Ctrl+]` then `q` | Closes mirah and every program in it, even one that ignores keys |
+| `Ctrl+]` then `q` | Closes mirah and every program in it, even one that ignores keys. Programs get up to about a second to save their work first |
 | `Ctrl+]` twice | Sends `Ctrl+]` to the program |
 
 **Mouse:** the bar, tabs and ✕ respond to the mouse with any program, because mirah always asks the terminal for the mouse.
@@ -257,7 +257,7 @@ resume = ["--continue"]
 
 ## Sessions and recording
 
-Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder inside a `sessions` folder **next to `mirah.exe`**. When the installer put mirah in `~/.mirah/bin`, the folder is `~/.mirah/sessions`. The folder has a `.gitignore`, so recordings (which can hold paths or keys) are not added to git by mistake. If mirah cannot write there, it uses `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere. `sessions_dir = "D:/mirah/sessions"` in `config.toml` picks another place, and mirah prints the folder when it exits. Each session folder holds:
+Every tab is a session with a short ID such as `1106-0457-k3f2` and a folder inside a `sessions` folder **next to `mirah.exe`**. When the installer put mirah in `~/.mirah/bin`, the folder is `~/.mirah/sessions`, and sessions from `~/.mirah/bin/sessions` are moved there by themselves. The folder has a `.gitignore`, so recordings (which can hold paths or keys) are not added to git by mistake, and on Linux and macOS only you can open it. A folder you chose yourself is left as it is. If mirah cannot write there, it uses `%LOCALAPPDATA%\mirah\sessions\` on Windows and `~/.local/state/mirah/sessions/` elsewhere. `sessions_dir = "D:/mirah/sessions"` in `config.toml` picks another place, and mirah prints the folder when it exits. Each session folder holds:
 
 - **`session.toml`:** the program, the command, the folder, and when it started and ended.
 - **`output.vt`:** the recording, when recording was on.

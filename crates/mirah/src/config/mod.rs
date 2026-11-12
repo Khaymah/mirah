@@ -310,9 +310,10 @@ impl Config {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let staged = path.with_extension("toml.new");
+        let target = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+        let staged = target.with_extension(format!("toml.{}.new", std::process::id()));
         std::fs::write(&staged, self.doc.to_string())?;
-        std::fs::rename(&staged, path).inspect_err(|_| {
+        std::fs::rename(&staged, &target).inspect_err(|_| {
             let _ = std::fs::remove_file(&staged);
         })
     }
@@ -435,7 +436,39 @@ mod tests {
         c.save().expect("save");
         let text = std::fs::read_to_string(&path).expect("read");
         assert!(text.contains("# mine") && text.contains("align = \"off\""));
-        assert!(!path.with_extension("toml.new").exists());
+        assert!(
+            std::fs::read_dir(&dir)
+                .expect("list")
+                .flatten()
+                .all(|e| !e.file_name().to_string_lossy().ends_with(".new"))
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_config_keeps_its_link_and_the_file_behind_it_changes() {
+        let dir = std::env::temp_dir().join(format!("mirah-config-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("dotfiles")).expect("dir");
+        let real = dir.join("dotfiles").join("config.toml");
+        std::fs::write(&real, "# mine\n").expect("write");
+        let link = dir.join("config.toml");
+        std::os::unix::fs::symlink(&real, &link).expect("link");
+        let mut c = Config::from_path(Some(link.clone()));
+        c.set(&Scope::Global, Key::Align, "off");
+        c.save().expect("save");
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .expect("meta")
+                .file_type()
+                .is_symlink()
+        );
+        assert!(
+            std::fs::read_to_string(&real)
+                .expect("read")
+                .contains("align = \"off\"")
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

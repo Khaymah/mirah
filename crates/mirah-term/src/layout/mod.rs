@@ -177,3 +177,43 @@ fn align_rows(logical: &[Vec<Cell>], visual: &mut [VisualRow], kinds: &[Kind]) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rows(lines: &[&str]) -> Vec<Vec<Cell>> {
+        lines
+            .iter()
+            .map(|l| l.chars().map(|c| Cell::plain(c.to_string())).collect())
+            .collect()
+    }
+
+    #[test]
+    fn a_click_on_a_mirrored_table_cell_reaches_the_column_the_program_drew_it_in() {
+        let logical = rows(&[
+            "  ┌───────┬────┐      ",
+            "  │ الاسم │ id │      ",
+            "  └───────┴────┘      ",
+        ]);
+        let cursor = Cursor {
+            row: 0,
+            col: 0,
+            visible: false,
+            editor: false,
+        };
+        let options = RenderOptions {
+            shaping: Shaping::Plain,
+            ..RenderOptions::default()
+        };
+        let visual = layout(logical.clone(), &cursor, options, &mut Caches::default());
+        let row = &visual[1];
+        for (col, cell) in logical[1].iter().enumerate() {
+            if cell.text == "i" || cell.text == "d" {
+                assert_eq!(row.cells[row.logical_to_visual[col]].text, cell.text);
+            }
+        }
+        let i = logical[1].iter().position(|c| c.text == "i").expect("i");
+        assert_ne!(row.logical_to_visual[i], i, "the table did not move");
+    }
+}

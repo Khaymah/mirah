@@ -52,6 +52,7 @@ pub(crate) struct Chrome {
     hits: Vec<(Item, std::ops::Range<usize>)>,
     boxed_at: Option<(usize, usize)>,
     boxed_width: usize,
+    boxed_rows: usize,
     swallowing: bool,
     launcher_room: usize,
     child_held: bool,
@@ -70,6 +71,7 @@ impl Chrome {
             hits: Vec::new(),
             boxed_at: None,
             boxed_width: 0,
+            boxed_rows: 0,
             swallowing: false,
             launcher_room: usize::MAX,
             child_held: false,
@@ -299,7 +301,7 @@ impl Chrome {
                 }
             }
             Mode::Launcher(mut launcher) => {
-                if column >= self.boxed_width {
+                if column >= self.boxed_width || row >= self.boxed_rows {
                     return false;
                 }
                 let pick = launcher.click(row, self.launcher_room);
@@ -379,6 +381,7 @@ impl Chrome {
     ) {
         self.boxed_at = Some((top, left));
         self.boxed_width = cells.first().map_or(0, Vec::len);
+        self.boxed_rows = cells.len();
         for (i, row) in cells.into_iter().enumerate() {
             rows.push(OverlayRow {
                 row: u16::try_from(top + i).unwrap_or(u16::MAX),
@@ -652,6 +655,21 @@ mod tests {
         c.input(b"\x1d", &mut actions);
         assert_eq!(c.mode, Mode::Bar);
         assert_eq!(c.mouse(release, &mut actions).map(|e| e.press), Some(false));
+    }
+
+    #[test]
+    fn once_nothing_runs_the_picker_can_no_longer_be_cancelled() {
+        let mut c = chrome();
+        c.launch(Launcher::new(
+            vec![Entry::Start(agent("claude"))],
+            None,
+            true,
+            0,
+        ));
+        c.keep_open();
+        let mut actions = Vec::new();
+        c.input(b"\x1b", &mut actions);
+        assert_eq!(actions, [Action::Quit]);
     }
 
     #[test]

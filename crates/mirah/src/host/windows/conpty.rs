@@ -74,6 +74,17 @@ fn extract() -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
+fn version_parts(version: &str) -> Option<Vec<u64>> {
+    version.split('.').map(|p| p.parse().ok()).collect()
+}
+
+fn is_older(version: &str, than: &str) -> bool {
+    match (version_parts(version), version_parts(than)) {
+        (Some(a), Some(b)) => a < b,
+        _ => false,
+    }
+}
+
 fn remove_older(current: &Path) {
     let Some(parent) = current.parent() else {
         return;
@@ -83,12 +94,12 @@ fn remove_older(current: &Path) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
         let older = path != current
             && entry.file_type().is_ok_and(|t| t.is_dir())
-            && entry
-                .file_name()
-                .to_string_lossy()
-                .ends_with(&format!("-{ARCH}"));
+            && name
+                .strip_suffix(&format!("-{ARCH}"))
+                .is_some_and(|version| is_older(version, VERSION));
         if older && std::fs::remove_dir_all(&path).is_ok() {
             tracing::debug!(path = %path.display(), "removed an older bundled conpty");
         }
@@ -117,5 +128,19 @@ fn load(dll: &Path) -> std::io::Result<()> {
         Err(std::io::Error::last_os_error())
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_older;
+
+    #[test]
+    fn only_strictly_older_bundles_count_as_old() {
+        assert!(is_older("1.24.9", "1.25.260930003"));
+        assert!(is_older("1.25.2", "1.25.10"));
+        assert!(!is_older("1.25.260930003", "1.25.260930003"));
+        assert!(!is_older("1.26.0", "1.25.260930003"));
+        assert!(!is_older("custom", "1.25.260930003"));
     }
 }

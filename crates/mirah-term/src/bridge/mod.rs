@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn forwards_device_attribute_queries_to_host() {
-        let p = feed(b"\x1b[c\x1b[>q\x1b[?u\x1b[18t\x1b[14t");
+        let p = feed(b"\x1b[c\x1b[>q\x1b[?u\x1b[18t\x1b[14t\x1b[21t\x1b[20t");
         assert_eq!(p.callbacks().to_host, b"\x1b[c\x1b[>q\x1b[14t");
         assert_eq!(p.callbacks().to_child, b"\x1b[?0u\x1b[8;24;80t");
     }

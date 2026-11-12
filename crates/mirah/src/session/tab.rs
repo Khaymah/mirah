@@ -129,6 +129,10 @@ impl Tab {
             Err(err) => {
                 let _ = killer.kill();
                 group.end();
+                let mut child = child;
+                std::thread::spawn(move || {
+                    let _ = child.wait();
+                });
                 return Err(err);
             }
         };
@@ -239,9 +243,7 @@ impl Tab {
             store.save(meta);
         }
         let asked = self.life.closing_at.is_some();
-        if asked || self.life.code.is_none() {
-            self.group.end();
-        }
+        self.group.end();
         if let Some(pty) = self.pty.take() {
             std::thread::spawn(move || {
                 drop(pty);
@@ -267,13 +269,12 @@ mod tests {
         let start = Instant::now();
         let mut life = Lifecycle::default();
         life.exited(0, start);
-        let mut now = start;
-        for _ in 0..30 {
-            now += Duration::from_millis(30);
-            life.last_event = Some(now);
-        }
+        let just_before = start + AFTER_EXIT - Duration::from_millis(1);
+        life.last_event = Some(just_before);
+        assert!(!life.done(just_before));
+        life.last_event = Some(start + AFTER_EXIT);
         assert!(life.done(start + AFTER_EXIT));
-        assert!(!life.done(start + Duration::from_millis(50)));
+        assert_eq!(life.deadline(), Some(start + AFTER_EXIT));
     }
 
     #[test]

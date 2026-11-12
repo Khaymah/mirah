@@ -17,10 +17,18 @@ fn unfinished(tail: &[u8]) -> bool {
 
 pub(super) fn split(bytes: &[u8]) -> usize {
     let from = bytes.len().saturating_sub(LOOK_BACK);
-    match bytes[from..].iter().rposition(|b| *b == ESC) {
-        Some(at) if unfinished(&bytes[from + at..]) => from + at,
-        _ => bytes.len(),
+    let window = &bytes[from..];
+    let Some(at) = window.iter().rposition(|b| *b == ESC) else {
+        return bytes.len();
+    };
+    if !unfinished(&window[at..]) {
+        return bytes.len();
     }
+    let open_osc = (at + 1 == window.len())
+        .then(|| window[..at].iter().rposition(|b| *b == ESC))
+        .flatten()
+        .filter(|&osc| window.get(osc + 1) == Some(&b']') && unfinished(&window[osc..at]));
+    from + open_osc.unwrap_or(at)
 }
 
 #[derive(Default)]
@@ -79,6 +87,9 @@ mod tests {
         assert_eq!(split(b"\x1b["), 0);
         assert_eq!(split(b"q\x1b[<0;12"), 1);
         assert_eq!(split(b"\x1bO"), 0);
+        assert_eq!(split(b"k\x1b]11;rgb:1/2/3\x1b"), 1);
+        assert_eq!(split(b"k\x1b]11;rgb:1/2/3\x1b\\x\x1b"), 18);
+        assert_eq!(split(b"\x1b[A\x1b"), 3);
     }
 
     #[test]

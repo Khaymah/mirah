@@ -8,7 +8,7 @@ fn is_private_prefix(b: u8) -> bool {
     matches!(b, b'?' | b'>' | b'<' | b'=')
 }
 
-const WINDOW_REPORTS: std::ops::RangeInclusive<u16> = 11..=21;
+const WINDOW_REPORTS: std::ops::RangeInclusive<u16> = 11..=16;
 
 pub(super) fn forwards_csi(i1: Option<u8>, i2: Option<u8>, params: &[&[u16]], c: char) -> bool {
     match (i1, i2, c) {

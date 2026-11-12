@@ -7,6 +7,8 @@ const INSTALL_ROOT: &str = ".mirah";
 const INSTALL_BIN: &str = "bin";
 const GIT_IGNORE: &str = ".gitignore";
 const GIT_IGNORE_ALL: &str = "*\n";
+#[cfg(unix)]
+const PRIVATE_MODE: u32 = 0o700;
 const META_FILE: &str = "session.toml";
 const OUTPUT_FILE: &str = "output.vt";
 const LOG_FILE: &str = "mirah.log";
@@ -61,7 +63,7 @@ pub(crate) fn new_id(secs: u64, salt: u64) -> String {
     format!("{month:02}{day:02}-{hour:02}{minute:02}-{suffix}")
 }
 
-fn looks_like_id(name: &str) -> bool {
+pub(crate) fn looks_like_id(name: &str) -> bool {
     let parts: Vec<&str> = name.split('-').collect();
     parts.len() == 3
         && parts[0].len() == 4
@@ -80,24 +82,35 @@ pub(crate) struct Store {
 impl Store {
     pub(crate) fn open() -> Option<Self> {
         let custom = crate::config::Config::load().sessions_dir();
-        let beside_app = std::env::current_exe()
+        if let Some(dir) = custom.filter(|dir| writable(dir)) {
+            return Some(Self::at(dir));
+        }
+        let app_dir = std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(beside));
+            .and_then(|exe| exe.parent().map(Path::to_path_buf));
+        let beside_app = app_dir.as_deref().map(beside);
         let fallback = crate::paths::state_dir().map(|dir| dir.join(SESSIONS_DIR));
-        let store = custom
-            .into_iter()
-            .chain(beside_app)
-            .find(|dir| writable(dir))
+        let store = beside_app
+            .filter(|dir| writable(dir))
             .or(fallback)
             .map(Self::at)?;
-        store.keep_out_of_git();
+        if let Some(app_dir) = &app_dir {
+            move_old_sessions(&app_dir.join(SESSIONS_DIR), &store.root);
+        }
+        store.keep_private();
         Some(store)
     }
 
-    fn keep_out_of_git(&self) {
+    fn keep_private(&self) {
         let ignore = self.root.join(GIT_IGNORE);
         if self.root.is_dir() && !ignore.exists() {
             let _ = std::fs::write(ignore, GIT_IGNORE_ALL);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ =
+                std::fs::set_permissions(&self.root, std::fs::Permissions::from_mode(PRIVATE_MODE));
         }
     }
 
@@ -159,6 +172,10 @@ impl Store {
     }
 
     pub(crate) fn save(&self, meta: &SessionMeta) {
+        if !looks_like_id(&meta.id) {
+            tracing::warn!(id = %meta.id, "refusing to save a session with an unexpected ID");
+            return;
+        }
         let dir = self.dir(&meta.id);
         if let Err(err) = std::fs::create_dir_all(&dir) {
             tracing::warn!(error = %err, "cannot create the session folder");
@@ -181,6 +198,9 @@ impl Store {
     }
 
     pub(crate) fn load(&self, id: &str) -> Option<SessionMeta> {
+        if !looks_like_id(id) {
+            return None;
+        }
         let text = std::fs::read_to_string(self.dir(id).join(META_FILE)).ok()?;
         let doc: DocumentMut = text.parse().ok()?;
         let number = |key: &str| {
@@ -189,7 +209,11 @@ impl Store {
                 .and_then(|n| u64::try_from(n).ok())
         };
         Some(SessionMeta {
-            id: doc.get("id")?.as_str()?.to_string(),
+            id: doc
+                .get("id")?
+                .as_str()
+                .filter(|stored| *stored == id)?
+                .to_string(),
             agent: doc.get("agent")?.as_str()?.to_string(),
             argv: doc
                 .get("argv")?
@@ -250,6 +274,31 @@ fn beside(app_dir: &Path) -> PathBuf {
     match (installed, app_dir.parent()) {
         (true, Some(root)) => root.join(SESSIONS_DIR),
         _ => app_dir.join(SESSIONS_DIR),
+    }
+}
+
+fn move_old_sessions(old: &Path, new: &Path) {
+    if old == new || !old.is_dir() {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(old) else {
+        return;
+    };
+    let mut moved = 0;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let target = new.join(&name);
+        if looks_like_id(&name.to_string_lossy())
+            && !target.exists()
+            && std::fs::rename(entry.path(), &target).is_ok()
+        {
+            moved += 1;
+        }
+    }
+    let _ = std::fs::remove_file(old.join(GIT_IGNORE));
+    let _ = std::fs::remove_dir(old);
+    if moved > 0 {
+        tracing::info!(moved, from = %old.display(), to = %new.display(), "old sessions moved");
     }
 }
 
@@ -321,6 +370,50 @@ pub(crate) fn size_of(path: &Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("mirah-store-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        dir
+    }
+
+    #[test]
+    fn an_id_that_is_a_path_reads_and_writes_nothing() {
+        let dir = scratch("ids");
+        let store = Store::at(dir.join("sessions"));
+        let meta = store.create("claude", &["claude".into()], Path::new("/w"));
+        assert!(store.load(&meta.id).is_some());
+        assert!(store.load("../sessions").is_none());
+        assert!(store.load(&format!("../sessions/{}", meta.id)).is_none());
+        let outside = dir.join("evil-0000-abcd");
+        std::fs::create_dir_all(&outside).expect("dir");
+        let renamed = store.dir(&meta.id).join(META_FILE);
+        let text = std::fs::read_to_string(&renamed).expect("read");
+        std::fs::write(&renamed, text.replace(&meta.id, "../evil-0000-abcd")).expect("write");
+        assert!(store.load(&meta.id).is_none());
+        let mut forged = meta.clone();
+        forged.id = "../evil".into();
+        store.save(&forged);
+        assert!(!dir.join("evil").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sessions_from_the_old_install_folder_are_moved_once() {
+        let dir = scratch("move");
+        let old = dir.join("bin").join("sessions");
+        let new = dir.join("sessions");
+        std::fs::create_dir_all(&new).expect("dir");
+        let store = Store::at(old.clone());
+        let meta = store.create("claude", &["claude".into()], Path::new("/w"));
+        std::fs::write(old.join("notes.txt"), b"keep").expect("write");
+        move_old_sessions(&old, &new);
+        assert!(Store::at(new.clone()).load(&meta.id).is_some());
+        assert!(old.join("notes.txt").exists());
+        assert!(!old.join(&meta.id).exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn sessions_sit_beside_the_app_but_not_inside_the_install_bin_folder() {

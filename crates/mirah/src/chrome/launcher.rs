@@ -149,7 +149,9 @@ impl Launcher {
     }
 
     pub(crate) fn click(&mut self, row: usize, room: usize) -> Option<Pick> {
-        let body = row.checked_sub(BODY_TOP)? + self.window(room).start;
+        let window = self.window(room);
+        let shown = row.checked_sub(BODY_TOP).filter(|&r| r < window.len())?;
+        let body = shown + window.start;
         let entry = (0..self.entries.len()).find(|&e| self.body_row(e) == body)?;
         self.row = entry;
         self.chosen()
@@ -265,6 +267,18 @@ mod tests {
         let last = BODY_TOP + window.len() - 1;
         assert!(matches!(l.click(last, room), Some(Pick::Open(_))));
         assert_eq!(l.row, 10);
+        l.key(Key::Up);
+        l.key(Key::Up);
+        l.key(Key::Up);
+        let window = l.window(room);
+        assert!(window.end < 12);
+        for below in [last + 1, last + 2, last + 3, last + 20] {
+            assert_eq!(
+                l.click(below, room),
+                None,
+                "row {below} chose a hidden entry"
+            );
+        }
     }
 
     fn agent(name: &str, title: &str) -> Agent {

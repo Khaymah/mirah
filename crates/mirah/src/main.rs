@@ -88,7 +88,9 @@ fn recording(what: &str) -> PathBuf {
         return path;
     }
     match Store::open() {
-        Some(store) if store.output(what).exists() => store.output(what),
+        Some(store) if store::looks_like_id(what) && store.output(what).exists() => {
+            store.output(what)
+        }
         _ => {
             report(&format!(
                 "no recording at {what}, and no session with that ID has one."

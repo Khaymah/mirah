@@ -39,15 +39,23 @@ pub(crate) fn artifact() -> Option<&'static str> {
     ARTIFACT
 }
 
+fn test_override(name: &str) -> Option<String> {
+    if cfg!(debug_assertions) {
+        std::env::var(name).ok()
+    } else {
+        None
+    }
+}
+
 pub(crate) fn releases_url() -> String {
-    std::env::var(API_ENV)
-        .unwrap_or_else(|_| format!("https://api.github.com/repos/{REPO}/releases?per_page=30"))
+    test_override(API_ENV)
+        .unwrap_or_else(|| format!("https://api.github.com/repos/{REPO}/releases?per_page=30"))
 }
 
 pub(crate) fn download_url(tag: &str, file: &str) -> String {
-    match std::env::var(DOWNLOAD_ENV) {
-        Ok(base) => format!("{}/{tag}/{file}", base.trim_end_matches('/')),
-        Err(_) => format!("https://github.com/{REPO}/releases/download/{tag}/{file}"),
+    match test_override(DOWNLOAD_ENV) {
+        Some(base) => format!("{}/{tag}/{file}", base.trim_end_matches('/')),
+        None => format!("https://github.com/{REPO}/releases/download/{tag}/{file}"),
     }
 }
 
@@ -65,17 +73,17 @@ pub(crate) fn system_tool(name: &str) -> Command {
     Command::new(name)
 }
 
-fn protocols() -> &'static str {
-    let overridden =
-        std::env::var_os(API_ENV).is_some() || std::env::var_os(DOWNLOAD_ENV).is_some();
+fn protocols(overridden: bool) -> &'static str {
     if overridden { "=https,file" } else { "=https" }
 }
 
 fn curl(timeout: Duration) -> Command {
     let mut cmd = system_tool("curl");
+    let overridden = test_override(API_ENV).is_some() || test_override(DOWNLOAD_ENV).is_some();
     cmd.stdin(std::process::Stdio::null())
+        .arg("-q")
         .args(["--fail", "--silent", "--show-error", "--location"])
-        .args(["--proto", protocols(), "--proto-redir", "=https"])
+        .args(["--proto", protocols(overridden), "--proto-redir", "=https"])
         .args(["--max-time", &timeout.as_secs().max(1).to_string()]);
     cmd
 }
@@ -107,6 +115,18 @@ pub(crate) fn download(url: &str, dest: &Path, timeout: Duration) -> Result<()> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_https_is_allowed_unless_a_test_points_somewhere_else() {
+        assert_eq!(protocols(false), "=https");
+        assert_eq!(protocols(true), "=https,file");
+    }
+
+    #[test]
+    fn curl_ignores_the_user_curlrc() {
+        let cmd = curl(Duration::from_secs(1));
+        assert_eq!(cmd.get_args().next().and_then(|a| a.to_str()), Some("-q"));
+    }
 
     #[test]
     fn this_platform_has_a_release_artifact() {

@@ -90,18 +90,26 @@ pub(crate) fn local_interpreter(name: &str, dir: &Path) -> Option<std::path::Pat
     local.is_file().then_some(local)
 }
 
-pub(crate) fn escape_for_cmd(arg: &str) -> String {
-    if arg.contains([' ', '\t', '"']) {
-        return arg.to_string();
-    }
-    let mut out = String::with_capacity(arg.len());
-    for c in arg.chars() {
-        if matches!(c, '&' | '|' | '<' | '>' | '^' | '(' | ')' | '%' | '!') {
-            out.push('^');
-        }
-        out.push(c);
-    }
-    out
+fn quoted_for_cmd(part: &str) -> String {
+    let flat: String = part
+        .chars()
+        .map(|c| {
+            if matches!(c, '\r' | '\n' | '\0') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    format!("\"{}\"", flat.replace('"', "\"\""))
+}
+
+pub(crate) fn batch_line(script: &str, args: &[String]) -> String {
+    std::iter::once(script)
+        .chain(args.iter().map(String::as_str))
+        .map(quoted_for_cmd)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -153,10 +161,16 @@ mod tests {
     }
 
     #[test]
-    fn cmd_special_characters_are_escaped_in_plain_arguments() {
-        assert_eq!(escape_for_cmd("a&calc"), "a^&calc");
-        assert_eq!(escape_for_cmd("100%"), "100^%");
-        assert_eq!(escape_for_cmd("--resume"), "--resume");
-        assert_eq!(escape_for_cmd("with space&"), "with space&");
+    fn a_batch_line_quotes_every_part_so_cmd_runs_nothing_from_it() {
+        let args = vec![
+            "a b".to_string(),
+            "x&calc".to_string(),
+            "say \"hi\"".to_string(),
+            "two\nlines".to_string(),
+        ];
+        assert_eq!(
+            batch_line("C:\\Users\\Sabry Dawood\\tool.cmd", &args),
+            "\"C:\\Users\\Sabry Dawood\\tool.cmd\" \"a b\" \"x&calc\" \"say \"\"hi\"\"\" \"two lines\""
+        );
     }
 }

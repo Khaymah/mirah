@@ -54,3 +54,33 @@ impl Drop for Job {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::windows::io::AsRawHandle;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn ending_the_job_ends_the_program_and_what_it_started() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/d", "/c", "ping -n 60 127.0.0.1 >nul"])
+            .spawn()
+            .expect("start cmd");
+        let mut job = Job::contain(child.as_raw_handle()).expect("job");
+        job.end();
+        let started = Instant::now();
+        let mut ended = false;
+        while started.elapsed() < Duration::from_secs(10) {
+            if child.try_wait().ok().flatten().is_some() {
+                ended = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        if !ended {
+            let _ = child.kill();
+        }
+        assert!(ended, "the program outlived its job");
+    }
+}

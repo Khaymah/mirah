@@ -168,7 +168,9 @@ impl Workspace {
                     self.notice(format!("تعذّر تشغيل {name}"));
                 }
             }
-            Action::Quit => self.exit = Some(0),
+            Action::Quit => {
+                self.exit.get_or_insert(0);
+            }
             Action::Record => self.toggle_recording(),
             Action::Update => self.start_update(),
             Action::Close => {

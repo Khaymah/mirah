@@ -28,6 +28,7 @@ pub(crate) use tab::Spawn;
 use tab::Tab;
 
 const BLANK_MODES: &[u8] = b"\x1b[?25l\x1b[?1000h\x1b[?1006h";
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_millis(800);
 
 pub(crate) struct Outcome {
     pub(crate) code: u32,
@@ -276,7 +277,7 @@ impl Workspace {
             closed = true;
             if self.tabs.is_empty() {
                 if self.chrome.is_idle() {
-                    self.exit = Some(code);
+                    self.exit.get_or_insert(code);
                 } else {
                     self.chrome.keep_open();
                 }
@@ -348,7 +349,9 @@ impl Workspace {
                     }
                 }
                 Event::Resize => self.resize()?,
-                Event::Stop(code) => self.exit = Some(code),
+                Event::Stop(code) => {
+                    self.exit.get_or_insert(code);
+                }
             }
         }
         if unread {
@@ -391,8 +394,26 @@ impl Workspace {
     }
 
     fn shutdown(&mut self) {
-        for mut tab in std::mem::take(&mut self.tabs) {
+        for tab in &mut self.tabs {
             tab.kill();
+        }
+        let until = Instant::now() + SHUTDOWN_GRACE;
+        while self.tabs.iter().any(|t| t.life.code.is_none()) {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            match self.inbox.recv_timeout(left) {
+                Ok(Event::ChildExited(id, code)) => {
+                    if let Some(i) = self.index_of(id) {
+                        self.tabs[i].life.exited(code, Instant::now());
+                    }
+                }
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+        for tab in std::mem::take(&mut self.tabs) {
             tab.close(self.store.as_ref());
         }
     }

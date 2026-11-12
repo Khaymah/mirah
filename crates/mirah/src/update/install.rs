@@ -133,6 +133,7 @@ fn work_dir() -> Result<PathBuf> {
 pub(crate) fn remove_leftover() {
     if let Ok(current) = std::env::current_exe() {
         let _ = std::fs::remove_file(old_path(&current));
+        let _ = std::fs::remove_file(with_suffix(&current, NEW_SUFFIX));
     }
 }
 

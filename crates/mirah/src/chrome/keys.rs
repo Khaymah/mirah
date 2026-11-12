@@ -152,10 +152,10 @@ fn csi(body: &[u8], last: u8) -> Key {
         b'u' if kitty_released(body) => Key::Release,
         b'u' => match (params.first().copied(), params.get(1).copied()) {
             (Some(KITTY_RIGHT_BRACKET), Some(KITTY_CTRL)) => Key::Toggle,
-            (Some(code), Some(KITTY_SHIFT)) => shifted(code),
             (Some(13), _) => Key::Enter,
             (Some(27), _) => Key::Escape,
             (Some(9), _) => Key::Tab,
+            (Some(code), Some(KITTY_SHIFT)) => shifted(code),
             (Some(code), None | Some(1)) => printable(code),
             _ => Key::Other,
         },
@@ -254,9 +254,13 @@ mod tests {
     }
 
     #[test]
-    fn kitty_releases_and_shift_and_typed_runs_are_read_key_by_key() {
+    fn kitty_releases_and_shift_are_read_and_a_typed_run_stays_inert() {
         assert_eq!(keys(b"\x1b[93;5:3u"), [Key::Release]);
         assert_eq!(keys(b"\x1b[116;2u"), [Key::Char('T')]);
+        assert_eq!(keys(b"\x1b[13;2u"), [Key::Enter]);
+        assert_eq!(keys(b"\x1b[9;2u"), [Key::Tab]);
+        assert_eq!(keys(b"\x1b[27;2u"), [Key::Escape]);
+        assert_eq!(keys(b"\x1b[116;2:3u"), [Key::Release]);
         assert_eq!(keys("q".as_bytes()), [Key::Char('q')]);
         assert_eq!(keys("quit".as_bytes()), [Key::Other]);
     }
