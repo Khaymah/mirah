@@ -2,6 +2,23 @@
 
 العربي هو الأساس، والإنجليزي تحت كل قسم.
 
+## 0.4.2 - 2026-11-14
+
+**التحديث بقى بيظهر أول ما مرآة تفتح، وفي صندوق واضح.**
+
+- **صندوق "نسخة جديدة من مرآة":**
+  - بيظهر أول ما مرآة تفتح، قبل شاشة الاختيار وقبل أي برنامج، وفيه "تحديث الآن" و"لاحقًا".
+  - قبل كده كنت بتعرف إن فيه تحديث بس من `↻` صغير في الشريط، بعد ما البرنامج يفتح.
+- **صندوق "تحديث مرآة":**
+  - بيوريك الخطوة اللي شغالة (التنزيل ← التحقق ← التثبيت)، ومؤشر بيتحرك.
+  - ووقت التنزيل، فيه شريط بيتملى من اليمين ومعاه النسبة.
+- **بعد التثبيت:** مرآة بتعيد تشغيل نفسها بالنسخة الجديدة. ولو فيه برنامج شغال، النسخة الجديدة بتشتغل المرة الجاية، عشان شغلك مايتقطعش.
+- **`Esc` وقت التحديث** بيخفي الصندوق، والتحديث بيكمّل في الخلفية.
+- **"لاحقًا"** بيأجّل الصندوق يوم، و`↻` بيفضل في الشريط وبيفتح نفس الصندوق.
+- **OpenCode:** أول سطر في صندوق الكتابة كان بيتنقل مع العلامة البرتقالي اللي على شماله لحافة الشاشة اليمين. دلوقتي بيتحاذى جوه الصندوق، والعلامة بتفضل مكانها.
+
+**English:** Updates now appear as soon as mirah starts, in a clear box. Before, the only sign was a small `↻` in the bar after the program had opened. A "new version" box appears before the picker or any program, with "update now" and "later". The update box shows the current step (download → verify → install) with a moving indicator, and a right-to-left bar with the download percentage. When it finishes with nothing else running, mirah restarts itself on the new version; with a program running, the new version starts next time. `Esc` hides the box while the update continues, "later" waits a day, and `↻` in the bar opens the same box. In OpenCode, the first line of the input box no longer moves with its orange bar to the right edge of the screen; it is aligned inside the box and the bar stays in place.
+
 ## 0.4.1 - 2026-11-12
 
 **مرآة بقت بتعرف البرامج اللي مابتشتغلش جوه الترمنال.** قبل كده، `mirah code` كان بيفتح VS Code في نافذته، وبعدين مرآة تخرج على طول، ومعاها رسالة جلسة مالهاش لازمة.

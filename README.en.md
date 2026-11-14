@@ -263,7 +263,13 @@ mirah update
   - On a stable version, it only considers stable releases.
   - On an alpha, it considers everything.
 - **Before replacing `mirah`,** it checks the download against its SHA-256. If it does not match, nothing changes.
-- **The bar also checks in the background**, and shows `↻` when a new version is out.
+- **When mirah starts and a new version is out,** a box appears before the picker or any program, with "update now" and "later":
+  - Updating shows the current step (download, verify, install) and a bar with the download percentage.
+  - When it finishes, mirah restarts itself on the new version.
+  - `Esc` hides the box while the update carries on in the background.
+  - "Later" waits a day, and `↻` stays in the bar.
+- **mirah asks GitHub at most once an hour**, so starting is delayed by up to two seconds only that time.
+- **`↻` in the bar** opens the same update box. If a program is running, the new version starts next time, so your work is not interrupted.
 - **Needs `curl` and `tar`**, which ship with Windows 10 and 11, macOS and Linux.
 
 ## Terminals
