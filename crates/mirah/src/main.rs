@@ -117,6 +117,7 @@ fn log_file(store: Option<&Store>, first: Option<&Spawn>) -> (Option<PathBuf>, O
 }
 
 fn main() {
+    let exe = std::env::current_exe().ok();
     let (first, record) = match cli::parse(std::env::args().skip(1)) {
         cli::Invocation::Print(text) => {
             print(&text);
@@ -187,6 +188,10 @@ fn main() {
     let result = session::run(start);
     drop(log_guard);
     let code = match result {
+        Ok(outcome) if outcome.restart => match &exe {
+            Some(exe) => update::restart(exe),
+            None => FAILURE,
+        },
         Ok(outcome) => {
             for note in &outcome.notes {
                 report(note);

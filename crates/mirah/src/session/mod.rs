@@ -28,12 +28,14 @@ pub(crate) use tab::Spawn;
 use tab::Tab;
 
 const BLANK_MODES: &[u8] = b"\x1b[?25l\x1b[?1000h\x1b[?1006h";
+const STARTUP_POLL: std::time::Duration = std::time::Duration::from_millis(100);
 const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_millis(800);
 
 pub(crate) struct Outcome {
     pub(crate) code: u32,
     pub(crate) sessions: Vec<String>,
     pub(crate) notes: Vec<String>,
+    pub(crate) restart: bool,
 }
 
 pub(crate) struct Start {
@@ -66,6 +68,10 @@ struct Workspace {
     exit: Option<u32>,
     sessions: Vec<String>,
     notes: Vec<String>,
+    installing: Option<(String, bool)>,
+    restart_at: Option<Instant>,
+    spin_at: Option<Instant>,
+    restart: bool,
 }
 
 fn child_size(size: TerminalSize, top: u16) -> TerminalSize {
@@ -129,14 +135,33 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
         exit: None,
         sessions: Vec::new(),
         notes: Vec::new(),
+        installing: None,
+        restart_at: None,
+        spin_at: None,
+        restart: false,
     };
-    match start.first {
-        Some(spawn) => workspace.open(spawn)?,
-        None => workspace.launcher(),
-    }
-    resize::spawn_watcher(workspace.events.clone())?;
+    let offer = (settings.update_check && settings.bar)
+        .then(crate::update::startup_offer)
+        .flatten();
+    let first = start.first;
+    let _guard = match offer {
+        None => {
+            workspace.start(first)?;
+            resize::spawn_watcher(workspace.events.clone())?;
+            TerminalGuard::enter()?
+        }
+        Some((current, version)) => {
+            resize::spawn_watcher(workspace.events.clone())?;
+            let guard = TerminalGuard::enter()?;
+            workspace.chrome.offer_update(current, version);
+            workspace.startup_update()?;
+            if workspace.exit.is_none() {
+                workspace.start(first)?;
+            }
+            guard
+        }
+    };
     check_updates(&workspace.chrome, &workspace.events);
-    let _guard = TerminalGuard::enter()?;
     io::spawn_stdin_reader(workspace.events.clone());
     tracing::info!(
         rows = size.rows,
@@ -153,6 +178,7 @@ pub(crate) fn run(start: Start) -> Result<Outcome> {
         code,
         sessions: workspace.sessions,
         notes: workspace.notes,
+        restart: workspace.restart,
     })
 }
 
@@ -353,7 +379,9 @@ impl Workspace {
                         self.input(&ready)?;
                     }
                 }
-                event @ (Event::UpdateFound(_) | Event::UpdateDone(_)) => self.update_event(event),
+                event @ (Event::UpdateFound(_) | Event::UpdateStep(_) | Event::UpdateDone(_)) => {
+                    self.update_event(event);
+                }
                 Event::OutputClosed(id) => {
                     if let Some(i) = self.index_of(id) {
                         self.tabs[i].life.output_closed = true;
@@ -409,6 +437,53 @@ impl Workspace {
         Some(events)
     }
 
+    fn start(&mut self, first: Option<Spawn>) -> Result<()> {
+        match first {
+            Some(spawn) => self.open(spawn),
+            None => {
+                self.launcher();
+                Ok(())
+            }
+        }
+    }
+
+    fn startup_update(&mut self) -> Result<()> {
+        use crossterm::event::{
+            self as term, Event as Term, KeyEventKind, MouseButton, MouseEventKind,
+        };
+        loop {
+            let pending: Vec<Event> = self.inbox.try_iter().collect();
+            self.apply(pending)?;
+            let now = Instant::now();
+            let tick = self.tick(now);
+            if self.exit.is_some() || !self.chrome.update_shown() {
+                return Ok(());
+            }
+            self.paint(now, true)?;
+            let wait = tick
+                .map_or(STARTUP_POLL, |t| {
+                    t.saturating_duration_since(Instant::now())
+                })
+                .min(STARTUP_POLL);
+            if !term::poll(wait)? {
+                continue;
+            }
+            let bytes: Vec<u8> = match term::read()? {
+                Term::Key(key) if key.kind != KeyEventKind::Release => startup_key(key.code),
+                Term::Mouse(m) if m.kind == MouseEventKind::Down(MouseButton::Left) => {
+                    format!("\x1b[<0;{};{}M", m.column + 1, m.row + 1).into_bytes()
+                }
+                Term::Mouse(m) if m.kind == MouseEventKind::Up(MouseButton::Left) => {
+                    format!("\x1b[<0;{};{}m", m.column + 1, m.row + 1).into_bytes()
+                }
+                _ => Vec::new(),
+            };
+            if !bytes.is_empty() {
+                self.input(&bytes)?;
+            }
+        }
+    }
+
     fn forget_session(&mut self, session: Option<String>) {
         let Some(id) = session else {
             return;
@@ -442,6 +517,21 @@ impl Workspace {
         for tab in std::mem::take(&mut self.tabs) {
             tab.close(self.store.as_ref());
         }
+    }
+}
+
+fn startup_key(code: crossterm::event::KeyCode) -> Vec<u8> {
+    use crossterm::event::KeyCode;
+    match code {
+        KeyCode::Left => b"\x1b[D".to_vec(),
+        KeyCode::Right => b"\x1b[C".to_vec(),
+        KeyCode::Up => b"\x1b[A".to_vec(),
+        KeyCode::Down => b"\x1b[B".to_vec(),
+        KeyCode::Tab => b"\t".to_vec(),
+        KeyCode::Enter => b"\r".to_vec(),
+        KeyCode::Esc => b"\x1b".to_vec(),
+        KeyCode::Char(c) => c.to_string().into_bytes(),
+        _ => Vec::new(),
     }
 }
 

@@ -11,11 +11,12 @@ pub(crate) struct Dialog {
     pub(crate) frame: Frame,
     pub(crate) yes: Range<usize>,
     pub(crate) no: Range<usize>,
+    pub(crate) row: usize,
 }
 
 impl Dialog {
     pub(crate) fn hit(&self, row: usize, column: usize) -> Option<bool> {
-        if row != BODY_TOP {
+        if row != self.row {
             return None;
         }
         if self.yes.contains(&column) {
@@ -58,6 +59,7 @@ pub(crate) fn draw(program: &str, yes_focused: bool, shaping: Shaping) -> Dialog
     Dialog {
         yes: at + width - yes.len()..at + width,
         no: at..at + no.len(),
+        row: BODY_TOP,
         frame,
     }
 }

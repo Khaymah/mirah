@@ -130,8 +130,58 @@ pub(crate) fn available() -> Option<String> {
         .map(|latest| latest.to_string())
 }
 
-pub(crate) fn install_version(version: &str) -> Result<(), String> {
-    let result = install::install(&format!("v{version}")).map_err(|err| format!("{err:#}"));
+pub(crate) fn startup_offer() -> Option<(String, String)> {
+    if !checking_allowed() {
+        return None;
+    }
+    let now = now();
+    let (_, cache) = fresh_cache(now)?;
+    let current = current();
+    let offer = cache.offer(&current, now)?;
+    Some((current.to_string(), offer.to_string()))
+}
+
+pub(crate) fn dismiss(version: &str) {
+    let (Some(path), Ok(version)) = (cache_path(), Version::parse(version)) else {
+        return;
+    };
+    let mut cache = Cache::load(&path);
+    cache.dismissed = Some((version, now()));
+    cache.save(&path);
+}
+
+pub(crate) fn restart(exe: &std::path::Path) -> u32 {
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let mut command = std::process::Command::new(exe);
+    command.args(&args);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let err = command.exec();
+        tracing::warn!(error = %err, "could not restart mirah");
+        FAILED
+    }
+    #[cfg(not(unix))]
+    {
+        match command.status() {
+            Ok(status) => status
+                .code()
+                .and_then(|c| u32::try_from(c).ok())
+                .unwrap_or(FAILED),
+            Err(err) => {
+                tracing::warn!(error = %err, "could not restart mirah");
+                FAILED
+            }
+        }
+    }
+}
+
+pub(crate) fn install_version(
+    version: &str,
+    report: &mut dyn FnMut(crate::chrome::update::Step),
+) -> Result<(), String> {
+    let result =
+        install::install_with(&format!("v{version}"), report).map_err(|err| format!("{err:#}"));
     match &result {
         Ok(()) => tracing::info!(version, "update installed from the bar"),
         Err(err) => tracing::warn!(error = err.as_str(), "update from the bar failed"),

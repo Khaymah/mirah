@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 const NOTICE_FOR: Duration = Duration::from_secs(6);
 const CLOCK_TICK: Duration = Duration::from_secs(1);
+const RESTART_AFTER: Duration = Duration::from_millis(900);
+const SPIN_EVERY: Duration = Duration::from_millis(140);
 const RECENT_SESSIONS: usize = 5;
 const MOTION: u16 = 32;
 const WHEEL: u16 = 64;
@@ -172,7 +174,17 @@ impl Workspace {
                 self.exit.get_or_insert(0);
             }
             Action::Record => self.toggle_recording(),
-            Action::Update => self.start_update(),
+            Action::Update => {
+                if let Some(version) = self.chrome.state.update.take() {
+                    self.start_install(version, false);
+                }
+            }
+            Action::UpdateNow(version) => {
+                let restart = self.tabs.is_empty();
+                self.start_install(version, restart);
+            }
+            Action::UpdateLater(version) => crate::update::dismiss(&version),
+            Action::HideUpdate => {}
             Action::Close => {
                 if let Some(tab) = self.tabs.get_mut(self.active) {
                     tab.kill();
@@ -224,14 +236,18 @@ impl Workspace {
         self.chrome.dirty = true;
     }
 
-    fn start_update(&mut self) {
-        let Some(version) = self.chrome.state.update.take() else {
-            return;
-        };
-        self.notice(format!("جارٍ تثبيت {version}…"));
+    fn start_install(&mut self, version: String, restart: bool) {
+        self.chrome.state.update = None;
+        self.chrome
+            .update_step(&version, crate::chrome::update::Step::Download);
+        self.installing = Some((version.clone(), restart));
         let events = self.events.clone();
         std::thread::spawn(move || {
-            let result = crate::update::install_version(&version).map(|()| version);
+            let steps = events.clone();
+            let result = crate::update::install_version(&version, &mut |step| {
+                let _ = steps.send(Event::UpdateStep(step));
+            })
+            .map(|()| version);
             let _ = events.send(Event::UpdateDone(result));
         });
     }
@@ -248,10 +264,33 @@ impl Workspace {
                 self.chrome.state.update = Some(version);
                 self.chrome.dirty = true;
             }
-            Event::UpdateDone(Ok(version)) => {
-                self.notice(format!("ثُبّت {version}، ويعمل في المرة القادمة"));
+            Event::UpdateStep(step) => {
+                if let (true, Some((version, _))) =
+                    (self.chrome.update_working(), self.installing.clone())
+                {
+                    self.chrome.update_step(&version, step);
+                }
             }
-            Event::UpdateDone(Err(_)) => self.notice("تعذّر التحديث، راجع ملف السجل".to_string()),
+            Event::UpdateDone(result) => {
+                let restart =
+                    self.installing.take().is_some_and(|(_, r)| r) && self.tabs.is_empty();
+                let shown = self.chrome.update_shown();
+                match (result, shown) {
+                    (Ok(version), true) => {
+                        self.chrome.update_finished(Some(&version), restart);
+                        if restart {
+                            self.restart_at = Some(Instant::now() + RESTART_AFTER);
+                        }
+                    }
+                    (Ok(version), false) => {
+                        self.notice(format!("ثُبّت {version}، ويعمل في المرة القادمة"));
+                    }
+                    (Err(_), true) => self.chrome.update_finished(None, false),
+                    (Err(_), false) => {
+                        self.notice("تعذّر التحديث، راجع ملف السجل".to_string());
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -270,11 +309,23 @@ impl Workspace {
                 self.chrome.dirty = true;
             }
         }
-        let clock = since.map(|_| now + CLOCK_TICK);
-        match (clock, self.notice_until) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
+        if self.restart_at.is_some_and(|at| now >= at) {
+            self.restart_at = None;
+            self.restart = true;
+            self.exit.get_or_insert(0);
         }
+        let spin = self.chrome.update_working().then(|| {
+            if self.spin_at.is_none_or(|at| now >= at) {
+                self.chrome.update_tick();
+                self.spin_at = Some(now + SPIN_EVERY);
+            }
+            self.spin_at.unwrap_or(now + SPIN_EVERY)
+        });
+        let clock = since.map(|_| now + CLOCK_TICK);
+        [clock, self.notice_until, spin, self.restart_at]
+            .into_iter()
+            .flatten()
+            .min()
     }
 }
 

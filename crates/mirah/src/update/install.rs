@@ -1,4 +1,5 @@
 use super::source;
+use crate::chrome::update::Step;
 use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -138,10 +139,15 @@ pub(crate) fn remove_leftover() {
 }
 
 pub(crate) fn install(tag: &str) -> Result<()> {
+    install_with(tag, &mut |_| {})
+}
+
+pub(crate) fn install_with(tag: &str, report: &mut dyn FnMut(Step)) -> Result<()> {
     let artifact = source::artifact().context("there is no release build for this platform")?;
     let current = std::env::current_exe().context("cannot find the running mirah")?;
     let work = work_dir()?;
     let result = (|| {
+        report(Step::Download);
         let archive = work.join(artifact);
         let checksum = work.join(format!("{artifact}{CHECKSUM_SUFFIX}"));
         source::download(
@@ -151,7 +157,9 @@ pub(crate) fn install(tag: &str) -> Result<()> {
         )?;
         let checksum_url = source::download_url(tag, &format!("{artifact}{CHECKSUM_SUFFIX}"));
         source::download(&checksum_url, &checksum, DOWNLOAD_TIMEOUT)?;
+        report(Step::Verify);
         verify(&archive, &checksum)?;
+        report(Step::Install);
         let unpacked = work.join("unpacked");
         extract(&archive, &unpacked)?;
         let binary = find(&unpacked, &binary_name()).context("the download has no mirah binary")?;

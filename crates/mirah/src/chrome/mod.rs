@@ -4,6 +4,7 @@ pub(crate) mod keys;
 pub(crate) mod launcher;
 mod menu;
 pub(crate) mod style;
+pub(crate) mod update;
 
 use crate::config::{Scope, Settings};
 use crate::session::MouseEvent;
@@ -14,6 +15,7 @@ use launcher::{Entry, Launcher, Pick};
 use menu::{Change, Menu};
 use mirah_bidi::{Cell, Shaping};
 use mirah_term::{Overlay, OverlayRow};
+use update::{Step, Updating};
 
 const BAR_ROWS: u16 = 1;
 const LEFT_BUTTON: u16 = 0;
@@ -30,6 +32,9 @@ pub(crate) enum Action {
     Quit,
     Record,
     Update,
+    UpdateNow(String),
+    UpdateLater(String),
+    HideUpdate,
     Close,
     Set(Scope, crate::config::Key, &'static str),
 }
@@ -41,6 +46,7 @@ enum Mode {
     Menu(Menu),
     Confirm(bool),
     Launcher(Launcher),
+    Update(Updating),
 }
 
 pub(crate) struct Chrome {
@@ -105,6 +111,93 @@ impl Chrome {
         if let Mode::Launcher(launcher) = &mut self.mode {
             launcher.can_cancel = false;
             self.dirty = true;
+        }
+    }
+
+    pub(crate) fn offer_update(&mut self, current: String, version: String) {
+        self.set_mode(Mode::Update(Updating::Offer {
+            current,
+            version,
+            now: true,
+        }));
+    }
+
+    pub(crate) fn update_step(&mut self, version: &str, step: Step) {
+        let tick = match &self.mode {
+            Mode::Update(Updating::Working { tick, .. }) => *tick,
+            _ => 0,
+        };
+        self.set_mode(Mode::Update(Updating::Working {
+            version: version.to_string(),
+            step,
+            tick,
+        }));
+    }
+
+    pub(crate) fn update_tick(&mut self) {
+        if let Mode::Update(Updating::Working { tick, .. }) = &mut self.mode {
+            *tick += 1;
+            self.dirty = true;
+        }
+    }
+
+    pub(crate) fn update_finished(&mut self, version: Option<&str>, restart: bool) {
+        self.set_mode(Mode::Update(match version {
+            Some(version) => Updating::Installed {
+                version: version.to_string(),
+                restart,
+            },
+            None => Updating::Failed,
+        }));
+    }
+
+    pub(crate) fn update_shown(&self) -> bool {
+        matches!(self.mode, Mode::Update(_))
+    }
+
+    pub(crate) fn update_working(&self) -> bool {
+        matches!(self.mode, Mode::Update(Updating::Working { .. }))
+    }
+
+    fn update_key(&mut self, key: Key, state: Updating, actions: &mut Vec<Action>) {
+        match (state, key) {
+            (
+                Updating::Offer {
+                    current,
+                    version,
+                    now,
+                },
+                Key::Left | Key::Right | Key::Tab,
+            ) => {
+                self.set_mode(Mode::Update(Updating::Offer {
+                    current,
+                    version,
+                    now: !now,
+                }));
+            }
+            (
+                Updating::Offer {
+                    version, now: true, ..
+                },
+                Key::Enter,
+            ) => {
+                actions.push(Action::UpdateNow(version));
+            }
+            (Updating::Offer { version, .. }, Key::Enter | Key::Escape | Key::Toggle) => {
+                self.set_mode(Mode::Normal);
+                actions.push(Action::UpdateLater(version));
+            }
+            (Updating::Working { .. }, Key::Escape | Key::Toggle) => {
+                self.set_mode(Mode::Normal);
+                actions.push(Action::HideUpdate);
+            }
+            (
+                Updating::Installed { .. } | Updating::Failed,
+                Key::Enter | Key::Escape | Key::Toggle,
+            ) => {
+                self.set_mode(Mode::Normal);
+            }
+            _ => {}
         }
     }
 
@@ -238,6 +331,7 @@ impl Chrome {
                 self.menu_change(change, actions);
             }
             Mode::Confirm(yes) => self.confirm_key(key, yes, actions),
+            Mode::Update(state) => self.update_key(key, state, actions),
             Mode::Launcher(mut launcher) => {
                 let pick = launcher.key(key);
                 let can_cancel = launcher.can_cancel;
@@ -288,6 +382,32 @@ impl Chrome {
                 let change = menu.click(drawn, row, column, &self.settings);
                 self.mode = Mode::Menu(menu);
                 self.menu_change(change, actions);
+                true
+            }
+            Mode::Update(state) => {
+                let chosen = self.dialog.as_ref().and_then(|d| d.hit(row, column));
+                let Some(now) = chosen else {
+                    return false;
+                };
+                if let Updating::Offer {
+                    current, version, ..
+                } = state
+                {
+                    self.set_mode(Mode::Update(Updating::Offer {
+                        current,
+                        version: version.clone(),
+                        now,
+                    }));
+                    self.update_key(
+                        Key::Enter,
+                        Updating::Offer {
+                            current: String::new(),
+                            version,
+                            now,
+                        },
+                        actions,
+                    );
+                }
                 true
             }
             Mode::Confirm(_) => {
@@ -408,6 +528,16 @@ impl Chrome {
                 let dialog = confirm::draw(&self.state.program(), yes, self.shaping);
                 let left = width.saturating_sub(dialog.frame.width);
                 self.place(&mut rows, dialog.frame.rows.clone(), under_bar, left);
+                self.dialog = Some(dialog);
+            }
+            Mode::Update(state) => {
+                let dialog = update::draw(&state, self.shaping);
+                let left = width.saturating_sub(dialog.frame.width) / 2;
+                let top = height
+                    .saturating_sub(dialog.frame.rows.len())
+                    .div_ceil(2)
+                    .max(under_bar);
+                self.place(&mut rows, dialog.frame.rows.clone(), top, left);
                 self.dialog = Some(dialog);
             }
             Mode::Launcher(launcher) => {
@@ -670,6 +800,30 @@ mod tests {
         let mut actions = Vec::new();
         c.input(b"\x1b", &mut actions);
         assert_eq!(actions, [Action::Quit]);
+    }
+
+    #[test]
+    fn the_update_offer_installs_on_enter_and_waits_on_esc_or_later() {
+        let mut c = Chrome::new(Settings::default(), Shaping::Plain);
+        let mut actions = Vec::new();
+        c.offer_update("0.4.1".into(), "0.4.2".into());
+        c.input(b"\r", &mut actions);
+        assert_eq!(actions, [Action::UpdateNow("0.4.2".into())]);
+        actions.clear();
+        c.offer_update("0.4.1".into(), "0.4.2".into());
+        c.input(b"\x1b[D\r", &mut actions);
+        assert_eq!(actions, [Action::UpdateLater("0.4.2".into())]);
+        assert!(!c.update_shown());
+        actions.clear();
+        c.update_step("0.4.2", Step::Download);
+        c.update_tick();
+        assert!(c.update_working());
+        c.input(b"\x1b", &mut actions);
+        assert_eq!(actions, [Action::HideUpdate]);
+        assert!(c.is_idle());
+        c.update_finished(Some("0.4.2"), false);
+        c.input(b"\r", &mut actions);
+        assert!(c.is_idle());
     }
 
     #[test]
