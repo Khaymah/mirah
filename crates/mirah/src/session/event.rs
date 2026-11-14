@@ -12,6 +12,6 @@ pub(crate) enum Event {
     )]
     Stop(u32),
     UpdateFound(String),
-    UpdateStep(crate::chrome::update::Step),
+    UpdateStep(crate::chrome::update::Step, Option<u8>),
     UpdateDone(Result<String, String>),
 }

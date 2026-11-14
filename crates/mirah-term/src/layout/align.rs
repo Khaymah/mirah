@@ -93,6 +93,14 @@ fn has_gap(cells: &[Cell]) -> bool {
     cells.windows(2).any(|w| is_blank(&w[0]) && is_blank(&w[1]))
 }
 
+fn panel_end(cells: &[Cell], bar: usize) -> Option<usize> {
+    let bg = cells.get(bar + 1)?.style.bg;
+    cells[bar + 1..]
+        .iter()
+        .position(|c| c.style.bg != bg)
+        .map(|p| bar + 1 + p)
+}
+
 fn align_after_left_bar(visual: &mut VisualRow, bar: usize) {
     let width = visual.cells.len();
     let inner = &visual.cells[bar + 1..];
@@ -107,6 +115,16 @@ fn align_after_left_bar(visual: &mut VisualRow, bar: usize) {
         return;
     }
     let (first, last) = (bar + 1 + first, bar + 1 + last);
+    if let Some(end) = panel_end(&visual.cells, bar) {
+        let len = last + 1 - first;
+        if let Some(start) = end.checked_sub(FRAME_PADDING + len)
+            && start > first
+        {
+            let order: Vec<usize> = (first..=last).collect();
+            place(visual, &order, start);
+        }
+        return;
+    }
     let order: Vec<usize> = (first..=last).chain(bar + 1..first).chain([bar]).collect();
     let Some(start) = width.checked_sub(FRAME_PADDING + order.len()) else {
         return;

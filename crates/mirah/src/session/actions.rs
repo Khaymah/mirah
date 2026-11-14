@@ -239,13 +239,13 @@ impl Workspace {
     fn start_install(&mut self, version: String, restart: bool) {
         self.chrome.state.update = None;
         self.chrome
-            .update_step(&version, crate::chrome::update::Step::Download);
+            .update_step(&version, crate::chrome::update::Step::Download, None);
         self.installing = Some((version.clone(), restart));
         let events = self.events.clone();
         std::thread::spawn(move || {
             let steps = events.clone();
-            let result = crate::update::install_version(&version, &mut |step| {
-                let _ = steps.send(Event::UpdateStep(step));
+            let result = crate::update::install_version(&version, &mut |step, percent| {
+                let _ = steps.send(Event::UpdateStep(step, percent));
             })
             .map(|()| version);
             let _ = events.send(Event::UpdateDone(result));
@@ -264,11 +264,11 @@ impl Workspace {
                 self.chrome.state.update = Some(version);
                 self.chrome.dirty = true;
             }
-            Event::UpdateStep(step) => {
+            Event::UpdateStep(step, percent) => {
                 if let (true, Some((version, _))) =
                     (self.chrome.update_working(), self.installing.clone())
                 {
-                    self.chrome.update_step(&version, step);
+                    self.chrome.update_step(&version, step, percent);
                 }
             }
             Event::UpdateDone(result) => {

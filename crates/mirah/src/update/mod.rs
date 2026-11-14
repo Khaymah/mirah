@@ -178,7 +178,7 @@ pub(crate) fn restart(exe: &std::path::Path) -> u32 {
 
 pub(crate) fn install_version(
     version: &str,
-    report: &mut dyn FnMut(crate::chrome::update::Step),
+    report: &mut dyn FnMut(crate::chrome::update::Step, Option<u8>),
 ) -> Result<(), String> {
     let result =
         install::install_with(&format!("v{version}"), report).map_err(|err| format!("{err:#}"));

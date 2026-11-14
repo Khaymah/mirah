@@ -216,4 +216,42 @@ mod tests {
         let i = logical[1].iter().position(|c| c.text == "i").expect("i");
         assert_ne!(row.logical_to_visual[i], i, "the table did not move");
     }
+
+    #[test]
+    fn text_in_an_input_box_with_a_left_bar_stays_inside_the_box() {
+        use mirah_bidi::Color;
+        let panel = Color::Rgb(30, 30, 30);
+        let mut row: Vec<Cell> = Vec::new();
+        for i in 0..70 {
+            let mut cell = Cell::plain(" ");
+            if (10..50).contains(&i) {
+                cell.style.bg = panel;
+            }
+            row.push(cell);
+        }
+        row[10].text = "▌".into();
+        for (i, c) in "محتاج منك تفحص القرص".chars().enumerate() {
+            row[12 + i].text = c.to_string().into();
+        }
+        let logical = vec![row];
+        let cursor = Cursor {
+            row: 0,
+            col: 0,
+            visible: false,
+            editor: false,
+        };
+        let options = RenderOptions {
+            shaping: Shaping::Plain,
+            ..RenderOptions::default()
+        };
+        let visual = layout(logical, &cursor, options, &mut Caches::default());
+        let cells = &visual[0].cells;
+        assert_eq!(cells[10].text, "▌", "the bar left the box edge");
+        let last = cells.iter().rposition(|c| c.text != " ").expect("text");
+        assert!(last < 50, "text spilled out of the box to column {last}");
+        assert!(
+            last >= 45,
+            "text was not aligned right inside the box ({last})"
+        );
+    }
 }

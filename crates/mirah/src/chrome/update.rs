@@ -8,7 +8,10 @@ use mirah_bidi::{Cell, Shaping};
 const GAP: usize = 3;
 const SPINNER_DOTS: usize = 3;
 const STEP_GAP: usize = 1;
-const BUTTONS_ROW: usize = 2;
+const BUTTONS_ROW: usize = 3;
+const BOX_INNER: usize = 46;
+const BAR_CELLS: usize = 34;
+const PERCENT_GAP: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Step {
@@ -33,6 +36,7 @@ pub(crate) enum Updating {
     Working {
         version: String,
         step: Step,
+        percent: Option<u8>,
         tick: usize,
     },
     Installed {
@@ -97,6 +101,18 @@ fn steps(current: Step, shaping: Shaping) -> Vec<Cell> {
     line(&parts, STEP_GAP)
 }
 
+fn spacer() -> Line {
+    Line::new(blank(BOX_INNER, style(TEXT, BOX_BG, false)), false)
+}
+
+fn progress_bar(percent: u8, shaping: Shaping) -> Vec<Cell> {
+    let filled = BAR_CELLS * usize::from(percent.min(100)) / 100;
+    let mut bar = blank(BAR_CELLS - filled, style(TEXT, CHIP_BG, false));
+    bar.extend(blank(filled, style(TEXT, ACCENT, false)));
+    let label = shaped(&format!("{percent}%"), style(TEXT, BOX_BG, true), shaping);
+    line(&[bar, label], PERCENT_GAP)
+}
+
 fn title(text: &str, shaping: Shaping) -> Vec<Cell> {
     let mut brand = shaped("◆ ", style(ACCENT, BOX_BG, true), shaping);
     brand.extend(shaped(text, style(TEXT, BOX_BG, true), shaping));
@@ -136,9 +152,11 @@ pub(crate) fn draw(state: &Updating, shaping: Shaping) -> Dialog {
             let frame = boxed(
                 &title("نسخة جديدة من مرآة", shaping),
                 vec![
+                    spacer(),
                     Line::new(detail, false),
-                    Line::new(Vec::new(), false),
+                    spacer(),
                     Line::new(buttons, false),
+                    spacer(),
                 ],
                 &hint("← → للاختيار · Enter للتأكيد · Esc لاحقًا", shaping),
                 shaping,
@@ -154,6 +172,7 @@ pub(crate) fn draw(state: &Updating, shaping: Shaping) -> Dialog {
         Updating::Working {
             version,
             step,
+            percent,
             tick,
         } => {
             let status = line(
@@ -167,13 +186,16 @@ pub(crate) fn draw(state: &Updating, shaping: Shaping) -> Dialog {
                 ],
                 2,
             );
+            let mut body = vec![spacer(), Line::new(status, false), spacer()];
+            if let (Step::Download, Some(percent)) = (step, percent) {
+                body.push(Line::new(progress_bar(*percent, shaping), false));
+                body.push(spacer());
+            }
+            body.push(Line::new(steps(*step, shaping), false));
+            body.push(spacer());
             no_buttons(boxed(
                 &title("تحديث مرآة", shaping),
-                vec![
-                    Line::new(status, false),
-                    Line::new(Vec::new(), false),
-                    Line::new(steps(*step, shaping), false),
-                ],
+                body,
                 &hint("Esc للإخفاء، ويستمر التحديث", shaping),
                 shaping,
             ))
@@ -198,8 +220,10 @@ pub(crate) fn draw(state: &Updating, shaping: Shaping) -> Dialog {
             no_buttons(boxed(
                 &title("تحديث مرآة", shaping),
                 vec![
+                    spacer(),
                     Line::new(done, false),
                     Line::new(shaped(next, style(DIM, BOX_BG, false), shaping), false),
+                    spacer(),
                 ],
                 &hint("Enter للإغلاق", shaping),
                 shaping,
@@ -207,14 +231,18 @@ pub(crate) fn draw(state: &Updating, shaping: Shaping) -> Dialog {
         }
         Updating::Failed => no_buttons(boxed(
             &title("تحديث مرآة", shaping),
-            vec![Line::new(
-                shaped(
-                    "تعذّر التحديث، والنسخة الحالية كما هي",
-                    style(TEXT, BOX_BG, false),
-                    shaping,
+            vec![
+                spacer(),
+                Line::new(
+                    shaped(
+                        "تعذّر التحديث، والنسخة الحالية كما هي",
+                        style(TEXT, BOX_BG, false),
+                        shaping,
+                    ),
+                    false,
                 ),
-                false,
-            )],
+                spacer(),
+            ],
             &hint("التفاصيل في ملف السجل · Enter للإغلاق", shaping),
             shaping,
         )),
@@ -238,7 +266,8 @@ mod tests {
             },
             Updating::Working {
                 version: "0.4.2".into(),
-                step: Step::Verify,
+                step: Step::Download,
+                percent: Some(45),
                 tick: 4,
             },
             Updating::Installed {
@@ -285,24 +314,28 @@ mod tests {
 
     #[test]
     fn progress_names_the_current_step_and_moves_the_spinner() {
-        let a = draw(
-            &Updating::Working {
-                version: "0.4.2".into(),
-                step: Step::Download,
-                tick: 0,
-            },
-            Shaping::Plain,
-        );
-        let b = draw(
-            &Updating::Working {
-                version: "0.4.2".into(),
-                step: Step::Download,
-                tick: 1,
-            },
-            Shaping::Plain,
-        );
-        assert_ne!(text(&a.frame.rows[BODY_TOP]), text(&b.frame.rows[BODY_TOP]));
-        assert!(text(&a.frame.rows[BODY_TOP]).contains("0.4.2"));
-        assert_eq!(a.hit(BODY_TOP, 10), None);
+        let working = |tick, percent| Updating::Working {
+            version: "0.4.2".into(),
+            step: Step::Download,
+            percent,
+            tick,
+        };
+        let a = draw(&working(0, None), Shaping::Plain);
+        let b = draw(&working(1, None), Shaping::Plain);
+        let status = BODY_TOP + 1;
+        assert_ne!(text(&a.frame.rows[status]), text(&b.frame.rows[status]));
+        assert!(text(&a.frame.rows[status]).contains("0.4.2"));
+        assert_eq!(a.hit(status, 10), None);
+        let half = draw(&working(0, Some(50)), Shaping::Plain);
+        let bar = &half.frame.rows[status + 2];
+        assert!(text(bar).contains("50%"));
+        let lit = bar.iter().filter(|c| c.style.bg == ACCENT).count();
+        assert_eq!(lit, BAR_CELLS / 2);
+        let first_lit = bar.iter().position(|c| c.style.bg == ACCENT).expect("lit");
+        let first_empty = bar
+            .iter()
+            .position(|c| c.style.bg == CHIP_BG)
+            .expect("empty");
+        assert!(first_lit > first_empty, "the bar fills from the right");
     }
 }

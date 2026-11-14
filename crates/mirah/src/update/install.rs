@@ -139,27 +139,28 @@ pub(crate) fn remove_leftover() {
 }
 
 pub(crate) fn install(tag: &str) -> Result<()> {
-    install_with(tag, &mut |_| {})
+    install_with(tag, &mut |_, _| {})
 }
 
-pub(crate) fn install_with(tag: &str, report: &mut dyn FnMut(Step)) -> Result<()> {
+pub(crate) fn install_with(tag: &str, report: &mut dyn FnMut(Step, Option<u8>)) -> Result<()> {
     let artifact = source::artifact().context("there is no release build for this platform")?;
     let current = std::env::current_exe().context("cannot find the running mirah")?;
     let work = work_dir()?;
     let result = (|| {
-        report(Step::Download);
+        report(Step::Download, None);
         let archive = work.join(artifact);
         let checksum = work.join(format!("{artifact}{CHECKSUM_SUFFIX}"));
-        source::download(
+        source::download_watching(
             &source::download_url(tag, artifact),
             &archive,
             DOWNLOAD_TIMEOUT,
+            &mut |percent| report(Step::Download, Some(percent)),
         )?;
         let checksum_url = source::download_url(tag, &format!("{artifact}{CHECKSUM_SUFFIX}"));
         source::download(&checksum_url, &checksum, DOWNLOAD_TIMEOUT)?;
-        report(Step::Verify);
+        report(Step::Verify, None);
         verify(&archive, &checksum)?;
-        report(Step::Install);
+        report(Step::Install, None);
         let unpacked = work.join("unpacked");
         extract(&archive, &unpacked)?;
         let binary = find(&unpacked, &binary_name()).context("the download has no mirah binary")?;

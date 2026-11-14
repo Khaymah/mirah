@@ -122,7 +122,7 @@ impl Chrome {
         }));
     }
 
-    pub(crate) fn update_step(&mut self, version: &str, step: Step) {
+    pub(crate) fn update_step(&mut self, version: &str, step: Step, percent: Option<u8>) {
         let tick = match &self.mode {
             Mode::Update(Updating::Working { tick, .. }) => *tick,
             _ => 0,
@@ -130,6 +130,7 @@ impl Chrome {
         self.set_mode(Mode::Update(Updating::Working {
             version: version.to_string(),
             step,
+            percent,
             tick,
         }));
     }
@@ -815,7 +816,7 @@ mod tests {
         assert_eq!(actions, [Action::UpdateLater("0.4.2".into())]);
         assert!(!c.update_shown());
         actions.clear();
-        c.update_step("0.4.2", Step::Download);
+        c.update_step("0.4.2", Step::Download, Some(10));
         c.update_tick();
         assert!(c.update_working());
         c.input(b"\x1b", &mut actions);

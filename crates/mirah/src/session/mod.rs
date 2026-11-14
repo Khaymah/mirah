@@ -379,7 +379,7 @@ impl Workspace {
                         self.input(&ready)?;
                     }
                 }
-                event @ (Event::UpdateFound(_) | Event::UpdateStep(_) | Event::UpdateDone(_)) => {
+                event @ (Event::UpdateFound(_) | Event::UpdateStep(..) | Event::UpdateDone(_)) => {
                     self.update_event(event);
                 }
                 Event::OutputClosed(id) => {
